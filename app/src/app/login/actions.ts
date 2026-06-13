@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 
 export async function login(formData: FormData) {
@@ -15,7 +16,55 @@ export async function login(formData: FormData) {
     redirect('/login?error=invalid_credentials')
   }
 
+  // Redirect returning users who skipped onboarding back to it.
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    const { count } = await supabase
+      .from('org_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+
+    if (count === 0) {
+      redirect('/onboarding')
+    }
+  }
+
   redirect('/inbox')
+}
+
+export async function signup(formData: FormData) {
+  const email = (formData.get('email') as string | null)?.trim()
+  const password = formData.get('password') as string | null
+
+  if (!email || !password) {
+    redirect('/login?mode=signup&error=missing_fields')
+  }
+
+  // Derive app URL from request headers — avoids a new env var.
+  const h = await headers()
+  const host = h.get('host') ?? 'localhost:3000'
+  const proto = h.get('x-forwarded-proto') ?? 'http'
+  const appUrl = `${proto}://${host}`
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${appUrl}/api/auth/callback`,
+    },
+  })
+
+  if (error) {
+    const msg = error.message?.toLowerCase() ?? ''
+    if (msg.includes('already registered') || msg.includes('already exists')) {
+      redirect('/login?mode=signup&error=email_taken')
+    }
+    redirect('/login?mode=signup&error=signup_failed')
+  }
+
+  redirect('/login?mode=signup&confirmed=1')
 }
 
 export async function logout() {
