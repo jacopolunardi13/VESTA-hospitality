@@ -113,7 +113,9 @@ Schema 0001: **20 tabelle**, RLS su tutte, trigger `updated_at`, soft-delete (`d
 1. ~~`git init` + `.gitignore`~~ ✅ — ~~rinomina `supabase/`~~ ✅ — ~~schema versionato~~ ✅
 2. Scaffold Next.js in `app/` (TypeScript, Tailwind, ESLint) — **richiede conferma: installazione**.
 3. `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `CRON_SECRET`.
-4. Generazione tipi TypeScript dallo schema (`supabase gen types` o equivalente).
+4. ~~Generazione tipi TypeScript dallo schema (`supabase gen types` o equivalente).~~ ✅
+
+   > **Nota tecnica C03 (13/06/2026):** C03 generated from local SQL schema because Supabase CLI was not configured against the remote project. After applying migrations 0001 and 0002 to the remote Supabase instance, `database.types.ts` should be regenerated using the official Supabase CLI and compared against the handcrafted version.
 5. Bucket Storage `knowledge-files` + policy (path per org/property).
 6. Migrazione 0002 (vedi §9): seed separato, automazione signup→org_members, vincoli mancanti.
 
