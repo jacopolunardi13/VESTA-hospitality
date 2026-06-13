@@ -19,10 +19,11 @@
 - [x] **C04** — Auth callback `/api/auth/callback`: `exchangeCodeForSession`, check `org_members`, redirect `/onboarding` se senza org
 - [x] **C05** — Onboarding wizard 3 step: `createOrg` via service role (`createAdminClient`), `createProperty`, `finalizeOnboarding`
 - [x] **C06** — Login flow: `login()` con org check e redirect `/onboarding`, `signup()` con `emailRedirectTo`, pagina login con 3 stati (login / signup / conferma email)
+- [x] **C07** — Auth Completion: `forgotPassword`, pagina `/reset-password`, `updateUser()`, fix SB-01 (open redirect nel callback)
+- [x] **C08** — Property Settings: pagina `/settings/property`, Server Actions per tutte le sezioni `properties`/`settings`
 
 ### In corso
-- [ ] **C07 — Auth Completion**: `forgotPassword`, pagina `/reset-password`, `updateUser()`, fix SB-01 (open redirect nel callback), adeguamento proxy
-- [ ] **C08 — Property Settings**: pagina `/settings/property`, Server Actions per tutte le sezioni `properties`/`settings`
+- [ ] **C09 — Camere**: CRUD camere (`/rooms`), ownership check applicativo, soft-delete
 
 ### Operativo (separato dai commit)
 - [ ] Applicare migrazioni 0001 + 0002 al progetto Supabase remoto

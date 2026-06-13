@@ -129,8 +129,9 @@ Schema 0001: **20 tabelle**, RLS su tutte, trigger `updated_at`, soft-delete (`d
 | C04 | Auth callback `/api/auth/callback`: PKCE exchange, check `org_members`, redirect | ✅ done |
 | C05 | Onboarding wizard (3 step): `createOrg` via service role, `createProperty`, `finalizeOnboarding` | ✅ done |
 | C06 | Login flow: `login()` con org check, `signup()` con `emailRedirectTo`, pagina login 3 stati | ✅ done |
-| **C07** | **Auth Completion**: `forgotPassword`, `/reset-password`, `updateUser()`, fix SB-01, proxy update | ⏳ in design |
-| **C08** | **Property Settings**: `/settings/property`, Server Actions per `properties` + `settings` jsonb | 🔜 dopo C07 |
+| **C07** | **Auth Completion**: `forgotPassword`, `/reset-password`, `updateUser()`, fix SB-01, proxy update | ✅ done |
+| **C08** | **Property Settings**: `/settings/property`, Server Actions per `properties` + `settings` jsonb | ✅ done |
+| **C09** | **Camere**: `/rooms`, CRUD camere (create/update/soft-delete), ownership check applicativo | ⏳ in corso |
 
 ### Fase 1 — MVP (sequenza 1a → 1d, dettaglio nella roadmap)
 7. Client Supabase (browser/server) + middleware auth + layout dashboard.
