@@ -6,7 +6,10 @@ import { cookies } from 'next/headers'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/inbox'
+
+  // SB-01 fix: reject protocol-relative URLs and anything that doesn't start with '/'.
+  const rawNext = searchParams.get('next') ?? '/inbox'
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/inbox'
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`)
@@ -37,17 +40,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`)
   }
 
-  // Detect new users: no org_members row means they need onboarding.
-  const { data: { user } } = await supabase.auth.getUser()
+  // Org check applies only to the signup confirmation flow (next=/inbox).
+  // The recovery flow (next=/reset-password) must reach the reset page directly.
+  if (next === '/inbox') {
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (user) {
-    const { count } = await supabase
-      .from('org_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+    if (user) {
+      const { count } = await supabase
+        .from('org_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
 
-    if (count === 0) {
-      return NextResponse.redirect(`${origin}/onboarding`)
+      if (count === 0) {
+        return NextResponse.redirect(`${origin}/onboarding`)
+      }
     }
   }
 

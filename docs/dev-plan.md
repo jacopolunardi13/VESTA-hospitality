@@ -1,6 +1,6 @@
 # AI Concierge & Direct Quote — Dev Plan
 
-> Versione 0.12 — 13 giugno 2026 (audit finale: §7-bis.4 aggiornato con 4a regola follow-up + logica materializzazione `days_before_checkin`; §10 aggiornato; migrazione 0002 §4c: CHECK `followup_rules.trigger_status`)
+> Versione 0.13 — 13 giugno 2026 (C07 = Auth Completion, C08 = Property Settings ufficializzati; aggiunta tabella commit §5.1)
 > Piano tecnico per le Fasi 0–1 della [roadmap](roadmap.md), allineato allo schema reale (`supabase/schema.sql`). Nessuna installazione viene eseguita senza conferma.
 
 ## 1. Stack tecnologico
@@ -118,6 +118,19 @@ Schema 0001: **20 tabelle**, RLS su tutte, trigger `updated_at`, soft-delete (`d
    > **Nota tecnica C03 (13/06/2026):** C03 generated from local SQL schema because Supabase CLI was not configured against the remote project. After applying migrations 0001 and 0002 to the remote Supabase instance, `database.types.ts` should be regenerated using the official Supabase CLI and compared against the handcrafted version.
 5. Bucket Storage `knowledge-files` + policy (path per org/property).
 6. Migrazione 0002 (vedi §9): seed separato, automazione signup→org_members, vincoli mancanti.
+
+### Fase 0 — Sequenza commit (piano ufficiale al 13/06/2026)
+
+| Commit | Scope | Stato |
+|---|---|---|
+| C01 | Scaffold Next.js + TypeScript + Tailwind in `app/` | ✅ done |
+| C02 | Auth guard: `proxy.ts`, client Supabase browser/server, layout dashboard base | ✅ done |
+| C03 | Tipi TypeScript da schema locale (`database.types.ts`) | ✅ done |
+| C04 | Auth callback `/api/auth/callback`: PKCE exchange, check `org_members`, redirect | ✅ done |
+| C05 | Onboarding wizard (3 step): `createOrg` via service role, `createProperty`, `finalizeOnboarding` | ✅ done |
+| C06 | Login flow: `login()` con org check, `signup()` con `emailRedirectTo`, pagina login 3 stati | ✅ done |
+| **C07** | **Auth Completion**: `forgotPassword`, `/reset-password`, `updateUser()`, fix SB-01, proxy update | ⏳ in design |
+| **C08** | **Property Settings**: `/settings/property`, Server Actions per `properties` + `settings` jsonb | 🔜 dopo C07 |
 
 ### Fase 1 — MVP (sequenza 1a → 1d, dettaglio nella roadmap)
 7. Client Supabase (browser/server) + middleware auth + layout dashboard.

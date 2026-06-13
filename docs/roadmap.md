@@ -1,16 +1,32 @@
 # AI Concierge & Direct Quote — Roadmap
 
-> Versione 0.3 — 13 giugno 2026 (Fase 1 aggiornata con intent detection, motore conversazionale, governo sconti, human handoff SLA, dashboard KPI; enum status → EN post-0002; seed.sql segnato completato)
+> Versione 0.4 — 13 giugno 2026 (commit C01–C06 completati; C07 = Auth Completion, C08 = Property Settings ufficializzati; stato attuale aggiornato)
 > Allineata allo schema database reale. Le durate sono indicative (sviluppo solo founder) e da ricalibrare: l'MVP ora include la pipeline Direct Quote, quindi è più ampio della v0.1.
 
 ## Stato attuale
 
+### Infrastruttura / Schema
 - [x] Progetto Supabase configurato
 - [x] Schema database completo installato e versionato (`supabase/schema.sql`, migrazione 0001: 20 tabelle, RLS, indici, trigger, seed demo)
+- [x] Migrazione 0002: enum IT → EN, seed `followup_rules`/template, vincoli, RPC `enroll_user_in_org`
 - [x] Repository Git inizializzato, `.gitignore`
-- [x] Documentazione allineata allo schema (questo set, v0.2)
-- [ ] Scaffold Next.js (in attesa di conferma — è un'installazione)
-- [ ] Primo commit
+- [x] Documentazione allineata allo schema (questo set, v0.4)
+
+### Commit applicativi completati (Fase 0 → 1a)
+- [x] **C01** — Scaffold Next.js + TypeScript + Tailwind in `app/`
+- [x] **C02** — Auth guard: `proxy.ts` (route pubbliche), client Supabase browser/server (`@supabase/ssr`), layout dashboard base
+- [x] **C03** — Tipi TypeScript generati da schema locale (`database.types.ts`)
+- [x] **C04** — Auth callback `/api/auth/callback`: `exchangeCodeForSession`, check `org_members`, redirect `/onboarding` se senza org
+- [x] **C05** — Onboarding wizard 3 step: `createOrg` via service role (`createAdminClient`), `createProperty`, `finalizeOnboarding`
+- [x] **C06** — Login flow: `login()` con org check e redirect `/onboarding`, `signup()` con `emailRedirectTo`, pagina login con 3 stati (login / signup / conferma email)
+
+### In corso
+- [ ] **C07 — Auth Completion**: `forgotPassword`, pagina `/reset-password`, `updateUser()`, fix SB-01 (open redirect nel callback), adeguamento proxy
+- [ ] **C08 — Property Settings**: pagina `/settings/property`, Server Actions per tutte le sezioni `properties`/`settings`
+
+### Operativo (separato dai commit)
+- [ ] Applicare migrazioni 0001 + 0002 al progetto Supabase remoto
+- [ ] Rigenerare `database.types.ts` via Supabase CLI contro l'istanza remota
 
 ---
 

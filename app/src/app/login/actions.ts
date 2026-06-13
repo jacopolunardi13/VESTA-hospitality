@@ -4,6 +4,24 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 
+export async function forgotPassword(formData: FormData) {
+  const email = (formData.get('email') as string | null)?.trim()
+  if (!email) redirect('/login?mode=forgot&error=missing_fields')
+
+  const h = await headers()
+  const host = h.get('host') ?? 'localhost:3000'
+  const proto = h.get('x-forwarded-proto') ?? 'http'
+  const appUrl = `${proto}://${host}`
+
+  const supabase = await createClient()
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${appUrl}/api/auth/callback?next=/reset-password`,
+  })
+
+  // Always show sent=1 regardless of whether the email exists (prevents enumeration).
+  redirect('/login?mode=forgot&sent=1')
+}
+
 export async function login(formData: FormData) {
   const supabase = await createClient()
 
