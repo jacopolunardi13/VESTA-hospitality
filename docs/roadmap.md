@@ -23,9 +23,10 @@
 - [x] **C08** — Property Settings: pagina `/settings/property`, Server Actions per tutte le sezioni `properties`/`settings`
 
 - [x] **C09** — Camere: CRUD camere (`/rooms`), ownership check applicativo, soft-delete
+- [x] **C10** — Knowledge Base: CRUD asset testo (`/knowledge`), versioning automatico su `knowledge_asset_versions`, optimistic locking
 
 ### In corso
-- [ ] **C10 — Knowledge Base**: CRUD asset testo (`/knowledge`), versioning automatico, optimistic locking, soft-delete
+- [ ] **C11 — Calendario tariffe**: editor manuale (`/calendar`), upsert range date (max 90 giorni), `available` come int 0|1, hard delete
 
 ### Operativo (separato dai commit)
 - [ ] Applicare migrazioni 0001 + 0002 al progetto Supabase remoto

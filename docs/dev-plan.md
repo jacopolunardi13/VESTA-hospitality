@@ -132,7 +132,8 @@ Schema 0001: **20 tabelle**, RLS su tutte, trigger `updated_at`, soft-delete (`d
 | **C07** | **Auth Completion**: `forgotPassword`, `/reset-password`, `updateUser()`, fix SB-01, proxy update | ✅ done |
 | **C08** | **Property Settings**: `/settings/property`, Server Actions per `properties` + `settings` jsonb | ✅ done |
 | **C09** | **Camere**: `/rooms`, CRUD camere (create/update/soft-delete), ownership check applicativo | ✅ done |
-| **C10** | **Knowledge Base**: `/knowledge`, CRUD asset testo (create/update con versioning/delete/toggle), optimistic locking | ⏳ in corso |
+| **C10** | **Knowledge Base**: `/knowledge`, CRUD asset testo (create/update con versioning/delete/toggle), optimistic locking | ✅ done |
+| **C11** | **Calendario tariffe**: `/calendar`, upsert tariffe per range date (max 90gg), ownership check room, hard delete | ⏳ in corso |
 
 ### Fase 1 — MVP (sequenza 1a → 1d, dettaglio nella roadmap)
 7. Client Supabase (browser/server) + middleware auth + layout dashboard.
