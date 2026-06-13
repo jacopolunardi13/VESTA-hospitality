@@ -1,6 +1,6 @@
 # AI Concierge & Direct Quote — Roadmap
 
-> Versione 0.2 — 12 giugno 2026
+> Versione 0.3 — 13 giugno 2026 (Fase 1 aggiornata con intent detection, motore conversazionale, governo sconti, human handoff SLA, dashboard KPI; enum status → EN post-0002; seed.sql segnato completato)
 > Allineata allo schema database reale. Le durate sono indicative (sviluppo solo founder) e da ricalibrare: l'MVP ora include la pipeline Direct Quote, quindi è più ampio della v0.1.
 
 ## Stato attuale
@@ -23,8 +23,9 @@ Obiettivo: progetto riproducibile e pronto allo sviluppo.
 - [ ] Scaffold Next.js + TypeScript + Tailwind in `app/` (richiede conferma installazione).
 - [ ] Variabili d'ambiente e client Supabase (browser/server).
 - [ ] Bucket Supabase Storage per i file della KB (`knowledge_assets.file_path`) con policy di accesso.
-- [ ] Estrarre il seed demo in `supabase/seed.sql` (migrazione futura 0002 — non si tocca la 0001 già applicata).
-- [ ] Automatizzare il collegamento utente→organization al signup (oggi manuale, vedi nota in coda allo schema).
+- [x] Estrarre il seed demo in `supabase/seed.sql` (con settings EN completo, followup_rules e template di default — completato in audit 13/06/2026).
+- [x] Migrazione 0002: enum IT → EN, vincoli templates/date, normalizzazione settings JSON, RPC `enroll_user_in_org` (completato in audit 13/06/2026).
+- [ ] Automatizzare il collegamento utente→organization al signup nell'auth callback Next.js (la RPC `enroll_user_in_org` è pronta — manca il codice applicativo A2).
 
 **Done quando:** clone → `npm install` → app vuota collegata a Supabase con login funzionante.
 
@@ -38,24 +39,31 @@ Obiettivo: una struttura pilota riceve richieste in web chat, l'AI risponde e pr
 - CRUD camere e calendario tariffe (editor manuale + import CSV).
 - Sync feed iCal (sola disponibilità) via job schedulato.
 
-### 1b — Concierge AI (≈ 2 settimane)
-- Endpoint `/api/chat`: prompt con KB della property (in prompt + caching), storico conversazione, streaming.
+### 1b — Concierge AI + Intent Detection + Anti-abuse (≈ 3 settimane)
+- Endpoint `/api/chat`: pipeline knowledge-first (guard-rail → spam → deterministici → FTS KB → AI), prompt con KB cached, storico conversazione, streaming.
+- **Intent detection a 8 categorie** (`classify` Haiku, dev-plan §7.1-bis): solo `booking` genera una `booking_request`; `partnership`/`vendor`/`saas_lead` instradati in inbox dedicate; `spam` archiviato senza AI; `unclassified` riceve template di chiarimento; `faq`/`guest_support` → KB + `generate_reply`.
+- **Pipeline anti-abuse** (dev-plan §7.1–7.5): rate limit per IP/sessione su Postgres, budget AI giornaliero da `properties.settings`, safe mode (toggle manuale + automatico a budget 100%), contatori anomalie; alert email + banner D1; preparazione schema `guardrail_events` (la tabella arriva in migrazione 0003, i log usano `ai_calls` in MVP).
 - Web chat pubblica `/c/[property]` multilingua; persistenza `conversations`/`messages`.
-- Escalation (`in_attesa_staff`) e `supervision_mode`; log di ogni chiamata in `ai_calls`.
+- Escalation (`pending_staff`) e `supervision_mode`; log di ogni chiamata in `ai_calls`.
+- Inbox per categoria in D3 (tab con conteggi separati per intent).
 
-### 1c — Pipeline Direct Quote (≈ 3 settimane)
-- Classificazione ed estrazione AI della richiesta (date, ospiti, bambini, lingua) → `booking_requests` (+ `ai_classification` per audit).
-- Motore preventivo: prezzo da `rate_calendar`, sconto diretto, tassa di soggiorno, snapshot in `booking_request_items`, `data_reliability` da freshness tariffe.
-- Macchina a stati completa (`richiesta_ricevuta` → … → `confermata`) con audit in `booking_request_events`; hold 24h e scadenza offerta via cron.
+### 1c — Pipeline Direct Quote + Motore conversazionale + Governo sconti (≈ 4 settimane)
+- **Motore conversazionale booking** (dev-plan §7-bis): slot filling (max 2 domande/turno, mai ridomandare slot già pieni, ricapitolazione prima del calcolo); 9 domande d'oro servite da FTS+template senza AI generativa; trigger di escalation configurabili (`settings`: gruppi, eventi, VIP, reclami).
+- **Intent detection → extract → motore preventivo**: `classify` (Haiku) → solo se `booking` → `extract` (Haiku, structured output: date/ospiti/bambini/lingua) → calcolo prezzo da `rate_calendar`, sconto diretto, tassa, snapshot `booking_request_items`, `data_reliability` da freshness. I prezzi non passano mai dall'AI.
+- Macchina a stati completa (`received` → … → `confirmed`) con audit in `booking_request_events`; hold 24h e scadenza offerta via cron; indici parziali su `awaiting_payment` e `proposal_sent` (migrazione 0002).
+- **Governo sconti e trattativa** (dev-plan §7-ter.1): sconto diretto standard + sconto extra AI (una sola concessione, entro `max_extra_discount_pct`, sopra `min_price_floor_cents`); oltre soglia → handoff; ogni concessione tracciata in `booking_request_events`.
 - Lead scoring (`scoring_events`) e priorità.
-- Template engine (codice/canale/lingua, `ota_safe`) e follow-up automatici (`followup_rules` → `followup_jobs` + cron).
+- Template engine (codice/canale/lingua, `ota_safe`) e follow-up automatici a 3 cadenze (1h/24h/72h, dev-plan §7-bis.4); regole di stop (quiet hours, opt-out, max 3 per richiesta).
 
-### 1d — Dashboard e chiusura MVP (≈ 2 settimane)
-- Inbox richieste (ordinata per priorità/score) e conversazioni realtime; presa in carico ed esecuzione azioni di stato.
-- Vista calendario tariffe, gestione template, impostazioni property (`settings`, `supervision_mode`, `knowledge_learning_mode`).
-- Test RLS multi-tenant, test della macchina a stati, smoke e2e; deploy + pilot.
+### 1d — Dashboard, Human Handoff, KPI e chiusura MVP (≈ 3 settimane)
+- Inbox richieste (ordinata per priorità/score) e conversazioni realtime; presa in carico ed esecuzione azioni di stato; override prezzo/offerta in D2 (tracciato).
+- **Human handoff con SLA** (dev-plan §7-ter.2): handoff card in D4 (motivo, priorità P1–P4, countdown SLA, slot raccolti, azioni rapide); notifica immediata + promemoria a metà SLA + alert a sforamento; badge sidebar per priorità in D3.
+- **Dashboard KPI a 5 blocchi** (D13, dev-plan §7-ter.3): operativo, commerciale, conversione, OTA vs diretto, AI vs staff — tutto calcolabile dalle tabelle esistenti.
+- Vista calendario tariffe, gestione template, impostazioni property (D10 con sezione "Trattativa"), impostazioni org/membri.
+- D12 "AI, costi e protezioni": budget bar, % knowledge-first, avvisi recenti, export `guardrail_events`.
+- Test RLS multi-tenant, test macchina a stati booking_requests (transizioni illegali), smoke e2e chat→proposta→conferma; deploy Vercel + cron config + pilot.
 
-**Done quando:** un ospite reale chiede disponibilità in web chat, riceve una proposta calcolata, clicca "Sono interessato", lo staff conferma il pagamento e la richiesta arriva a `confermata` — tutto visibile in dashboard.
+**Done quando:** un ospite reale chiede disponibilità in web chat, riceve una proposta calcolata, clicca "Sono interessato", lo staff conferma il pagamento e la richiesta arriva a `confirmed` — tutto visibile in dashboard con KPI aggiornati in D13.
 
 ## Fase 2 — Canali e auto-learning (≈ 5–7 settimane)
 

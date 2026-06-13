@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "/bin/zsh",
+      "runtimeArgs": [
+        "-c",
+        "export PATH=\"/Users/lunardijacopo/.nvm/versions/node/v24.16.0/bin:$PATH\" && cd \"/Users/lunardijacopo/Desktop/AI/AI - Concierge/app\" && npm run start"
+      ],
+      "port": 3000
+    }
+  ]
+}

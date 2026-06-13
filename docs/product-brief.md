@@ -1,7 +1,7 @@
 # AI Concierge & Direct Quote — Product Brief
 
-> Versione 0.2 — 12 giugno 2026
-> Allineata allo schema database reale (`supabase/schema.sql`, migrazione 0001).
+> Versione 0.10 — 13 giugno 2026
+> Allineata allo schema database reale (`supabase/schema.sql`, migrazione 0001). Aggiunti cost control & anti abuse, **prezzo dinamico operativo**, **intent detection** a 8 categorie, KPI del funnel, **LunArt Voice**, fase finale MVP (**governo sconti, human handoff con SLA, dashboard KPI**) e **Property Knowledge System**.
 
 ## 1. Visione
 
@@ -23,14 +23,17 @@ Il concierge porta la conversazione; il Direct Quote la converte in prenotazione
 
 Per ogni **organization** (il tenant: il soggetto che paga e ha gli utenti) con una o più **properties** (strutture):
 
-1. **Risposte AI grounded** sulla knowledge base della struttura (FAQ, brochure, PDF, procedure, policy), con priorità alle correzioni dello staff.
-2. **Pipeline preventivi**: richiesta → classificazione AI → calcolo prezzo da `rate_calendar` → proposta con sconto diretto e scadenza → "Sono interessato" → blocco 24h → pagamento → conferma. Ogni transizione è tracciata (audit trail).
-3. **Lead scoring trasparente**: punteggio 0–100 per richiesta, con storico degli eventi che lo hanno generato; inbox ordinabile per priorità.
-4. **Follow-up automatici** configurabili per stato (reminder offerta, istruzioni check-in post-conferma), via template multicanale e multilingua.
-5. **Source tracking dettagliato**: 14 canali di provenienza in 4 categorie (direct / ota / social / manual). I template per canali OTA sono marcati `ota_safe` (mai IBAN o link diretti, nel rispetto delle policy dei portali).
-6. **KB auto-learning**: le correzioni dello staff e le domande senza risposta (gap) diventano proposte di knowledge base, con ciclo di approvazione configurabile per struttura (manual / assisted / automatic).
-7. **Supervisione**: in modalità rodaggio (`supervision_mode`) le proposte AI richiedono l'ok dello staff prima dell'invio.
-8. **Dashboard gestore**: inbox conversazioni e richieste, calendario tariffe, knowledge base, template, statistiche e log AI.
+1. **Intent detection obbligatoria**: ogni conversazione inizia con la classificazione dell'intento in 8 categorie (prenotazione, FAQ, assistenza ospite, partnership/agenzie, commerciale/venditori, **interesse prodotto/gestore struttura**, spam, non classificato). **Solo "prenotazione" entra nel flusso Direct Quote**: niente preventivi a chi chiede il Wi-Fi, vende servizi o fa spam. FAQ usa la knowledge base; partnership e commerciale finiscono in inbox dedicate; i gestori incuriositi dal software diventano **lead SaaS ad alta priorità** (il prodotto si vende da solo dentro le chat dei clienti); spam archiviato senza consumare AI; il non classificato riceve una domanda di chiarimento.
+2. **Risposte AI grounded** sulla knowledge base della struttura (FAQ, brochure, PDF, procedure, policy), con priorità alle correzioni dello staff.
+3. **Pipeline preventivi**: richiesta (intent = prenotazione) → estrazione dati → calcolo prezzo dallo snapshot tariffe → proposta con sconto diretto e scadenza → "Sono interessato" → blocco 24h → pagamento → conferma. Ogni transizione è tracciata (audit trail).
+4. **Prezzo dinamico, non listino**: non esiste un listino stagionale fisso — il prezzo cambia anche ogni giorno in funzione di camere invendute, last minute, promozioni attive e offerte sui portali (Booking/Expedia). Il calendario tariffe è quindi uno **snapshot operativo aggiornabile** (manuale, CSV, iCal, API, stime OTA), mai una verità assoluta. **Regola fondamentale**: la proposta automatica può usare il prezzo presente nel sistema, ma deve sempre esporre fonte del prezzo, ultimo aggiornamento e affidabilità prezzo/disponibilità — e lo staff può modificare prezzo e offerta prima dell'invio o del blocco camera (override tracciato).
+5. **Lead scoring trasparente**: punteggio 0–100 per richiesta, con storico degli eventi che lo hanno generato; inbox ordinabile per priorità.
+6. **Follow-up automatici** configurabili per stato (reminder offerta, istruzioni check-in post-conferma), via template multicanale e multilingua.
+7. **Source tracking dettagliato**: 14 canali di provenienza in 4 categorie (direct / ota / social / manual). I template per canali OTA sono marcati `ota_safe` (mai IBAN o link diretti, nel rispetto delle policy dei portali).
+8. **KB auto-learning**: le correzioni dello staff e le domande senza risposta (gap) diventano proposte di knowledge base, con ciclo di approvazione configurabile per struttura (manual / assisted / automatic).
+9. **Supervisione**: in modalità rodaggio (`supervision_mode`) le proposte AI richiedono l'ok dello staff prima dell'invio.
+10. **Costi AI sotto controllo by design**: pipeline knowledge-first (FAQ, template e regole rispondono prima dell'AI; l'AI è l'ultima risorsa), budget AI giornaliero per struttura con alert automatici, protezioni anti-abuso (rate limit, limiti per sessione) e **safe mode** (solo FAQ e template, zero AI) attivabile manualmente o automaticamente.
+11. **Dashboard gestore**: inbox conversazioni e richieste, calendario tariffe, knowledge base, template, statistiche, log AI e monitoraggio costi/protezioni.
 
 ## 4. Utenti target
 
@@ -44,22 +47,26 @@ Per ogni **organization** (il tenant: il soggetto che paga e ha gli utenti) con 
 
 - **Per il gestore**: risposta immediata 24/7, preventivi calcolati e tracciati invece che a mano, recupero margine OTA tramite sconto diretto controllato, follow-up che non si dimenticano.
 - **Per l'ospite**: risposta in secondi, proposta chiara con prezzo e scadenza, possibilità di bloccare la disponibilità.
-- **Differenziatori**: pipeline quote-to-book integrata nel concierge (non solo Q&A); multi-tenant nativo a due livelli (organization → properties); compliance OTA by design (`ota_safe`); AI provider-agnostic con log costi per chiamata.
+- **Differenziatori**: pipeline quote-to-book integrata nel concierge (non solo Q&A); multi-tenant nativo a due livelli (organization → properties); compliance OTA by design (`ota_safe`); AI provider-agnostic con log costi per chiamata; **tono di marca definito** ([LunArt Voice](lunart-voice.md)): professionale e cordiale, zero emoji salvo rare eccezioni, costruito su fiducia e conversione — la voce di un ottimo receptionist, non di "un chatbot".
 
 ## 6. Funzionalità
 
 ### MVP (Fase 1) — Concierge + Direct Quote su web chat
 - Onboarding organization + property; membri con ruoli.
-- Knowledge base: asset tipizzati (faq, brochure, pdf, procedura, policy, correzione) con versioning, priorità di retrieval, file su Supabase Storage.
+- **Property Knowledge System** ([specifica dedicata](property-knowledge-system.md)): la fonte unica di verità della struttura — asset tipizzati con versioning e priorità di retrieval, categorie standard con le 9 domande d'oro obbligatorie, separazione rigida dati strutturati/testo (i numeri non vivono mai nelle FAQ), coverage score, gap report e correzioni dello staff che battono sempre il testo originale. Multi-struttura, modificabile dal gestore senza interventi tecnici.
 - **Web chat ospite** (link/QR, multilingua, nessun login).
+- **Intent detection** su ogni conversazione (8 categorie) con instradamento: solo "prenotazione" genera booking request; inbox dedicate per partnership/commerciale e **Lead SaaS** (gestori interessati al software, priorità alta); spam archiviato senza AI; "Inbox per categoria" con conteggi separati in dashboard.
 - Motore conversazionale Claude con grounding sulla KB della property.
 - **Pipeline Direct Quote completa**: estrazione dati richiesta (date, ospiti, bambini), calcolo prezzo da calendario tariffe, proposta con sconto diretto/tassa di soggiorno/scadenza, stati fino a `confermata`, hold 24h, audit trail.
 - Inventario: camere, calendario tariffe (inserimento manuale + import CSV; feed iCal per la disponibilità).
 - Lead scoring con eventi trasparenti; indicatore di affidabilità dati (freshness tariffe).
 - Template messaggi (codice / canale / lingua, varianti `ota_safe`) e follow-up automatici schedulati.
-- Escalation: stato `in_attesa_staff` + `supervision_mode` per struttura.
+- Escalation: stato `pending_staff` + `supervision_mode` per struttura.
 - Dashboard: inbox richieste e conversazioni, KB, tariffe, template, impostazioni.
-- Log AI (`ai_calls`): provider, modello, token, latenza, errori — base per il controllo costi.
+- **Cost control & anti abuse**: pipeline knowledge-first, rate limit per IP, limiti per sessione e per conversazione, budget AI giornaliero con alert (80%/100%, traffico anomalo, conversazioni fuori soglia), safe mode, log e report (`ai_calls` + eventi di protezione).
+- **Governo commerciale**: sconto diretto standard + sconto extra di trattativa che l'AI può concedere **una sola volta ed entro soglie decise dalla struttura** (con prezzo minimo invalicabile); oltre, si ferma e passa allo staff. Ogni concessione è tracciata.
+- **Human handoff con SLA**: mappa escalation a 4 priorità (reclami/pagamenti 15 min · trattative/gruppi/VIP 1 h · gap KB/lead 4 h · partnership 24 h), handoff card con contesto completo e countdown, alert a metà SLA e a sforamento.
+- **Dashboard KPI** a 5 blocchi: operativo, commerciale, conversione, OTA vs diretto, AI vs staff.
 
 ### Post-MVP (Fasi 2–3)
 - Canali **WhatsApp** ed **email** (il DB già traccia tutti i source, inclusi social e Google Business).
@@ -93,13 +100,26 @@ Il database traccia 14 source in 4 categorie. Attivazione per fase:
 - Argomento di vendita centrale: il servizio si ripaga con poche prenotazioni dirette recuperate dalle commissioni OTA.
 - Trial gratuito; pricing definitivo da validare con i pilot.
 
-## 9. Metriche di successo
+## 9. Metriche di successo — KPI del funnel
 
-- % richieste convertite in proposta inviata (< 1 minuto dalla richiesta).
-- **Tasso di conversione proposta → confermata** (metrica regina del Direct Quote).
-- % richieste risolte dall'AI senza intervento umano (target iniziale 60–70%).
-- Valore prenotazioni dirette generate / mese per property (= commissioni OTA risparmiate).
-- Tempo di onboarding nuova property (< 1 giorno); retention mensile dei tenant.
+Il funnel è misurato end-to-end per ogni property (definizioni tecniche nel dev-plan §7-bis.6):
+
+```
+Richieste ricevute → Preventivi inviati → Interessati → Camere bloccate → Confermate
+```
+
+| KPI | Cosa misura |
+|---|---|
+| **Richieste ricevute** | Domanda intercettata, per canale/periodo |
+| **Preventivi inviati** (+ tempo richiesta→proposta, target < 1 min) | Capacità di risposta automatica |
+| **Camere bloccate** | Intenzione concreta (hold attivati) |
+| **Prenotazioni confermate** | Risultato finale |
+| **Conversione end-to-end** (confermate/ricevute, + per step) | La metrica regina del Direct Quote |
+| **Valore medio prenotazione** e valore totale generato | Impatto economico (= commissioni OTA risparmiate) |
+
+A contorno: % richieste risolte dall'AI senza staff (target iniziale 60–70%), costo AI per prenotazione confermata, tempo di onboarding nuova property (< 1 giorno), retention mensile dei tenant.
+
+La dashboard KPI (D13) organizza tutte le metriche in **5 blocchi**: operativo ("stiamo rispondendo in tempo?" — inclusi gli SLA di handoff), commerciale ("quanto sta fruttando?" — incluso il margine ceduto in trattativa), conversione ("dove perdo gli ospiti?"), OTA vs diretto ("quanto sto risparmiando?"), AI vs staff ("quanto fa da sola l'AI?").
 
 ## 10. Assunzioni da validare
 
