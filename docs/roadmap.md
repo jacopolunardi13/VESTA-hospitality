@@ -22,8 +22,10 @@
 - [x] **C07** — Auth Completion: `forgotPassword`, pagina `/reset-password`, `updateUser()`, fix SB-01 (open redirect nel callback)
 - [x] **C08** — Property Settings: pagina `/settings/property`, Server Actions per tutte le sezioni `properties`/`settings`
 
+- [x] **C09** — Camere: CRUD camere (`/rooms`), ownership check applicativo, soft-delete
+
 ### In corso
-- [ ] **C09 — Camere**: CRUD camere (`/rooms`), ownership check applicativo, soft-delete
+- [ ] **C10 — Knowledge Base**: CRUD asset testo (`/knowledge`), versioning automatico, optimistic locking, soft-delete
 
 ### Operativo (separato dai commit)
 - [ ] Applicare migrazioni 0001 + 0002 al progetto Supabase remoto
