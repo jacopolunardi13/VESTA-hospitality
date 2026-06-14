@@ -978,6 +978,27 @@ export type Database = {
         Args: { p_org_id: string; p_user_id: string; p_role?: string }
         Returns: void
       }
+      transition_booking_request: {
+        Args: {
+          p_request_id: string
+          p_org_id: string
+          p_to_status: string
+          p_actor: string
+          p_note?: string | null
+          p_gross_total_cents?: number | null
+          p_discount_pct?: number | null
+          p_offer_total_cents?: number | null
+          p_city_tax_cents?: number | null
+          p_price_source?: string | null
+          p_data_reliability?: string | null
+        }
+        Returns: {
+          ok: boolean
+          from?: string
+          to?: string
+          error?: string
+        }
+      }
     }
 
     Enums: Record<string, never>

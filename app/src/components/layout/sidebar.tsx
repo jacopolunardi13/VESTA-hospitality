@@ -2,17 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { awaitingStaffCount, inboxActionCount } from "@/lib/mock/data";
 
 type NavItem = {
   label: string;
-  href?: string; // assente = sezione non ancora costruita
-  badge?: number;
+  href?: string;
 };
 
 const mainNav: NavItem[] = [
-  { label: "Inbox", href: "/inbox", badge: inboxActionCount },
-  { label: "Conversazioni", href: "/conversations", badge: awaitingStaffCount },
+  { label: "Inbox",         href: "/inbox" },
+  { label: "Conversazioni", href: "/conversations" },
   { label: "Calendario" },
   { label: "Camere" },
   { label: "Knowledge base" },
@@ -43,15 +41,6 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
       }`}
     >
       {item.label}
-      {item.badge ? (
-        <span
-          className={`ml-2 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
-            active ? "bg-white text-slate-900" : "bg-red-500 text-white"
-          }`}
-        >
-          {item.badge}
-        </span>
-      ) : null}
     </Link>
   );
 }

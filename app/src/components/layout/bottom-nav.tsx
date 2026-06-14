@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { awaitingStaffCount, inboxActionCount } from "@/lib/mock/data";
 
 const items = [
-  { label: "Inbox", href: "/inbox", icon: "📥", badge: inboxActionCount },
-  { label: "Conversazioni", href: "/conversations", icon: "💬", badge: awaitingStaffCount },
+  { label: "Inbox",         href: "/inbox",         icon: "📥" },
+  { label: "Conversazioni", href: "/conversations",  icon: "💬" },
 ];
 
 export default function BottomNav() {
@@ -28,11 +27,6 @@ export default function BottomNav() {
               {item.icon}
             </span>
             {item.label}
-            {item.badge > 0 && (
-              <span className="absolute top-1 right-[calc(50%-1.75rem)] inline-flex min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                {item.badge}
-              </span>
-            )}
             {active && <span className="absolute inset-x-8 top-0 h-0.5 rounded bg-slate-900" />}
           </Link>
         );
