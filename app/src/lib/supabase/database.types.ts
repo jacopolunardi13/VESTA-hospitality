@@ -418,6 +418,10 @@ export type Database = {
           guest_contact: string | null
           language: string
           status: 'open' | 'pending_staff' | 'closed'
+          intent: ConversationIntent | null
+          intent_confidence: number | null
+          stage: ConversationStage
+          assigned_to: string | null
           booking_request_id: string | null
           created_at: string
           updated_at: string
@@ -433,6 +437,10 @@ export type Database = {
           guest_contact?: string | null
           language?: string
           status?: 'open' | 'pending_staff' | 'closed'
+          intent?: ConversationIntent | null
+          intent_confidence?: number | null
+          stage?: ConversationStage
+          assigned_to?: string | null
           booking_request_id?: string | null
           created_at?: string
           updated_at?: string
@@ -448,6 +456,10 @@ export type Database = {
           guest_contact?: string | null
           language?: string
           status?: 'open' | 'pending_staff' | 'closed'
+          intent?: ConversationIntent | null
+          intent_confidence?: number | null
+          stage?: ConversationStage
+          assigned_to?: string | null
           booking_request_id?: string | null
           created_at?: string
           updated_at?: string
@@ -469,6 +481,9 @@ export type Database = {
           sender: 'guest' | 'ai' | 'staff'
           content: string
           ai_call_id: string | null
+          metadata: Json
+          external_id: string | null
+          delivery_status: string | null
           created_at: string
         }
         Insert: {
@@ -480,6 +495,9 @@ export type Database = {
           sender: 'guest' | 'ai' | 'staff'
           content: string
           ai_call_id?: string | null
+          metadata?: Json
+          external_id?: string | null
+          delivery_status?: string | null
           created_at?: string
         }
         Update: {
@@ -491,6 +509,9 @@ export type Database = {
           sender?: 'guest' | 'ai' | 'staff'
           content?: string
           ai_call_id?: string | null
+          metadata?: Json
+          external_id?: string | null
+          delivery_status?: string | null
           created_at?: string
         }
         Relationships: [
@@ -709,6 +730,73 @@ export type Database = {
         }
         Relationships: [
           { foreignKeyName: 'scoring_events_booking_request_id_fkey'; columns: ['booking_request_id']; referencedRelation: 'booking_requests'; referencedColumns: ['id'] },
+        ]
+      }
+
+      guardrail_events: {
+        Row: {
+          id: string
+          org_id: string | null
+          property_id: string | null
+          conversation_id: string | null
+          type: string
+          ip_hash: string | null
+          details: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id?: string | null
+          property_id?: string | null
+          conversation_id?: string | null
+          type: string
+          ip_hash?: string | null
+          details?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string | null
+          property_id?: string | null
+          conversation_id?: string | null
+          type?: string
+          ip_hash?: string | null
+          details?: Json
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'guardrail_events_property_id_fkey'; columns: ['property_id']; referencedRelation: 'properties'; referencedColumns: ['id'] },
+          { foreignKeyName: 'guardrail_events_conversation_id_fkey'; columns: ['conversation_id']; referencedRelation: 'conversations'; referencedColumns: ['id'] },
+        ]
+      }
+
+      ip_blocklist: {
+        Row: {
+          id: string
+          property_id: string | null
+          ip_hash: string
+          reason: string | null
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          property_id?: string | null
+          ip_hash: string
+          reason?: string | null
+          expires_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          property_id?: string | null
+          ip_hash?: string
+          reason?: string | null
+          expires_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'ip_blocklist_property_id_fkey'; columns: ['property_id']; referencedRelation: 'properties'; referencedColumns: ['id'] },
         ]
       }
 
@@ -999,6 +1087,17 @@ export type Database = {
           error?: string
         }
       }
+      search_knowledge: {
+        Args: { p_property_id: string; p_query: string; p_limit?: number }
+        Returns: {
+          id: string
+          title: string
+          content: string | null
+          type: string
+          priority: number
+          rank: number
+        }[]
+      }
     }
 
     Enums: Record<string, never>
@@ -1022,6 +1121,29 @@ export type BookingStatus =
   | 'expired'
   | 'rejected'
   | 'cancelled'
+
+export type ConversationIntent =
+  | 'booking'
+  | 'faq'
+  | 'guest_support'
+  | 'partnership'
+  | 'vendor'
+  | 'saas_lead'
+  | 'spam'
+  | 'unclassified'
+
+export type ConversationStage =
+  | 'new'
+  | 'intent_pending'
+  | 'collecting_data'
+  | 'quoting'
+  | 'proposal_sent'
+  | 'negotiating'
+  | 'follow_up'
+  | 'booking_confirmed'
+  | 'closed'
+  | 'handoff_staff'
+  | 'expired'
 
 export type ConversationSource =
   | 'website_chat'
