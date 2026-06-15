@@ -800,6 +800,50 @@ export type Database = {
         ]
       }
 
+      notifications: {
+        Row: {
+          id: string
+          org_id: string
+          property_id: string | null
+          type: string
+          title: string
+          body: string | null
+          booking_request_id: string | null
+          conversation_id: string | null
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          property_id?: string | null
+          type: string
+          title: string
+          body?: string | null
+          booking_request_id?: string | null
+          conversation_id?: string | null
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          property_id?: string | null
+          type?: string
+          title?: string
+          body?: string | null
+          booking_request_id?: string | null
+          conversation_id?: string | null
+          read_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: 'notifications_property_id_fkey'; columns: ['property_id']; referencedRelation: 'properties'; referencedColumns: ['id'] },
+          { foreignKeyName: 'notifications_booking_request_id_fkey'; columns: ['booking_request_id']; referencedRelation: 'booking_requests'; referencedColumns: ['id'] },
+          { foreignKeyName: 'notifications_conversation_id_fkey'; columns: ['conversation_id']; referencedRelation: 'conversations'; referencedColumns: ['id'] },
+        ]
+      }
+
       templates: {
         Row: {
           id: string

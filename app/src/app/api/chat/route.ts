@@ -7,6 +7,7 @@ import { getBudgetState } from '@/lib/ai/budget'
 import { runPipeline, SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
 import { persistProposal } from '@/lib/quote/draftProposal'
 import { executeTransition } from '@/lib/quote/stateMachine'
+import { createNotification } from '@/lib/notifications'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
 import type { TablesUpdate, Json } from '@/lib/supabase/database.types'
 
@@ -248,17 +249,30 @@ export async function POST(request: Request) {
         })
       }
 
-      // Notifica staff (consegna real-time in M3). Per ora evento di guardrail tracciabile.
-      await logGuardrail(sb, {
-        orgId: property.orgId, propertyId, conversationId,
+      // Notifica staff real-time (push in-app via Realtime).
+      const offerStr = (result.draft.quote.offerTotalCents / 100).toFixed(2) + '€'
+      await createNotification(sb, {
+        orgId: property.orgId, propertyId,
         type: result.autoSend ? 'proposal_auto_sent' : 'proposal_draft',
-        details: {
-          booking_request_id: leadId, room: result.draft.roomName,
-          offer_cents: result.draft.quote.offerTotalCents,
-          reliability: result.draft.quote.dataReliability,
-        },
+        title: result.autoSend
+          ? `Proposta inviata · ${offerStr}`
+          : `Bozza da approvare · ${offerStr}`,
+        body: result.autoSend
+          ? `Proposta standard inviata automaticamente all'ospite (${result.draft.roomName}).`
+          : `Richiesta non standard: rivedi e approva la proposta (${result.draft.roomName}, affidabilità ${result.draft.quote.dataReliability}).`,
+        bookingRequestId: leadId, conversationId,
       })
     }
+  }
+
+  // Notifica staff per le escalation / richieste da gestire (pending_staff).
+  if (result.status === 'pending_staff' && result.intent !== 'booking') {
+    await createNotification(sb, {
+      orgId: property.orgId, propertyId, type: 'escalation',
+      title: result.escalated ? 'Richiesta da gestire (escalation)' : 'Nuova richiesta da gestire',
+      body: `Categoria: ${result.intent}. La conversazione richiede attenzione dello staff.`,
+      conversationId,
+    })
   }
 
   return Response.json({
