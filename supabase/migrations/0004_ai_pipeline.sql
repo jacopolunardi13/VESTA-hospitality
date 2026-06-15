@@ -144,17 +144,26 @@ RETURNS TABLE (
 LANGUAGE sql STABLE
 SET search_path = public
 AS $$
+  -- Query OR sui termini (recall): plainto_tsquery mette in AND, ma per il
+  -- concierge serve recuperare gli asset rilevanti a domande multi-tema
+  -- (es. "parcheggio e check-in"). La AI riceve i top-N e sceglie.
+  WITH q AS (
+    SELECT NULLIF(
+      replace(plainto_tsquery('simple', p_query)::text, ' & ', ' | '), ''
+    )::tsquery AS tsq
+  )
   SELECT ka.id, ka.title, ka.content, ka.type, ka.priority,
          ts_rank(
            to_tsvector('simple', coalesce(ka.title,'') || ' ' || coalesce(ka.content,'')),
-           plainto_tsquery('simple', p_query)
+           (SELECT tsq FROM q)
          ) AS rank
   FROM public.knowledge_assets ka
   WHERE ka.property_id = p_property_id
     AND ka.deleted_at IS NULL
     AND ka.usable_by_concierge = true
+    AND (SELECT tsq FROM q) IS NOT NULL
     AND to_tsvector('simple', coalesce(ka.title,'') || ' ' || coalesce(ka.content,''))
-        @@ plainto_tsquery('simple', p_query)
+        @@ (SELECT tsq FROM q)
   ORDER BY ka.priority DESC, rank DESC
   LIMIT GREATEST(p_limit, 1);
 $$;
