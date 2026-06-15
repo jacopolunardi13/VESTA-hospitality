@@ -3,35 +3,28 @@ import type { Database } from '@/lib/supabase/database.types'
 import { computeQuote } from './priceEngine'
 import type { PriceQuote } from './types'
 
-export interface DraftResult {
-  ok: boolean
-  reason?: string
-  roomId?: string
-  roomName?: string
-  quote?: PriceQuote
+export interface SelectedQuote {
+  roomId: string
+  roomName: string
+  quote: PriceQuote
 }
 
 /**
- * Prepara una BOZZA di preventivo per una booking_request esistente (status received).
- * Supervision ON: NON invia, non cambia stato. Calcola, seleziona la camera migliore,
- * scrive snapshot prezzi + campi offerta, lascia status='received' per l'approvazione staff.
- *
- * Selezione camera: tra quelle con capienza sufficiente, preferisce tariffe complete
- * (data_reliability alta/media) e poi il totale più basso. I prezzi vengono SOLO da
- * rate_calendar via lib/quote — mai dall'AI.
+ * Seleziona la camera migliore e calcola il preventivo — funzione PURA (nessuna
+ * scrittura). Tra le camere con capienza sufficiente preferisce tariffe complete
+ * (affidabilità alta/media) e poi il totale più basso. Prezzi SOLO da rate_calendar.
  */
-export async function prepareDraftProposal(
+export async function selectBestQuote(
   sb: SupabaseClient<Database>,
   opts: {
     propertyId: string
     orgId: string
-    bookingRequestId: string
     checkIn: string
     checkOut: string
     adults: number
     childrenCount: number
   }
-): Promise<DraftResult> {
+): Promise<SelectedQuote | null> {
   const guests = opts.adults + opts.childrenCount
 
   const { data: rooms } = await sb
@@ -42,11 +35,10 @@ export async function prepareDraftProposal(
     .gte('max_guests', guests)
     .order('max_guests', { ascending: true })
 
-  if (!rooms || rooms.length === 0) return { ok: false, reason: 'no_room_fits' }
+  if (!rooms || rooms.length === 0) return null
 
-  // Calcola un preventivo per ogni camera candidata, scegli la migliore.
-  let best: { roomId: string; roomName: string; quote: PriceQuote } | null = null
-  const reliabilityRank = { high: 0, medium: 1, low: 2 } as const
+  let best: SelectedQuote | null = null
+  const rank = { high: 0, medium: 1, low: 2 } as const
 
   for (const room of rooms) {
     const quote = await computeQuote(sb, {
@@ -57,10 +49,10 @@ export async function prepareDraftProposal(
       checkOut: opts.checkOut,
       adults: opts.adults,
     })
-    if (quote.grossTotalCents <= 0) continue // nessuna tariffa utile
+    if (quote.grossTotalCents <= 0) continue
     if (
       !best ||
-      reliabilityRank[quote.dataReliability] < reliabilityRank[best.quote.dataReliability] ||
+      rank[quote.dataReliability] < rank[best.quote.dataReliability] ||
       (quote.dataReliability === best.quote.dataReliability &&
         quote.offerTotalCents < best.quote.offerTotalCents)
     ) {
@@ -68,13 +60,31 @@ export async function prepareDraftProposal(
     }
   }
 
-  if (!best) return { ok: false, reason: 'no_rates' }
+  return best
+}
 
-  // Snapshot prezzi (idempotente: rimuove eventuali righe precedenti).
+/**
+ * Persiste il preventivo su una booking_request (snapshot items + campi offerta).
+ * NON cambia lo stato: per l'invio automatico (standard) la transizione
+ * received→proposal_sent è fatta dal chiamante via RPC; per la bozza (non standard)
+ * lo stato resta 'received' in attesa di approvazione staff.
+ */
+export async function persistProposal(
+  sb: SupabaseClient<Database>,
+  opts: {
+    orgId: string
+    bookingRequestId: string
+    roomName: string
+    quote: PriceQuote
+    autoSend: boolean
+  }
+): Promise<void> {
+  const { quote } = opts
+
   await sb.from('booking_request_items').delete().eq('booking_request_id', opts.bookingRequestId)
-  if (best.quote.items.length > 0) {
+  if (quote.items.length > 0) {
     await sb.from('booking_request_items').insert(
-      best.quote.items.map((it) => ({
+      quote.items.map((it) => ({
         org_id: opts.orgId,
         booking_request_id: opts.bookingRequestId,
         room_id: it.roomId,
@@ -84,29 +94,29 @@ export async function prepareDraftProposal(
     )
   }
 
-  // Scrive i campi offerta sulla richiesta — status RESTA 'received' (bozza).
   await sb
     .from('booking_requests')
     .update({
-      gross_total_cents: best.quote.grossTotalCents,
-      discount_pct: best.quote.discountPct,
-      offer_total_cents: best.quote.offerTotalCents,
-      city_tax_cents: best.quote.cityTaxCents,
-      data_reliability: best.quote.dataReliability,
-      price_source: best.quote.priceSource,
+      gross_total_cents: quote.grossTotalCents,
+      discount_pct: quote.discountPct,
+      offer_total_cents: quote.offerTotalCents,
+      city_tax_cents: quote.cityTaxCents,
+      data_reliability: quote.dataReliability,
+      price_source: quote.priceSource,
     })
     .eq('id', opts.bookingRequestId)
     .eq('org_id', opts.orgId)
 
-  // Audit: bozza generata dall'AI, in attesa di approvazione staff.
-  await sb.from('booking_request_events').insert({
-    org_id: opts.orgId,
-    booking_request_id: opts.bookingRequestId,
-    from_status: 'received',
-    to_status: 'received',
-    actor: 'system',
-    note: `Bozza preventivo AI: ${best.roomName}, offerta ${(best.quote.offerTotalCents / 100).toFixed(2)}€ (affidabilità ${best.quote.dataReliability}) — in attesa approvazione staff`,
-  })
-
-  return { ok: true, roomId: best.roomId, roomName: best.roomName, quote: best.quote }
+  // Per la bozza (non standard) registra l'evento di attesa approvazione.
+  // Per l'auto-invio l'evento è la transizione received→proposal_sent (lato chiamante).
+  if (!opts.autoSend) {
+    await sb.from('booking_request_events').insert({
+      org_id: opts.orgId,
+      booking_request_id: opts.bookingRequestId,
+      from_status: 'received',
+      to_status: 'received',
+      actor: 'system',
+      note: `Bozza preventivo AI: ${opts.roomName}, offerta ${(quote.offerTotalCents / 100).toFixed(2)}€ (affidabilità ${quote.dataReliability}) — richiede supervisione staff`,
+    })
+  }
 }

@@ -5,6 +5,7 @@ import { searchKnowledge, kbContextText, KB_DIRECT_ANSWER_RANK } from './knowled
 import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, slotsComplete, type ExtractedSlots } from './extract'
+import { selectBestQuote, type SelectedQuote } from '@/lib/quote/draftProposal'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -23,6 +24,10 @@ export interface PipelineResult {
   slots?: ExtractedSlots
   /** true → slot sufficienti per calcolare il preventivo (ramo booking). */
   slotsReady?: boolean
+  /** Preventivo calcolato (ramo booking, se camera+tariffe disponibili). */
+  draft?: SelectedQuote
+  /** true → richiesta standard: invio automatico della proposta. */
+  autoSend?: boolean
 }
 
 // Template deterministici (zero AI). MVP in italiano; localizzazione successiva.
@@ -69,6 +74,20 @@ function missingAsk(s: ExtractedSlots): string {
   if (!s.check_in || !s.check_out) missing.push('le **date** di arrivo e partenza')
   if (!s.adults) missing.push('**quante persone** (adulti ed eventuali bambini con età)')
   return `Con piacere ti preparo un preventivo su misura. Per procedere mi servono ${missing.join(' e ')}.`
+}
+
+const euro = (c: number) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(c / 100)
+
+// Una richiesta è NON standard (→ supervisione) se contiene sconti/trattativa,
+// gruppi/eventi, cancellazioni/spostamenti/modifiche, o supera la soglia gruppo.
+const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|grupp|comitiva|matrimoni|nozze|festa|cerimoni|event|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
+
+function isStandardBooking(s: ExtractedSlots, message: string, settings: Record<string, unknown>): boolean {
+  if (NON_STANDARD.test(message)) return false
+  const groupThreshold = Number(settings['escalation_group_guests'] ?? 6)
+  const guests = (s.adults ?? 0) + s.children.length
+  if (guests > groupThreshold) return false
+  return true
 }
 
 export async function runPipeline(opts: {
@@ -136,32 +155,69 @@ export async function runPipeline(opts: {
         status: 'open', source: 'template', escalated: false, createLead: false }
 
     case 'booking': {
-      // Lead da chat + slot filling. Il preventivo (lib/quote) è calcolato dal
-      // chiamante (route) come BOZZA: supervision ON, nessun invio automatico.
+      // Lead da chat + slot filling.
       const slots = await extractSlots(sb, property, userMessage, history, todayIso)
       const ready = slotsComplete(slots)
 
-      if (ready) {
-        // Supervision ON: NON comunichiamo il prezzo all'ospite. Conferma raccolta
-        // + (se manca) richiesta recapito per l'invio della proposta da parte dello staff.
-        const recap = recapText(slots)
-        const needContact = !slots.guest_contact
-        const text =
-          `Perfetto${recap ? `, ho raccolto la tua richiesta: ${recap}` : ''}. ` +
-          `Sto preparando una proposta su misura con la nostra migliore tariffa diretta: ` +
-          `lo staff della struttura te la invierà a brevissimo.` +
-          (needContact ? ` Per ricevere la proposta, puoi lasciarmi un recapito (email o telefono)?` : '')
+      // Slot incompleti: richiesta deterministica dei dati mancanti (zero AI extra).
+      if (!ready) {
         return {
-          text, intent, confidence, stage: 'quoting', status: 'open',
+          text: missingAsk(slots), intent, confidence, stage: 'collecting_data',
+          status: 'open', source: 'template', escalated: false, createLead: true,
+          slots, slotsReady: false,
+        }
+      }
+
+      const recap = recapText(slots)
+      const draft = await selectBestQuote(sb, {
+        propertyId: property.id, orgId: property.orgId,
+        checkIn: slots.check_in!, checkOut: slots.check_out!,
+        adults: slots.adults!, childrenCount: slots.children.length,
+      })
+
+      // Nessuna camera/tariffa disponibile → non quotiamo, lo staff verifica.
+      if (!draft) {
+        const needContact = !slots.guest_contact
+        return {
+          text: `Perfetto, ho raccolto la tua richiesta${recap ? `: ${recap}` : ''}. Verifico la disponibilità con la struttura e ti faccio sapere al più presto.${needContact ? ' Posso lasciarti un recapito per ricontattarti?' : ''}`,
+          intent, confidence, stage: 'collecting_data', status: 'open',
           source: 'template', escalated: false, createLead: true, slots, slotsReady: true,
         }
       }
 
-      // Slot incompleti: richiesta deterministica dei dati mancanti (zero AI extra).
+      const standard = isStandardBooking(slots, userMessage, property.settings)
+      // Affidabilità bassa ⇒ mai invio automatico di un prezzo potenzialmente errato.
+      const autoSend = standard && draft.quote.dataReliability !== 'low'
+
+      if (autoSend) {
+        // STANDARD: proposta inviata SUBITO, con prezzo (da lib/quote, non dall'AI).
+        const q = draft.quote
+        const offerValidityH = Number(property.settings['offer_validity_hours'] ?? 48)
+        const discountNote = q.discountPct > 0 ? ` (sconto diretto −${q.discountPct}% sul listino)` : ''
+        const cityTaxNote = q.cityTaxCents > 0 ? ` La tassa di soggiorno (${euro(q.cityTaxCents)}) si salda in struttura.` : ''
+        const text =
+          `Ottime notizie! Per il soggiorno ${recap} possiamo proporle la ${draft.roomName} a ` +
+          `${euro(q.offerTotalCents)} totali${discountNote}, prenotando direttamente con noi.` +
+          `${cityTaxNote} L'offerta è valida per le prossime ${offerValidityH} ore. ` +
+          `Vuole procedere? Posso bloccare la disponibilità per lei.`
+        return {
+          text, intent, confidence, stage: 'proposal_sent', status: 'open',
+          source: 'template', escalated: false, createLead: true,
+          slots, slotsReady: true, draft, autoSend: true,
+        }
+      }
+
+      // NON STANDARD (sconto/gruppo/evento/modifica) o affidabilità bassa →
+      // bozza supervisionata: NESSUN prezzo all'ospite, lo staff verifica e invia.
+      const needContact = !slots.guest_contact
+      const text =
+        `Perfetto, ho raccolto la tua richiesta${recap ? `: ${recap}` : ''}. ` +
+        `Sto preparando una proposta su misura: lo staff la verificherà e te la invierà a brevissimo.` +
+        (needContact ? ` Per ricevere la proposta, puoi lasciarmi un recapito (email o telefono)?` : '')
       return {
-        text: missingAsk(slots), intent, confidence, stage: 'collecting_data',
-        status: 'open', source: 'template', escalated: false, createLead: true,
-        slots, slotsReady: false,
+        text, intent, confidence, stage: 'quoting', status: 'open',
+        source: 'template', escalated: false, createLead: true,
+        slots, slotsReady: true, draft, autoSend: false,
       }
     }
 

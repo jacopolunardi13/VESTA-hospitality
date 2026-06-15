@@ -5,7 +5,8 @@ import {
 } from '@/lib/ai/guardrail'
 import { getBudgetState } from '@/lib/ai/budget'
 import { runPipeline, SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
-import { prepareDraftProposal } from '@/lib/quote/draftProposal'
+import { persistProposal } from '@/lib/quote/draftProposal'
+import { executeTransition } from '@/lib/quote/stateMachine'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
 import type { TablesUpdate, Json } from '@/lib/supabase/database.types'
 
@@ -230,12 +231,32 @@ export async function POST(request: Request) {
       }
     }
 
-    // Bozza preventivo (supervision ON: calcola, NON invia → status resta 'received').
-    if (leadId && result.slotsReady && slots?.check_in && slots?.check_out && slots?.adults) {
-      await prepareDraftProposal(sb, {
-        propertyId, orgId: property.orgId, bookingRequestId: leadId,
-        checkIn: slots.check_in, checkOut: slots.check_out,
-        adults: slots.adults, childrenCount: slots.children.length,
+    // Preventivo calcolato dalla pipeline (lib/quote).
+    // STANDARD → invio automatico (received→proposal_sent) + notifica staff.
+    // NON STANDARD / affidabilità bassa → bozza (status resta 'received') + notifica staff.
+    if (leadId && result.draft) {
+      await persistProposal(sb, {
+        orgId: property.orgId, bookingRequestId: leadId,
+        roomName: result.draft.roomName, quote: result.draft.quote,
+        autoSend: !!result.autoSend,
+      })
+
+      if (result.autoSend) {
+        await executeTransition(sb, {
+          requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
+          note: `Proposta standard generata e inviata automaticamente: ${result.draft.roomName}, ${(result.draft.quote.offerTotalCents / 100).toFixed(2)}€`,
+        })
+      }
+
+      // Notifica staff (consegna real-time in M3). Per ora evento di guardrail tracciabile.
+      await logGuardrail(sb, {
+        orgId: property.orgId, propertyId, conversationId,
+        type: result.autoSend ? 'proposal_auto_sent' : 'proposal_draft',
+        details: {
+          booking_request_id: leadId, room: result.draft.roomName,
+          offer_cents: result.draft.quote.offerTotalCents,
+          reliability: result.draft.quote.dataReliability,
+        },
       })
     }
   }
