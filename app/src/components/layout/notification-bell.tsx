@@ -28,6 +28,7 @@ const typeIcon: Record<string, string> = {
   proposal_draft: '📝',
   escalation: '⚠️',
   new_lead: '✨',
+  followup_sent: '↻',
 }
 
 export default function NotificationBell({

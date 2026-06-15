@@ -47,7 +47,7 @@ export default async function ConversationPage({
   const [{ data: messages }, lead] = await Promise.all([
     supabase
       .from('messages')
-      .select('id, sender, content, created_at')
+      .select('id, sender, content, created_at, metadata')
       .eq('conversation_id', id)
       .order('created_at'),
     conversation.booking_request_id
@@ -96,6 +96,7 @@ export default async function ConversationPage({
         )}
         {(messages ?? []).map((m) => {
           const sender = m.sender as Sender
+          const meta = (m.metadata ?? {}) as { followup?: boolean }
           return (
             <div
               key={m.id}
@@ -103,6 +104,7 @@ export default async function ConversationPage({
             >
               <span className="px-1 text-[10px] uppercase tracking-wide text-slate-400">
                 {senderLabels[sender]} · {formatDateTime(m.created_at)}
+                {meta.followup && <span className="ml-1 text-indigo-500">· ↻ follow-up auto</span>}
               </span>
               <div className={`rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap ${bubbleStyles[sender]}`}>
                 {m.content}
