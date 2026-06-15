@@ -4,6 +4,7 @@ import { classifyIntent } from './intent'
 import { searchKnowledge, kbContextText, KB_DIRECT_ANSWER_RANK } from './knowledge'
 import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
+import { extractSlots, slotsComplete, type ExtractedSlots } from './extract'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -18,6 +19,10 @@ export interface PipelineResult {
   escalated: boolean
   /** true → il chiamante crea/collega una booking_request (lead da chat). */
   createLead: boolean
+  /** Dati estratti (solo ramo booking). */
+  slots?: ExtractedSlots
+  /** true → slot sufficienti per calcolare il preventivo (ramo booking). */
+  slotsReady?: boolean
 }
 
 // Template deterministici (zero AI). MVP in italiano; localizzazione successiva.
@@ -44,14 +49,37 @@ const T = {
  * Orientata a conversione: anche le FAQ sono ancorate alla struttura e, quando
  * naturale, riportano alla disponibilità.
  */
+function formatItDate(iso: string): string {
+  try { return new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long' }).format(new Date(iso)) }
+  catch { return iso }
+}
+
+function recapText(s: ExtractedSlots): string {
+  const parts: string[] = []
+  if (s.check_in && s.check_out) parts.push(`dal ${formatItDate(s.check_in)} al ${formatItDate(s.check_out)}`)
+  const guests: string[] = []
+  if (s.adults) guests.push(`${s.adults} ${s.adults === 1 ? 'adulto' : 'adulti'}`)
+  if (s.children.length) guests.push(`${s.children.length} ${s.children.length === 1 ? 'bambino' : 'bambini'}${s.children.some((c) => c.age != null) ? ` (${s.children.map((c) => c.age).join(', ')} anni)` : ''}`)
+  if (guests.length) parts.push(guests.join(' e '))
+  return parts.join(', ')
+}
+
+function missingAsk(s: ExtractedSlots): string {
+  const missing: string[] = []
+  if (!s.check_in || !s.check_out) missing.push('le **date** di arrivo e partenza')
+  if (!s.adults) missing.push('**quante persone** (adulti ed eventuali bambini con età)')
+  return `Con piacere ti preparo un preventivo su misura. Per procedere mi servono ${missing.join(' e ')}.`
+}
+
 export async function runPipeline(opts: {
   sb: SupabaseClient<Database>
   property: PropertyContext
   history: ChatTurn[]
   userMessage: string
   aiEnabled: boolean
+  todayIso: string
 }): Promise<PipelineResult> {
-  const { sb, property, history, userMessage, aiEnabled } = opts
+  const { sb, property, history, userMessage, aiEnabled, todayIso } = opts
 
   // 1. Escalation deterministica (zero AI) — ha precedenza su tutto.
   if (needsEscalation(userMessage)) {
@@ -108,12 +136,32 @@ export async function runPipeline(opts: {
         status: 'open', source: 'template', escalated: false, createLead: false }
 
     case 'booking': {
-      // Lead da chat: il chiamante crea/collega la booking_request.
-      // Il preventivo automatico (extract→quote) è M2; qui raccogliamo i dati.
-      const reply = await generateReply(sb, property, kbText, history, userMessage)
+      // Lead da chat + slot filling. Il preventivo (lib/quote) è calcolato dal
+      // chiamante (route) come BOZZA: supervision ON, nessun invio automatico.
+      const slots = await extractSlots(sb, property, userMessage, history, todayIso)
+      const ready = slotsComplete(slots)
+
+      if (ready) {
+        // Supervision ON: NON comunichiamo il prezzo all'ospite. Conferma raccolta
+        // + (se manca) richiesta recapito per l'invio della proposta da parte dello staff.
+        const recap = recapText(slots)
+        const needContact = !slots.guest_contact
+        const text =
+          `Perfetto${recap ? `, ho raccolto la tua richiesta: ${recap}` : ''}. ` +
+          `Sto preparando una proposta su misura con la nostra migliore tariffa diretta: ` +
+          `lo staff della struttura te la invierà a brevissimo.` +
+          (needContact ? ` Per ricevere la proposta, puoi lasciarmi un recapito (email o telefono)?` : '')
+        return {
+          text, intent, confidence, stage: 'quoting', status: 'open',
+          source: 'template', escalated: false, createLead: true, slots, slotsReady: true,
+        }
+      }
+
+      // Slot incompleti: richiesta deterministica dei dati mancanti (zero AI extra).
       return {
-        text: reply.text, intent, confidence, stage: 'collecting_data',
-        status: 'open', source: 'ai', escalated: false, createLead: true,
+        text: missingAsk(slots), intent, confidence, stage: 'collecting_data',
+        status: 'open', source: 'template', escalated: false, createLead: true,
+        slots, slotsReady: false,
       }
     }
 

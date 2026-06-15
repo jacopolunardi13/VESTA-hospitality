@@ -6,6 +6,7 @@ export interface PropertyContext {
   orgId: string
   name: string
   settings: Record<string, unknown>
+  supervisionMode: boolean
 }
 
 /** Turno di conversazione per lo storico passato al modello. */

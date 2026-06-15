@@ -168,6 +168,35 @@ export async function sendProposal(formData: FormData) {
   redirect(`/inbox/${requestId}?saved=proposal_sent`)
 }
 
+export async function approveProposalDraft(formData: FormData) {
+  const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
+  if (!requestId) redirect('/inbox?error=missing_fields')
+
+  const { supabase, orgId } = await resolveProperty()
+
+  // La bozza è una richiesta in 'received' con preventivo già calcolato dall'AI.
+  const { data: req } = await supabase
+    .from('booking_requests')
+    .select('id, status, gross_total_cents')
+    .eq('id', requestId)
+    .eq('org_id', orgId)
+    .single()
+
+  if (!req) redirect('/inbox?error=not_found')
+  if (req.status !== 'received' || req.gross_total_cents == null) {
+    redirect(`/inbox/${requestId}?error=no_draft`)
+  }
+
+  // Approvazione staff = invio proposta (received → proposal_sent).
+  // I valori prezzo restano quelli della bozza (COALESCE nella RPC).
+  const result = await executeTransition(supabase, {
+    requestId, orgId, toStatus: 'proposal_sent', actor: 'staff',
+    note: 'Bozza preventivo approvata e inviata dallo staff',
+  })
+  if (!result.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
+  redirect(`/inbox/${requestId}?saved=proposal_sent`)
+}
+
 export async function transitionRequest(formData: FormData) {
   const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
   const toStatus = ((formData.get('to_status') as string | null) ?? '').trim()

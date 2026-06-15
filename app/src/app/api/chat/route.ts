@@ -5,7 +5,9 @@ import {
 } from '@/lib/ai/guardrail'
 import { getBudgetState } from '@/lib/ai/budget'
 import { runPipeline, SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
+import { prepareDraftProposal } from '@/lib/quote/draftProposal'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
+import type { TablesUpdate, Json } from '@/lib/supabase/database.types'
 
 export async function POST(request: Request) {
   let body: { propertyId?: string; conversationId?: string; message?: string }
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
   // Property (pubblica: service_role, filtro esplicito).
   const { data: prop } = await sb
     .from('properties')
-    .select('id, org_id, name, settings')
+    .select('id, org_id, name, settings, supervision_mode')
     .eq('id', propertyId)
     .is('deleted_at', null)
     .single()
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
   const property: PropertyContext = {
     id: prop.id, orgId: prop.org_id, name: prop.name,
     settings: (prop.settings ?? {}) as Record<string, unknown>,
+    supervisionMode: prop.supervision_mode,
   }
 
   const ipHash = hashIp(clientIp(request.headers))
@@ -140,6 +143,7 @@ export async function POST(request: Request) {
   try {
     result = await runPipeline({
       sb, property, history, userMessage: message, aiEnabled: !budget.safeMode,
+      todayIso: new Date().toISOString().slice(0, 10),
     })
   } catch {
     const fallback = 'Mi spiace, ho avuto un problema tecnico. Riprova tra poco o lascia un recapito allo staff.'
@@ -169,24 +173,30 @@ export async function POST(request: Request) {
     status: result.status,
   }).eq('id', conversationId)
 
-  // Lead da chat (booking): crea/collega booking_request una sola volta.
+  // Lead da chat (booking): crea/collega booking_request + persiste slot + bozza.
   if (result.createLead) {
     const { data: conv } = await sb
       .from('conversations')
       .select('booking_request_id, guest_name, guest_contact')
       .eq('id', conversationId)
       .single()
-    if (conv && !conv.booking_request_id) {
+
+    let leadId = conv?.booking_request_id ?? null
+    const slots = result.slots
+
+    if (conv && !leadId) {
       const { data: br } = await sb
         .from('booking_requests')
         .insert({
           org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
           source: 'website_chat', status: 'received',
-          guest_name: conv.guest_name, guest_contact: conv.guest_contact,
+          guest_name: slots?.guest_name ?? conv.guest_name,
+          guest_contact: slots?.guest_contact ?? conv.guest_contact,
         })
         .select('id')
         .single()
       if (br) {
+        leadId = br.id
         await sb.from('conversations').update({ booking_request_id: br.id }).eq('id', conversationId)
         await sb.from('booking_request_events').insert({
           org_id: property.orgId, booking_request_id: br.id,
@@ -194,6 +204,39 @@ export async function POST(request: Request) {
           note: 'Lead generato dalla chat (intent booking)',
         })
       }
+    }
+
+    // Persiste gli slot estratti sulla richiesta (solo valori presenti).
+    if (leadId && slots) {
+      const upd: TablesUpdate<'booking_requests'> = {}
+      if (slots.check_in) upd.check_in = slots.check_in
+      if (slots.check_out) upd.check_out = slots.check_out
+      if (slots.adults) upd.adults = slots.adults
+      if (slots.children.length) upd.children = slots.children as Json
+      if (slots.language) upd.language = slots.language
+      if (slots.special_requests) upd.special_requests = slots.special_requests
+      if (slots.guest_name) upd.guest_name = slots.guest_name
+      if (slots.guest_contact) upd.guest_contact = slots.guest_contact
+      if (Object.keys(upd).length > 0) {
+        await sb.from('booking_requests').update(upd).eq('id', leadId).eq('org_id', property.orgId)
+      }
+      // Riflette nome/contatto/lingua anche sulla conversazione.
+      const convUpd: TablesUpdate<'conversations'> = {}
+      if (slots.guest_name) convUpd.guest_name = slots.guest_name
+      if (slots.guest_contact) convUpd.guest_contact = slots.guest_contact
+      if (slots.language) convUpd.language = slots.language
+      if (Object.keys(convUpd).length > 0) {
+        await sb.from('conversations').update(convUpd).eq('id', conversationId)
+      }
+    }
+
+    // Bozza preventivo (supervision ON: calcola, NON invia → status resta 'received').
+    if (leadId && result.slotsReady && slots?.check_in && slots?.check_out && slots?.adults) {
+      await prepareDraftProposal(sb, {
+        propertyId, orgId: property.orgId, bookingRequestId: leadId,
+        checkIn: slots.check_in, checkOut: slots.check_out,
+        adults: slots.adults, childrenCount: slots.children.length,
+      })
     }
   }
 

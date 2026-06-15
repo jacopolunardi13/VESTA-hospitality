@@ -5,7 +5,7 @@ import { actorLabels, bookingStatusLabels, nextActionLabels } from '@/lib/labels
 import { formatDate, formatDateRange, formatDateTime, formatEuro, formatGuests } from '@/lib/format'
 import { ReliabilityChip, ScoreBadge, SourceChip, StatusBadge } from '@/components/badges'
 import RequestActions from '@/components/request-actions'
-import { sendProposal, overridePrice } from '../actions'
+import { sendProposal, overridePrice, approveProposalDraft } from '../actions'
 import type { BookingStatus } from '@/lib/quote/types'
 import type { Reliability, Source } from '@/lib/mock/types'
 
@@ -100,6 +100,8 @@ export default async function BookingRequestPage({
   const defaultDiscount = Number(propSettings['direct_discount_pct'] ?? 10)
 
   const hasProposal = request.gross_total_cents != null
+  // Bozza AI = richiesta 'received' con preventivo già calcolato, in attesa di approvazione.
+  const isDraft = status === 'received' && hasProposal
 
   return (
     <div className="flex flex-col gap-4">
@@ -317,8 +319,36 @@ export default async function BookingRequestPage({
         )}
       </div>
 
-      {/* Form proposta (solo su received con date) */}
-      {status === 'received' && request.check_in && request.check_out && rooms && rooms.length > 0 && (
+      {/* Bozza AI: preventivo calcolato, in attesa di approvazione staff (supervision ON) */}
+      {isDraft && (
+        <section className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-amber-900">
+              📝 Bozza preventivo generata dall&apos;AI — rivedi e approva
+            </span>
+            <span className="rounded bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
+              non ancora inviata all&apos;ospite
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-amber-800">
+            Offerta proposta: <strong>{request.offer_total_cents != null ? formatEuro(request.offer_total_cents) : '—'}</strong>
+            {request.data_reliability && ` · affidabilità ${request.data_reliability}`}.
+            Puoi modificare prezzo/sconto qui sopra prima di approvare.
+          </p>
+          <form action={approveProposalDraft} className="mt-3">
+            <input type="hidden" name="request_id" value={id} />
+            <button
+              type="submit"
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 transition-colors"
+            >
+              ✅ Approva e invia proposta
+            </button>
+          </form>
+        </section>
+      )}
+
+      {/* Form proposta manuale (solo su received SENZA bozza già calcolata) */}
+      {status === 'received' && !hasProposal && request.check_in && request.check_out && rooms && rooms.length > 0 && (
         <section className="rounded-lg border border-slate-200 bg-white p-4">
           <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
             📤 Invia proposta

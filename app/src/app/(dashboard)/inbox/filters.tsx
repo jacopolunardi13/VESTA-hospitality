@@ -78,6 +78,11 @@ function RequestRow({ r }: { r: BookingRow }) {
               ⚡ {action}
             </span>
           )}
+          {r.status === 'received' && r.offer_total_cents != null && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
+              📝 Bozza pronta
+            </span>
+          )}
           {r.hold_expires_at && r.status === 'awaiting_payment' && (
             <span className="font-medium whitespace-nowrap text-purple-700">
               ⏱ hold fino al {formatDateTime(r.hold_expires_at)}
