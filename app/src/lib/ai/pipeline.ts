@@ -112,14 +112,10 @@ export async function runPipeline(opts: {
     }
   }
 
-  // 2. Match KB full-text (zero AI) — sempre, fornisce contesto e shortcut.
-  const hits = await searchKnowledge(sb, property.id, userMessage, 5)
-  const kbText = kbContextText(hits)
-  const topRank = hits[0]?.rank ?? 0
-
-  // 3. Safe mode / AI disattivata: nessuna chiamata AI.
+  // 2. Safe mode / AI disattivata: nessuna chiamata AI → match KB lessicale sulla query grezza.
   if (!aiEnabled) {
-    if (hits.length > 0 && topRank >= KB_DIRECT_ANSWER_RANK) {
+    const hits = await searchKnowledge(sb, property.id, userMessage, 5)
+    if (hits.length > 0 && (hits[0].rank ?? 0) >= KB_DIRECT_ANSWER_RANK) {
       const a = hits[0]
       return {
         text: `${a.content ?? a.title}`.trim(), intent: 'faq', confidence: 0.5,
@@ -132,8 +128,9 @@ export async function runPipeline(opts: {
     }
   }
 
-  // 4. Intent detection (Haiku).
-  const { intent, confidence } = await classifyIntent(sb, property, userMessage, history)
+  // 3. Intent detection (Haiku) — restituisce anche la query di ricerca tradotta in italiano
+  //    (cross-lingua: il retrieval KB italiano funziona anche per domande EN/ES/FR/DE).
+  const { intent, confidence, searchQueryIt } = await classifyIntent(sb, property, userMessage, history)
 
   // 5. Branch per intent.
   switch (intent) {
@@ -223,7 +220,11 @@ export async function runPipeline(opts: {
     case 'faq':
     case 'guest_support':
     default: {
-      const reply = await generateReply(sb, property, kbText, history, userMessage)
+      // Retrieval cross-lingua: cerca nella KB italiana con la query tradotta.
+      const q = searchQueryIt && searchQueryIt.trim() ? searchQueryIt : userMessage
+      const kbHits = await searchKnowledge(sb, property.id, q, 5)
+      // generate_reply risponde SEMPRE nella lingua dell'ospite (system prompt).
+      const reply = await generateReply(sb, property, kbContextText(kbHits), history, userMessage)
       return {
         text: reply.text, intent, confidence,
         stage: intent === 'guest_support' ? 'handoff_staff' : 'new',

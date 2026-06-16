@@ -28,6 +28,8 @@ export interface KbHit {
 export interface IntentResult {
   intent: ConversationIntent
   confidence: number
+  /** Query riformulata in parole chiave ITALIANE per il retrieval KB (cross-lingua). */
+  searchQueryIt: string
 }
 
 /** Esito di una chiamata AI con usage per il logging costi. */

@@ -47,8 +47,13 @@ export async function classifyIntent(
             properties: {
               intent: { type: 'string', enum: INTENTS },
               confidence: { type: 'number', description: 'Confidenza 0–1' },
+              search_query_it: {
+                type: 'string',
+                description:
+                  "La domanda dell'ospite riformulata in PAROLE CHIAVE IN ITALIANO per cercare in una knowledge base italiana. Traduci in italiano se il messaggio è in altra lingua (EN/ES/FR/DE). Es. 'Where can I park?' o '¿Dónde puedo aparcar?' → 'parcheggio auto dove'. Stringa vuota se non è una domanda informativa.",
+              },
             },
-            required: ['intent', 'confidence'],
+            required: ['intent', 'confidence', 'search_query_it'],
           },
         },
       ],
@@ -65,22 +70,23 @@ export async function classifyIntent(
 
     const toolUse = res.content.find((b) => b.type === 'tool_use')
     if (toolUse && toolUse.type === 'tool_use') {
-      const input = toolUse.input as { intent?: string; confidence?: number }
+      const input = toolUse.input as { intent?: string; confidence?: number; search_query_it?: string }
       const intent = (INTENTS as string[]).includes(input.intent ?? '')
         ? (input.intent as ConversationIntent)
         : 'unclassified'
       const confidence = typeof input.confidence === 'number'
         ? Math.max(0, Math.min(1, input.confidence))
         : 0.5
-      return { intent, confidence }
+      const searchQueryIt = typeof input.search_query_it === 'string' ? input.search_query_it : ''
+      return { intent, confidence, searchQueryIt }
     }
-    return { intent: 'unclassified', confidence: 0 }
+    return { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
   } catch (e) {
     await logAiCall(sb, {
       orgId: property.orgId, propertyId: property.id, fn: 'classify', model,
       inputTokens: 0, outputTokens: 0, latencyMs: Date.now() - started,
       success: false, error: e instanceof Error ? e.message : String(e),
     })
-    return { intent: 'unclassified', confidence: 0 }
+    return { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
   }
 }
