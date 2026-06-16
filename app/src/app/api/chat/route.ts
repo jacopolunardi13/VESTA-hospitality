@@ -232,34 +232,43 @@ export async function POST(request: Request) {
       }
     }
 
-    // Preventivo calcolato dalla pipeline (lib/quote).
-    // STANDARD → invio automatico (received→proposal_sent) + notifica staff.
-    // NON STANDARD / affidabilità bassa → bozza (status resta 'received') + notifica staff.
+    // Preventivo calcolato dalla pipeline (lib/quote) + notifica staff.
+    // STANDARD + prezzo affidabile + disponibilità verificata → invio automatico.
+    // Altrimenti → fallback cortesia: bozza per lo staff (se calcolabile) + notifica Jacopo.
     if (leadId && result.draft) {
       await persistProposal(sb, {
         orgId: property.orgId, bookingRequestId: leadId,
         roomName: result.draft.roomName, quote: result.draft.quote,
         autoSend: !!result.autoSend,
       })
+      const offerStr = (result.draft.quote.offerTotalCents / 100).toFixed(2) + '€'
 
       if (result.autoSend) {
         await executeTransition(sb, {
           requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
-          note: `Proposta standard generata e inviata automaticamente: ${result.draft.roomName}, ${(result.draft.quote.offerTotalCents / 100).toFixed(2)}€`,
+          note: `Proposta standard generata e inviata automaticamente: ${result.draft.roomName}, ${offerStr}`,
+        })
+        await createNotification(sb, {
+          orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
+          title: `Proposta inviata · ${offerStr}`,
+          body: `Inviata automaticamente all'ospite (${result.draft.roomName}).`,
+          bookingRequestId: leadId, conversationId,
+        })
+      } else {
+        await createNotification(sb, {
+          orgId: property.orgId, propertyId, type: 'proposal_draft',
+          title: `Richiesta preventivo da gestire · ${offerStr}`,
+          body: `Per Jacopo: verifica disponibilità/tariffa e invia (${result.draft.roomName}, affidabilità ${result.draft.quote.dataReliability}).`,
+          bookingRequestId: leadId, conversationId,
         })
       }
-
-      // Notifica staff real-time (push in-app via Realtime).
-      const offerStr = (result.draft.quote.offerTotalCents / 100).toFixed(2) + '€'
+    } else if (leadId && result.slotsReady && !result.autoSend) {
+      // Fallback cortesia SENZA bozza calcolabile (tariffe/disponibilità mancanti):
+      // lead creato + notifica Jacopo per la proposta personalizzata.
       await createNotification(sb, {
-        orgId: property.orgId, propertyId,
-        type: result.autoSend ? 'proposal_auto_sent' : 'proposal_draft',
-        title: result.autoSend
-          ? `Proposta inviata · ${offerStr}`
-          : `Bozza da approvare · ${offerStr}`,
-        body: result.autoSend
-          ? `Proposta standard inviata automaticamente all'ospite (${result.draft.roomName}).`
-          : `Richiesta non standard: rivedi e approva la proposta (${result.draft.roomName}, affidabilità ${result.draft.quote.dataReliability}).`,
+        orgId: property.orgId, propertyId, type: 'escalation',
+        title: 'Richiesta preventivo da gestire',
+        body: 'Per Jacopo: verifica disponibilità e migliore tariffa, poi invia una proposta personalizzata.',
         bookingRequestId: leadId, conversationId,
       })
     }

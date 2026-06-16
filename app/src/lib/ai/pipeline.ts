@@ -6,6 +6,7 @@ import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, slotsComplete, type ExtractedSlots } from './extract'
 import { selectBestQuote, type SelectedQuote } from '@/lib/quote/draftProposal'
+import { checkAvailability } from '@/lib/ical/availability'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -46,6 +47,8 @@ const T = {
     'Per oggi abbiamo scambiato diversi messaggi. Lasciami un recapito (telefono o email) e lo staff della struttura ti ricontatterà per completare la richiesta.',
   safe_mode_no_kb:
     'Al momento non riesco a rispondere automaticamente. Lasciami un recapito e lo staff della struttura ti ricontatterà al più presto.',
+  courtesy_quote:
+    'Grazie per averci contattato. Sto verificando disponibilità e migliore tariffa per le date richieste. Un membro del nostro staff ti risponderà a breve con una proposta personalizzata.',
 }
 
 /**
@@ -175,22 +178,17 @@ export async function runPipeline(opts: {
         adults: slots.adults!, childrenCount: slots.children.length,
       })
 
-      // Nessuna camera/tariffa disponibile → non quotiamo, lo staff verifica.
-      if (!draft) {
-        const needContact = !slots.guest_contact
-        return {
-          text: `Perfetto, ho raccolto la tua richiesta${recap ? `: ${recap}` : ''}. Verifico la disponibilità con la struttura e ti faccio sapere al più presto.${needContact ? ' Posso lasciarti un recapito per ricontattarti?' : ''}`,
-          intent, confidence, stage: 'collecting_data', status: 'open',
-          source: 'template', escalated: false, createLead: true, slots, slotsReady: true,
-        }
-      }
+      // Verifica disponibilità da feed iCal. Senza feed (o stantio) → NON verificata.
+      const avail = draft
+        ? await checkAvailability(sb, draft.roomId, slots.check_in!, slots.check_out!)
+        : { verified: false, available: false, reason: 'no_feed' as const }
 
       const standard = isStandardBooking(slots, userMessage, property.settings)
-      // Affidabilità bassa ⇒ mai invio automatico di un prezzo potenzialmente errato.
-      const autoSend = standard && draft.quote.dataReliability !== 'low'
+      const priceOk = !!draft && draft.quote.grossTotalCents > 0 && draft.quote.dataReliability !== 'low'
+      const availOk = avail.verified && avail.available
 
-      if (autoSend) {
-        // STANDARD: proposta inviata SUBITO, con prezzo (da lib/quote, non dall'AI).
+      // AUTO-INVIO solo se: standard + prezzo affidabile + disponibilità verificata e libera.
+      if (standard && priceOk && availOk && draft) {
         const q = draft.quote
         const offerValidityH = Number(property.settings['offer_validity_hours'] ?? 48)
         const discountNote = q.discountPct > 0 ? ` (sconto diretto −${q.discountPct}% sul listino)` : ''
@@ -207,17 +205,18 @@ export async function runPipeline(opts: {
         }
       }
 
-      // NON STANDARD (sconto/gruppo/evento/modifica) o affidabilità bassa →
-      // bozza supervisionata: NESSUN prezzo all'ospite, lo staff verifica e invia.
-      const needContact = !slots.guest_contact
-      const text =
-        `Perfetto, ho raccolto la tua richiesta${recap ? `: ${recap}` : ''}. ` +
-        `Sto preparando una proposta su misura: lo staff la verificherà e te la invierà a brevissimo.` +
-        (needContact ? ` Per ricevere la proposta, puoi lasciarmi un recapito (email o telefono)?` : '')
+      // FALLBACK DI CORTESIA — prezzo o disponibilità non verificati, oppure richiesta
+      // non standard. Vesta NON resta silenziosa: registra il lead, classifica (già fatto),
+      // notifica lo staff/Jacopo (lato route) e risponde con messaggio di cortesia.
+      // NESSUN prezzo comunicato all'ospite. Se una bozza è calcolabile, viene salvata
+      // per lo staff (passata al chiamante via `draft`).
       return {
-        text, intent, confidence, stage: 'quoting', status: 'open',
+        text: T.courtesy_quote,
+        intent, confidence, stage: 'quoting', status: 'open',
         source: 'template', escalated: false, createLead: true,
-        slots, slotsReady: true, draft, autoSend: false,
+        slots, slotsReady: true,
+        draft: draft ?? undefined,
+        autoSend: false,
       }
     }
 
