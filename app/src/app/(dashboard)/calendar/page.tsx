@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { formatDateTime } from '@/lib/format'
 import { setRates, deleteRate } from './actions'
 
 const BANNERS: Record<string, { type: 'success' | 'error'; message: string }> = {
@@ -70,6 +71,12 @@ export default async function CalendarPage({
     .order('room_id', { ascending: true })
     .limit(100)
 
+  const { data: feeds } = await supabase
+    .from('ical_feeds')
+    .select('room_id, last_sync_at, last_status, active')
+    .eq('property_id', property.id)
+    .eq('active', true)
+
   const banner = saved ? BANNERS[saved] : error ? BANNERS[error] : null
   const roomMap = new Map((rooms ?? []).map((r) => [r.id, r.name]))
   const hasRooms = rooms && rooms.length > 0
@@ -94,6 +101,45 @@ export default async function CalendarPage({
         >
           {banner.message}
         </p>
+      )}
+
+      {/* ── STATO SYNC iCal (sola lettura) ────────────────────────── */}
+      {feeds && feeds.length > 0 && (
+        <section className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold tracking-wide text-slate-500 uppercase">
+            Sincronizzazione disponibilità (iCal)
+          </h2>
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {feeds.map((f) => {
+              const fresh =
+                !!f.last_sync_at && Date.now() - new Date(f.last_sync_at).getTime() <= 24 * 3600 * 1000
+              return (
+                <li key={f.room_id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-slate-700">{roomMap.get(f.room_id) ?? f.room_id}</span>
+                  <span className="flex items-center gap-2 text-xs">
+                    <span className={f.last_status === 'ok' ? 'text-slate-500' : 'text-red-600'}>
+                      {f.last_status ?? '—'}
+                    </span>
+                    <span className="text-slate-400">
+                      {f.last_sync_at ? formatDateTime(f.last_sync_at) : 'mai'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 font-medium ${
+                        fresh ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      {fresh ? '✓ aggiornato' : '⚠ da risincronizzare'}
+                    </span>
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="mt-2 text-xs text-slate-400">
+            Disponibilità importata da QuoVai (sola lettura). Oltre 24h senza sync la disponibilità
+            torna &quot;non verificata&quot; e i preventivi passano in supervisione.
+          </p>
+        </section>
       )}
 
       {/* ── IMPOSTA TARIFFE ───────────────────────────────────────── */}
