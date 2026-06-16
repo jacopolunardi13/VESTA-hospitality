@@ -30,7 +30,7 @@ export default async function Topbar() {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 sm:gap-4 sm:px-4">
       <span className="shrink-0 text-sm font-bold tracking-tight whitespace-nowrap text-slate-900">
-        Vesta<span className="hidden font-normal text-slate-400 lg:inline"> · Concierge &amp; Direct Quote</span>
+        Vesta Hospitality<span className="hidden font-normal text-slate-400 lg:inline"> · Direct Booking Assistant</span>
       </span>
       {property && (
         <span className="min-w-0 truncate text-sm text-slate-600">{property.name}</span>
