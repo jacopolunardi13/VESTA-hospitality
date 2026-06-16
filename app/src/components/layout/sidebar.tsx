@@ -11,14 +11,14 @@ type NavItem = {
 const mainNav: NavItem[] = [
   { label: "Inbox",         href: "/inbox" },
   { label: "Conversazioni", href: "/conversations" },
-  { label: "Calendario" },
-  { label: "Camere" },
-  { label: "Knowledge base" },
+  { label: "Calendario",    href: "/calendar" },
+  { label: "Camere",        href: "/rooms" },
+  { label: "Knowledge base", href: "/knowledge" },
   { label: "Template" },
   { label: "Follow-up" },
 ];
 
-const settingsNav: NavItem[] = [{ label: "Impostazioni" }];
+const settingsNav: NavItem[] = [{ label: "Impostazioni", href: "/settings/property" }];
 
 function NavLink({ item, active }: { item: NavItem; active: boolean }) {
   const base = "flex items-center justify-between rounded-md px-3 py-2 text-sm";
