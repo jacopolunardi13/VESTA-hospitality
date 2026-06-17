@@ -6,6 +6,7 @@ import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, slotsComplete, type ExtractedSlots } from './extract'
 import { selectBestQuote, type SelectedQuote } from '@/lib/quote/draftProposal'
+import { proposalText, normLang } from './messages'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -182,19 +183,17 @@ export async function runPipeline(opts: {
 
       // AUTO-INVIO solo se: standard + prezzo affidabile + camera disponibile (garantita da draft).
       // NON blocca mai la camera: passa a proposal_sent, mai availability_blocked.
+      // FASE 1: messaggio semplice e naturale, localizzato; nessuno sconto/tassa/validità/tecnicismi.
+      // Il prezzo mostrato è già l'offerta finale (sconto/last-minute/arrotondamento applicati).
       if (standard && priceOk && draft) {
-        const q = draft.quote
-        const offerValidityH = Number(property.settings['offer_validity_hours'] ?? 48)
-        const lastMinuteNote = q.isLastMinute ? ' 🕒 Tariffa speciale last minute applicata!' : ''
-        const discountNote = q.discountPct > 0 ? ` (sconto diretto −${q.discountPct}% sul listino)` : ''
-        const cityTaxNote = q.cityTaxCents > 0 ? ` La tassa di soggiorno (${euro(q.cityTaxCents)}) si salda separatamente in struttura.` : ''
-        const text =
-          `Ottime notizie!${lastMinuteNote} Per il soggiorno ${recap} possiamo proporle la ${draft.roomName} a ` +
-          `${euro(q.offerTotalCents)} totali${discountNote}, prenotando direttamente con noi.` +
-          `${cityTaxNote} L'offerta è valida per le prossime ${offerValidityH} ore. ` +
-          `Se desidera procedere, lo staff le confermerà i dettagli per il pagamento anticipato.`
+        const lang = normLang(slots.language)
+        const amountEur = Math.round(draft.quote.offerTotalCents / 100)
+        // proposalText antepone già il sostantivo localizzato (Camera/Room/…): togliamo
+        // un eventuale prefisso "Camera " dal nome in DB per evitare "Camera Camera 301".
+        const roomLabel = draft.roomName.replace(/^\s*camera\s+/i, '').trim()
         return {
-          text, intent, confidence, stage: 'proposal_sent', status: 'open',
+          text: proposalText(lang, roomLabel, amountEur),
+          intent, confidence, stage: 'proposal_sent', status: 'open',
           source: 'template', escalated: false, createLead: true,
           slots, slotsReady: true, draft, autoSend: true,
         }

@@ -8,6 +8,7 @@ import { runPipeline, SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
 import { persistProposal } from '@/lib/quote/draftProposal'
 import { executeTransition } from '@/lib/quote/stateMachine'
 import { createNotification } from '@/lib/notifications'
+import { isInterest, isPaymentClaim, paymentInstructions, paymentAck, normLang } from '@/lib/ai/messages'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
 import type { TablesUpdate, Json } from '@/lib/supabase/database.types'
 
@@ -117,6 +118,52 @@ export async function POST(request: Request) {
       conversationId, reply: SESSION_LIMIT_TEMPLATE, intent: 'unclassified',
       stage: 'handoff_staff', status: 'pending_staff', source: 'template',
     })
+  }
+
+  // ── Flusso commerciale: progressione di un lead esistente (interesse / pagamento) ──
+  // Ha precedenza sulla pipeline normale: riconosce nel contesto della conversazione
+  // se l'ospite sta confermando l'interesse o comunicando il pagamento.
+  {
+    const { data: conv2 } = await sb
+      .from('conversations')
+      .select('booking_request_id, language')
+      .eq('id', conversationId)
+      .single()
+    const lang = normLang(conv2?.language)
+    if (conv2?.booking_request_id) {
+      const leadId = conv2.booking_request_id
+      const { data: lead } = await sb.from('booking_requests').select('status').eq('id', leadId).single()
+
+      // FASE 2 — cliente interessato → riserva camera 24h + attesa pagamento + istruzioni bonifico
+      if (lead?.status === 'proposal_sent' && isInterest(message)) {
+        const t1 = await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: 'Ospite ha manifestato interesse' })
+        const t2 = t1.ok ? await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'availability_blocked', actor: 'system', note: 'Camera riservata 24h (hold)' }) : t1
+        const t3 = t2.ok ? await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'awaiting_payment', actor: 'system', note: 'In attesa pagamento anticipato' }) : t2
+        if (!t3.ok) {
+          // Transizione non riuscita (es. doppio invio concorrente): non procedere col flusso pagamento.
+          const ack = paymentAck(lang)
+          await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: ack })
+          return Response.json({ conversationId, reply: ack, intent: 'booking', stage: 'negotiating', status: 'awaiting_payment', source: 'template' })
+        }
+        const s = property.settings
+        const reply = paymentInstructions(lang, {
+          holder: String(s['payment_holder'] ?? ''), iban: String(s['iban'] ?? ''),
+          branch: String(s['payment_branch'] ?? ''), causal: String(s['payment_causal'] ?? 'LunArt'),
+        })
+        await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
+        await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
+        await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Pagamento atteso', body: 'Camera riservata 24h: in attesa del bonifico anticipato dall\'ospite.', bookingRequestId: leadId, conversationId })
+        return Response.json({ conversationId, reply, intent: 'booking', stage: 'negotiating', status: 'awaiting_payment', source: 'template' })
+      }
+
+      // FASE 3 — pagamento/contabile comunicato → notifica staff, NESSUNA conferma automatica
+      if (lead?.status === 'awaiting_payment' && isPaymentClaim(message)) {
+        const reply = paymentAck(lang)
+        await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
+        await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Contabile ricevuta – verifica richiesta', body: 'L\'ospite dichiara di aver pagato. Verifica la contabile e premi "Conferma prenotazione".', bookingRequestId: leadId, conversationId })
+        return Response.json({ conversationId, reply, intent: 'booking', stage: 'negotiating', status: 'awaiting_payment', source: 'template' })
+      }
+    }
   }
 
   // Budget / safe mode.
