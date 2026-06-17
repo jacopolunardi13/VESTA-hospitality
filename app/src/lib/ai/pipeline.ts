@@ -6,7 +6,6 @@ import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, slotsComplete, type ExtractedSlots } from './extract'
 import { selectBestQuote, type SelectedQuote } from '@/lib/quote/draftProposal'
-import { checkAvailability } from '@/lib/ical/availability'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -169,32 +168,31 @@ export async function runPipeline(opts: {
       }
 
       const recap = recapText(slots)
+      // selectBestQuote considera SOLO camere con tariffa E disponibilità verificata
+      // e libera (anti-overbooking): se ritorna una camera, è prezzata e disponibile.
       const draft = await selectBestQuote(sb, {
         propertyId: property.id, orgId: property.orgId,
         checkIn: slots.check_in!, checkOut: slots.check_out!,
         adults: slots.adults!, childrenCount: slots.children.length,
+        todayIso,
       })
 
-      // Verifica disponibilità da feed iCal. Senza feed (o stantio) → NON verificata.
-      const avail = draft
-        ? await checkAvailability(sb, draft.roomId, slots.check_in!, slots.check_out!)
-        : { verified: false, available: false, reason: 'no_feed' as const }
-
       const standard = isStandardBooking(slots, userMessage, property.settings)
-      const priceOk = !!draft && draft.quote.grossTotalCents > 0 && draft.quote.dataReliability !== 'low'
-      const availOk = avail.verified && avail.available
+      const priceOk = !!draft && draft.quote.dataReliability !== 'low'
 
-      // AUTO-INVIO solo se: standard + prezzo affidabile + disponibilità verificata e libera.
-      if (standard && priceOk && availOk && draft) {
+      // AUTO-INVIO solo se: standard + prezzo affidabile + camera disponibile (garantita da draft).
+      // NON blocca mai la camera: passa a proposal_sent, mai availability_blocked.
+      if (standard && priceOk && draft) {
         const q = draft.quote
         const offerValidityH = Number(property.settings['offer_validity_hours'] ?? 48)
+        const lastMinuteNote = q.isLastMinute ? ' 🕒 Tariffa speciale last minute applicata!' : ''
         const discountNote = q.discountPct > 0 ? ` (sconto diretto −${q.discountPct}% sul listino)` : ''
-        const cityTaxNote = q.cityTaxCents > 0 ? ` La tassa di soggiorno (${euro(q.cityTaxCents)}) si salda in struttura.` : ''
+        const cityTaxNote = q.cityTaxCents > 0 ? ` La tassa di soggiorno (${euro(q.cityTaxCents)}) si salda separatamente in struttura.` : ''
         const text =
-          `Ottime notizie! Per il soggiorno ${recap} possiamo proporle la ${draft.roomName} a ` +
+          `Ottime notizie!${lastMinuteNote} Per il soggiorno ${recap} possiamo proporle la ${draft.roomName} a ` +
           `${euro(q.offerTotalCents)} totali${discountNote}, prenotando direttamente con noi.` +
           `${cityTaxNote} L'offerta è valida per le prossime ${offerValidityH} ore. ` +
-          `Vuole procedere? Posso bloccare la disponibilità per lei.`
+          `Se desidera procedere, lo staff le confermerà i dettagli per il pagamento anticipato.`
         return {
           text, intent, confidence, stage: 'proposal_sent', status: 'open',
           source: 'template', escalated: false, createLead: true,

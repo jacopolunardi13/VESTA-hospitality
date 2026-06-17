@@ -31,6 +31,8 @@ export interface PriceQuote {
   priceSource: 'manual' | 'csv' | 'ical' | 'api' | 'ota_stimato'
   items: Array<{ roomId: string; date: string; priceCents: number }>
   missingNights: string[]
+  /** true se applicata la tariffa last minute (check-in entro la soglia giorni). */
+  isLastMinute: boolean
 }
 
 export interface TransitionParams {

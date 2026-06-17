@@ -1,18 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 import { computeQuote } from './priceEngine'
+import { checkAvailability } from '@/lib/ical/availability'
 import type { PriceQuote } from './types'
 
 export interface SelectedQuote {
   roomId: string
   roomName: string
   quote: PriceQuote
+  availabilityVerified: boolean
 }
 
 /**
  * Seleziona la camera migliore e calcola il preventivo — funzione PURA (nessuna
- * scrittura). Tra le camere con capienza sufficiente preferisce tariffe complete
- * (affidabilità alta/media) e poi il totale più basso. Prezzi SOLO da rate_calendar.
+ * scrittura). Considera SOLO camere con capienza sufficiente, tariffa presente
+ * E disponibilità verificata e libera (anti-overbooking). Tra queste preferisce
+ * affidabilità alta/media e poi il totale più basso. Prezzi SOLO da rate_calendar.
  */
 export async function selectBestQuote(
   sb: SupabaseClient<Database>,
@@ -23,6 +26,7 @@ export async function selectBestQuote(
     checkOut: string
     adults: number
     childrenCount: number
+    todayIso?: string
   }
 ): Promise<SelectedQuote | null> {
   const guests = opts.adults + opts.childrenCount
@@ -48,15 +52,19 @@ export async function selectBestQuote(
       checkIn: opts.checkIn,
       checkOut: opts.checkOut,
       adults: opts.adults,
+      todayIso: opts.todayIso,
     })
     if (quote.grossTotalCents <= 0) continue
+    // Disponibilità verificata e libera per le date (altrimenti la camera è scartata).
+    const avail = await checkAvailability(sb, room.id, opts.checkIn, opts.checkOut)
+    if (!avail.verified || !avail.available) continue
     if (
       !best ||
       rank[quote.dataReliability] < rank[best.quote.dataReliability] ||
       (quote.dataReliability === best.quote.dataReliability &&
         quote.offerTotalCents < best.quote.offerTotalCents)
     ) {
-      best = { roomId: room.id, roomName: room.name, quote }
+      best = { roomId: room.id, roomName: room.name, quote, availabilityVerified: true }
     }
   }
 

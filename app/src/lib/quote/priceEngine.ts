@@ -22,6 +22,7 @@ export async function computeQuote(
     checkIn: string
     checkOut: string
     adults: number
+    todayIso?: string
     fallbackPriceCentsPerNight?: number
   }
 ): Promise<PriceQuote> {
@@ -34,10 +35,20 @@ export async function computeQuote(
     .single()
 
   const settings = (prop?.settings ?? {}) as Record<string, unknown>
-  const discountPct = Number(settings['direct_discount_pct'] ?? 10)
+  const directDiscountPct = Number(settings['direct_discount_pct'] ?? 10)
+  const lastMinutePct = Number(settings['last_minute_discount_pct'] ?? 25)
+  const lastMinuteDays = Number(settings['last_minute_days'] ?? 3)
   const cityTaxPerAdultNight = Number(settings['city_tax_cents'] ?? 0)
   const freshnessHighH = Number(settings['freshness_high_hours'] ?? 6)
   const freshnessMedH = Number(settings['freshness_medium_hours'] ?? 48)
+
+  // Last minute: check-in entro N giorni dalla data della richiesta → sconto maggiorato.
+  const todayIso = opts.todayIso ?? new Date().toISOString().slice(0, 10)
+  const daysToCheckIn = Math.floor(
+    (new Date(opts.checkIn + 'T00:00:00Z').getTime() - new Date(todayIso + 'T00:00:00Z').getTime()) / 86_400_000
+  )
+  const isLastMinute = daysToCheckIn >= 0 && daysToCheckIn <= lastMinuteDays
+  const discountPct = isLastMinute ? lastMinutePct : directDiscountPct
 
   const { data: rates } = await supabase
     .from('rate_calendar')
@@ -80,7 +91,9 @@ export async function computeQuote(
   }
 
   const grossTotalCents = items.reduce((s, i) => s + i.priceCents, 0)
-  const offerTotalCents = Math.round(grossTotalCents * (1 - discountPct / 100))
+  // Arrotondamento SEMPRE all'euro inferiore (floor to whole euro).
+  const offerTotalCents = Math.floor((grossTotalCents * (1 - discountPct / 100)) / 100) * 100
+  // Tassa di soggiorno SEMPRE separata dal totale soggiorno (non inclusa nell'offerta).
   const cityTaxCents = cityTaxPerAdultNight * opts.adults * nights.length
 
   let dataReliability: 'high' | 'medium' | 'low'
@@ -104,5 +117,6 @@ export async function computeQuote(
     priceSource,
     items,
     missingNights,
+    isLastMinute,
   }
 }
