@@ -11,6 +11,57 @@ export interface SelectedQuote {
   availabilityVerified: boolean
 }
 
+export interface RoomQuote {
+  roomId: string
+  roomName: string
+  description: string | null
+  quote: PriceQuote
+}
+
+/**
+ * Restituisce TUTTE le camere compatibili (capienza), prezzate e con disponibilità
+ * verificata e libera, ordinate per prezzo crescente. Funzione PURA (nessuna scrittura).
+ * Usata dal flusso definitivo: il preventivo mostra tutte le opzioni, il cliente sceglie.
+ */
+export async function selectAllQuotes(
+  sb: SupabaseClient<Database>,
+  opts: {
+    propertyId: string
+    orgId: string
+    checkIn: string
+    checkOut: string
+    adults: number
+    childrenCount: number
+    todayIso?: string
+  }
+): Promise<RoomQuote[]> {
+  const guests = opts.adults + opts.childrenCount
+
+  const { data: rooms } = await sb
+    .from('rooms')
+    .select('id, name, description, max_guests')
+    .eq('property_id', opts.propertyId)
+    .is('deleted_at', null)
+    .gte('max_guests', guests)
+    .order('max_guests', { ascending: true })
+
+  if (!rooms || rooms.length === 0) return []
+
+  const out: RoomQuote[] = []
+  for (const room of rooms) {
+    const quote = await computeQuote(sb, {
+      propertyId: opts.propertyId, orgId: opts.orgId, roomId: room.id,
+      checkIn: opts.checkIn, checkOut: opts.checkOut, adults: opts.adults, todayIso: opts.todayIso,
+    })
+    if (quote.grossTotalCents <= 0) continue
+    const avail = await checkAvailability(sb, room.id, opts.checkIn, opts.checkOut)
+    if (!avail.verified || !avail.available) continue
+    out.push({ roomId: room.id, roomName: room.name, description: room.description, quote })
+  }
+  out.sort((a, b) => a.quote.offerTotalCents - b.quote.offerTotalCents)
+  return out
+}
+
 /**
  * Seleziona la camera migliore e calcola il preventivo — funzione PURA (nessuna
  * scrittura). Considera SOLO camere con capienza sufficiente, tariffa presente

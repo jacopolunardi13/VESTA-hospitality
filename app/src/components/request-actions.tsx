@@ -1,6 +1,6 @@
 'use client'
 
-import { transitionRequest } from '@/app/(dashboard)/inbox/actions'
+import { transitionRequest, confirmAvailability, markUnavailable } from '@/app/(dashboard)/inbox/actions'
 import type { BookingStatus } from '@/lib/quote/types'
 
 interface ActionDef {
@@ -22,8 +22,9 @@ const actionsByStatus: Record<BookingStatus, ActionDef[]> = {
     { to: 'rejected',    label: '✖ Rifiuta',                danger:  true },
     { to: 'cancelled',   label: '✖ Cancella',               danger:  true },
   ],
+  // 'interested' = "In attesa verifica disponibilità": le azioni primarie sono dedicate
+  // (confirmAvailability / markUnavailable, vedi sotto). Qui restano solo rifiuta/cancella.
   interested:            [
-    { to: 'availability_blocked', label: '🔍 Blocca disponibilità', primary: true },
     { to: 'rejected',             label: '✖ Rifiuta',               danger:  true },
     { to: 'cancelled',            label: '✖ Cancella',              danger:  true },
   ],
@@ -54,7 +55,7 @@ export default function RequestActions({
 }) {
   const actions = actionsByStatus[status]
 
-  if (actions.length === 0) {
+  if (actions.length === 0 && status !== 'interested') {
     return (
       <p className="text-sm text-slate-400">
         Nessuna azione disponibile per questo stato.
@@ -64,6 +65,28 @@ export default function RequestActions({
 
   return (
     <div className="flex flex-wrap gap-2">
+      {status === 'interested' && (
+        <>
+          <form action={confirmAvailability}>
+            <input type="hidden" name="request_id" value={requestId} />
+            <button
+              type="submit"
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+            >
+              ✅ Disponibile → riserva e richiedi pagamento
+            </button>
+          </form>
+          <form action={markUnavailable}>
+            <input type="hidden" name="request_id" value={requestId} />
+            <button
+              type="submit"
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+            >
+              ↩︎ Non disponibile → proponi alternative
+            </button>
+          </form>
+        </>
+      )}
       {actions.map(a => (
         <form key={a.to} action={transitionRequest}>
           <input type="hidden" name="request_id" value={requestId} />

@@ -12,10 +12,10 @@ import type {
 
 export const bookingStatusLabels: Record<BookingStatus, string> = {
   received: "Richiesta ricevuta",
-  proposal_sent: "Proposta inviata",
-  interested: "Interessato",
+  proposal_sent: "Preventivo inviato",
+  interested: "In attesa verifica disponibilità",
   to_verify: "Da verificare",
-  availability_blocked: "Disponibilità bloccata",
+  availability_blocked: "Riservata (staff/PMS)",
   awaiting_payment: "In attesa di pagamento",
   confirmed: "Confermata",
   expired: "Scaduta",

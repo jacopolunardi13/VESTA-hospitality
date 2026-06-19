@@ -5,10 +5,10 @@ import {
 } from '@/lib/ai/guardrail'
 import { getBudgetState } from '@/lib/ai/budget'
 import { runPipeline, SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
-import { persistProposal } from '@/lib/quote/draftProposal'
+import { persistProposal, selectAllQuotes } from '@/lib/quote/draftProposal'
 import { executeTransition } from '@/lib/quote/stateMachine'
 import { createNotification } from '@/lib/notifications'
-import { isInterest, isPaymentClaim, paymentInstructions, paymentAck, normLang } from '@/lib/ai/messages'
+import { isInterest, isPaymentClaim, matchRoomChoice, chooseRoomPrompt, availabilityCheckAck, paymentAck, normLang } from '@/lib/ai/messages'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
 import type { TablesUpdate, Json } from '@/lib/supabase/database.types'
 
@@ -120,9 +120,10 @@ export async function POST(request: Request) {
     })
   }
 
-  // ── Flusso commerciale: progressione di un lead esistente (interesse / pagamento) ──
-  // Ha precedenza sulla pipeline normale: riconosce nel contesto della conversazione
-  // se l'ospite sta confermando l'interesse o comunicando il pagamento.
+  // ── Flusso prenotazioni definitivo: progressione di un lead esistente ──
+  // Ha precedenza sulla pipeline normale. Riconosce nel contesto della conversazione
+  // la SCELTA della camera (su un preventivo già inviato) o la COMUNICAZIONE del pagamento.
+  // PRINCIPIO: Vesta non blocca mai una camera né dichiara "riservata" senza staff.
   {
     const { data: conv2 } = await sb
       .from('conversations')
@@ -132,31 +133,51 @@ export async function POST(request: Request) {
     const lang = normLang(conv2?.language)
     if (conv2?.booking_request_id) {
       const leadId = conv2.booking_request_id
-      const { data: lead } = await sb.from('booking_requests').select('status').eq('id', leadId).single()
+      const { data: lead } = await sb
+        .from('booking_requests')
+        .select('status, check_in, check_out, adults, children')
+        .eq('id', leadId)
+        .single()
 
-      // FASE 2 — cliente interessato → riserva camera 24h + attesa pagamento + istruzioni bonifico
-      if (lead?.status === 'proposal_sent' && isInterest(message)) {
-        const t1 = await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: 'Ospite ha manifestato interesse' })
-        const t2 = t1.ok ? await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'availability_blocked', actor: 'system', note: 'Camera riservata 24h (hold)' }) : t1
-        const t3 = t2.ok ? await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'awaiting_payment', actor: 'system', note: 'In attesa pagamento anticipato' }) : t2
-        if (!t3.ok) {
-          // Transizione non riuscita (es. doppio invio concorrente): non procedere col flusso pagamento.
-          const ack = paymentAck(lang)
-          await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: ack })
-          return Response.json({ conversationId, reply: ack, intent: 'booking', stage: 'negotiating', status: 'awaiting_payment', source: 'template' })
-        }
-        const s = property.settings
-        const reply = paymentInstructions(lang, {
-          holder: String(s['payment_holder'] ?? ''), iban: String(s['iban'] ?? ''),
-          branch: String(s['payment_branch'] ?? ''), causal: String(s['payment_causal'] ?? 'LunArt'),
+      // PASSO 2-4 — scelta camera su un preventivo già inviato.
+      // Solo: crea/aggiorna la richiesta con la camera scelta + notifica staff.
+      // NESSUN blocco camera, NESSUNA dichiarazione "riservata", NESSUN IBAN (avvengono
+      // solo dopo verifica disponibilità + chiusura PMS da parte dello staff).
+      if (lead?.status === 'proposal_sent' && lead.check_in && lead.check_out && lead.adults != null) {
+        const all = await selectAllQuotes(sb, {
+          propertyId, orgId: property.orgId,
+          checkIn: lead.check_in, checkOut: lead.check_out,
+          adults: lead.adults, childrenCount: Array.isArray(lead.children) ? lead.children.length : 0,
+          todayIso: new Date().toISOString().slice(0, 10),
         })
-        await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
-        await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
-        await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Pagamento atteso', body: 'Camera riservata 24h: in attesa del bonifico anticipato dall\'ospite.', bookingRequestId: leadId, conversationId })
-        return Response.json({ conversationId, reply, intent: 'booking', stage: 'negotiating', status: 'awaiting_payment', source: 'template' })
+        if (all.length > 0) {
+          const options = all.map((r) => ({ roomId: r.roomId, name: r.roomName, amountEur: Math.round(r.quote.offerTotalCents / 100) }))
+          const matched = matchRoomChoice(message, options)
+          let chosen = matched.length === 1 ? all.find((r) => r.roomId === matched[0].roomId) ?? null : null
+          if (!chosen && matched.length === 0 && isInterest(message) && all.length === 1) chosen = all[0]
+
+          if (chosen) {
+            await persistProposal(sb, { orgId: property.orgId, bookingRequestId: leadId, roomName: chosen.roomName, quote: chosen.quote, autoSend: true })
+            const offerEur = Math.round(chosen.quote.offerTotalCents / 100)
+            await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: `Cliente ha scelto: ${chosen.roomName} (€${offerEur}) — richiede verifica disponibilità PMS` })
+            const reply = availabilityCheckAck(lang, chosen.roomName)
+            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
+            await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
+            await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto ${chosen.roomName} (€${offerEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
+            return Response.json({ conversationId, reply, intent: 'booking', stage: 'negotiating', status: 'interested', source: 'template' })
+          }
+
+          // Scelta ambigua, oppure intenzione di procedere con più camere disponibili → chiedi quale.
+          if (matched.length > 1 || (isInterest(message) && all.length > 1)) {
+            const reply = chooseRoomPrompt(lang, matched.length > 1 ? matched : options)
+            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
+            return Response.json({ conversationId, reply, intent: 'booking', stage: 'proposal_sent', status: 'open', source: 'template' })
+          }
+          // Nessuna scelta riconosciuta → prosegui con la pipeline (FAQ/altro/nuova richiesta).
+        }
       }
 
-      // FASE 3 — pagamento/contabile comunicato → notifica staff, NESSUNA conferma automatica
+      // PASSO 6 — pagamento/contabile comunicato → notifica staff, NESSUNA conferma automatica
       if (lead?.status === 'awaiting_payment' && isPaymentClaim(message)) {
         const reply = paymentAck(lang)
         await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
@@ -279,10 +300,23 @@ export async function POST(request: Request) {
       }
     }
 
-    // Preventivo calcolato dalla pipeline (lib/quote) + notifica staff.
-    // STANDARD + prezzo affidabile + disponibilità verificata → invio automatico.
-    // Altrimenti → fallback cortesia: bozza per lo staff (se calcolabile) + notifica Jacopo.
-    if (leadId && result.draft) {
+    // Passo 1 (flusso definitivo): preventivo MULTI-camera inviato all'ospite.
+    // Lead → proposal_sent. Nessuna camera ancora scelta (avviene al passo successivo,
+    // gestito dallo short-circuit di scelta camera). Nessun blocco, nessun prezzo singolo.
+    if (leadId && result.proposalRooms && result.proposalRooms.length > 0) {
+      const n = result.proposalRooms.length
+      await executeTransition(sb, {
+        requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
+        note: `Preventivo inviato: ${n} camere disponibili mostrate all'ospite`,
+      })
+      await createNotification(sb, {
+        orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
+        title: `Preventivo inviato · ${n} camere`,
+        body: `Mostrate ${n} camere disponibili all'ospite; in attesa della scelta della camera.`,
+        bookingRequestId: leadId, conversationId,
+      })
+    // Bozza singola (fallback cortesia non-standard / staff): persistita per lo staff.
+    } else if (leadId && result.draft) {
       await persistProposal(sb, {
         orgId: property.orgId, bookingRequestId: leadId,
         roomName: result.draft.roomName, quote: result.draft.quote,

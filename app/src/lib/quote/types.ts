@@ -8,7 +8,7 @@ export type BookingActor = 'staff' | 'system' | 'guest'
 export const VALID_TRANSITIONS: Readonly<Record<BookingStatus, readonly BookingStatus[]>> = {
   received:              ['proposal_sent', 'rejected', 'cancelled'],
   proposal_sent:         ['interested', 'expired', 'rejected', 'cancelled'],
-  interested:            ['availability_blocked', 'rejected', 'cancelled'],
+  interested:            ['proposal_sent', 'availability_blocked', 'rejected', 'cancelled'],
   availability_blocked:  ['awaiting_payment', 'expired', 'cancelled'],
   awaiting_payment:      ['confirmed', 'cancelled'],
   confirmed:             ['cancelled'],

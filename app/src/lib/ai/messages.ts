@@ -60,6 +60,132 @@ export function paymentInstructions(lang: Lang, b: BankDetails): string {
   return body[lang]
 }
 
+// ── Flusso definitivo: opzione camera per il preventivo multi-camera ──
+export interface RoomOption { roomId: string; name: string; description?: string | null; amountEur: number }
+
+function roomLine(r: RoomOption, perStay: Record<Lang, string>, lang: Lang): string {
+  const desc = r.description && r.description.trim() ? `\n  ${r.description.trim()}` : ''
+  return `• ${r.name} — €${r.amountEur} ${perStay[lang]}${desc}`
+}
+
+// ── Passo 1: preventivo con TUTTE le camere disponibili (prezzo + descrizione) ──
+export function proposalAllText(lang: Lang, rooms: RoomOption[]): string {
+  const perStay: Record<Lang, string> = {
+    it: "per l'intero soggiorno, colazione inclusa",
+    en: 'for the entire stay, breakfast included',
+    es: 'por toda la estancia, desayuno incluido',
+    fr: "pour l'ensemble du séjour, petit-déjeuner inclus",
+    de: 'für den gesamten Aufenthalt, Frühstück inklusive',
+  }
+  const intro: Record<Lang, string> = {
+    it: 'Grazie per la sua richiesta. Per il soggiorno richiesto queste sono le camere disponibili:',
+    en: 'Thank you for your request. For your stay, these are the available rooms:',
+    es: 'Gracias por su solicitud. Para su estancia, estas son las habitaciones disponibles:',
+    fr: 'Merci pour votre demande. Pour votre séjour, voici les chambres disponibles :',
+    de: 'Vielen Dank für Ihre Anfrage. Für Ihren Aufenthalt sind dies die verfügbaren Zimmer:',
+  }
+  const outro: Record<Lang, string> = {
+    it: 'Mi indichi quale camera preferisce e sarò lieto di guidarla nella prenotazione.',
+    en: 'Let me know which room you prefer and I will gladly guide you through the booking.',
+    es: 'Indíqueme qué habitación prefiere y estaré encantado de guiarle en la reserva.',
+    fr: 'Indiquez-moi quelle chambre vous préférez et je vous guiderai volontiers dans la réservation.',
+    de: 'Sagen Sie mir, welches Zimmer Sie bevorzugen, und ich begleite Sie gerne bei der Buchung.',
+  }
+  const list = rooms.map((r) => roomLine(r, perStay, lang)).join('\n\n')
+  return `${intro[lang]}\n\n${list}\n\n${outro[lang]}`
+}
+
+// ── Passo 2: disambiguazione scelta camera ──
+export function chooseRoomPrompt(lang: Lang, rooms: RoomOption[]): string {
+  const names = rooms.map((r) => `${r.name} (€${r.amountEur})`).join('; ')
+  const T: Record<Lang, string> = {
+    it: `Per procedere, mi indichi quale camera preferisce tra: ${names}.`,
+    en: `To proceed, please tell me which room you prefer among: ${names}.`,
+    es: `Para continuar, indíqueme qué habitación prefiere entre: ${names}.`,
+    fr: `Pour continuer, indiquez-moi quelle chambre vous préférez parmi : ${names}.`,
+    de: `Um fortzufahren, sagen Sie mir bitte, welches Zimmer Sie bevorzugen: ${names}.`,
+  }
+  return T[lang]
+}
+
+// ── Passo 4: conferma cliente → richiesta inoltrata allo staff (NESSUN blocco/IBAN) ──
+export function availabilityCheckAck(lang: Lang, roomName: string): string {
+  const T: Record<Lang, string> = {
+    it: `Grazie. Ho inoltrato la sua richiesta per la ${roomName} al nostro staff, che verificherà la disponibilità e le confermerà a breve. La camera non è ancora riservata: non effettui alcun pagamento finché non riceve la nostra conferma.`,
+    en: `Thank you. I have forwarded your request for ${roomName} to our staff, who will verify availability and confirm shortly. The room is not yet reserved: please do not make any payment until you receive our confirmation.`,
+    es: `Gracias. He remitido su solicitud de la ${roomName} a nuestro personal, que verificará la disponibilidad y le confirmará en breve. La habitación aún no está reservada: no realice ningún pago hasta recibir nuestra confirmación.`,
+    fr: `Merci. J'ai transmis votre demande pour la ${roomName} à notre personnel, qui vérifiera la disponibilité et vous confirmera sous peu. La chambre n'est pas encore réservée : n'effectuez aucun paiement avant de recevoir notre confirmation.`,
+    de: `Vielen Dank. Ich habe Ihre Anfrage für das ${roomName} an unser Team weitergeleitet, das die Verfügbarkeit prüft und Ihnen in Kürze bestätigt. Das Zimmer ist noch nicht reserviert: Bitte leisten Sie keine Zahlung, bevor Sie unsere Bestätigung erhalten.`,
+  }
+  return T[lang]
+}
+
+// ── Passo 5 (staff: non disponibile) → proposta alternative ──
+export function alternativesText(lang: Lang, rooms: RoomOption[]): string {
+  const perStay: Record<Lang, string> = {
+    it: "per l'intero soggiorno, colazione inclusa",
+    en: 'for the entire stay, breakfast included',
+    es: 'por toda la estancia, desayuno incluido',
+    fr: "pour l'ensemble du séjour, petit-déjeuner inclus",
+    de: 'für den gesamten Aufenthalt, Frühstück inklusive',
+  }
+  const intro: Record<Lang, string> = {
+    it: 'Ci dispiace, la camera scelta non è più disponibile per le date richieste. In alternativa possiamo proporle:',
+    en: 'We are sorry, the chosen room is no longer available for your dates. As an alternative we can offer:',
+    es: 'Lo sentimos, la habitación elegida ya no está disponible para sus fechas. Como alternativa podemos ofrecerle:',
+    fr: "Nous sommes désolés, la chambre choisie n'est plus disponible pour vos dates. En alternative, nous pouvons vous proposer :",
+    de: 'Es tut uns leid, das gewählte Zimmer ist für Ihre Daten nicht mehr verfügbar. Alternativ können wir Ihnen anbieten:',
+  }
+  const outro: Record<Lang, string> = {
+    it: 'Mi faccia sapere se una di queste fa al caso suo.',
+    en: 'Let me know if one of these works for you.',
+    es: 'Dígame si alguna de estas le conviene.',
+    fr: "Dites-moi si l'une d'elles vous convient.",
+    de: 'Sagen Sie mir, ob eines davon für Sie passt.',
+  }
+  const list = rooms.map((r) => roomLine(r, perStay, lang)).join('\n\n')
+  return `${intro[lang]}\n\n${list}\n\n${outro[lang]}`
+}
+
+// ── Passo 5 (staff: nessuna alternativa) ──
+export function noAvailabilityText(lang: Lang): string {
+  const T: Record<Lang, string> = {
+    it: 'Ci dispiace, al momento non abbiamo altre camere disponibili per le date richieste. Il nostro staff la ricontatterà al più presto.',
+    en: 'We are sorry, we currently have no other rooms available for your dates. Our staff will get back to you as soon as possible.',
+    es: 'Lo sentimos, por el momento no tenemos otras habitaciones disponibles para sus fechas. Nuestro personal se pondrá en contacto con usted lo antes posible.',
+    fr: "Nous sommes désolés, nous n'avons actuellement aucune autre chambre disponible pour vos dates. Notre personnel vous recontactera dès que possible.",
+    de: 'Es tut uns leid, derzeit haben wir keine weiteren Zimmer für Ihre Daten verfügbar. Unser Team meldet sich so bald wie möglich bei Ihnen.',
+  }
+  return T[lang]
+}
+
+// ── Matcher scelta camera (parsing libero): numero → prezzo → tipo → "più economica" ──
+function roomTypeKey(name: string): string | null {
+  const parts = name.split(/[—\-]/)
+  if (parts.length < 2) return null
+  return norm(parts[parts.length - 1]).trim().split(/\s+/)[0] || null
+}
+export function matchRoomChoice(
+  message: string,
+  rooms: Array<{ roomId: string; name: string; amountEur: number }>
+): Array<{ roomId: string; name: string; amountEur: number }> {
+  const n = norm(message)
+  const numberMatches = rooms.filter((r) => {
+    const m = r.name.match(/\d{2,4}/)
+    return !!m && new RegExp(`(^|\\D)${m[0]}(\\D|$)`).test(n)
+  })
+  if (numberMatches.length >= 1) return numberMatches
+  const priceMatches = rooms.filter((r) => new RegExp(`(^|\\D)${r.amountEur}(\\D|$)`).test(n))
+  if (priceMatches.length === 1) return priceMatches
+  const typeMatches = rooms.filter((r) => { const t = roomTypeKey(r.name); return !!t && n.includes(t) })
+  if (typeMatches.length >= 1) return typeMatches
+  if (priceMatches.length > 1) return priceMatches
+  if (/\b(economic\w*|meno car\w*|cheap\w*|barat\w*|prima|first|primera|premiere|erste|gunstig\w*|guenstig\w*)\b/.test(n)) {
+    return rooms.length ? [rooms[0]] : []
+  }
+  return []
+}
+
 // ── Fase 3: conferma ricezione comunicazione di pagamento (no auto-conferma) ──
 export function paymentAck(lang: Lang): string {
   const T: Record<Lang, string> = {

@@ -5,8 +5,8 @@ import { searchKnowledge, kbContextText, KB_DIRECT_ANSWER_RANK } from './knowled
 import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, slotsComplete, type ExtractedSlots } from './extract'
-import { selectBestQuote, type SelectedQuote } from '@/lib/quote/draftProposal'
-import { proposalText, normLang } from './messages'
+import { selectBestQuote, selectAllQuotes, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
+import { proposalAllText, normLang, type RoomOption } from './messages'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -29,6 +29,8 @@ export interface PipelineResult {
   draft?: SelectedQuote
   /** true → richiesta standard: invio automatico della proposta. */
   autoSend?: boolean
+  /** Passo 1 flusso definitivo: tutte le camere disponibili mostrate all'ospite. */
+  proposalRooms?: RoomQuote[]
 }
 
 // Template deterministici (zero AI). MVP in italiano; localizzazione successiva.
@@ -168,34 +170,30 @@ export async function runPipeline(opts: {
         }
       }
 
-      const recap = recapText(slots)
-      // selectBestQuote considera SOLO camere con tariffa E disponibilità verificata
-      // e libera (anti-overbooking): se ritorna una camera, è prezzata e disponibile.
-      const draft = await selectBestQuote(sb, {
-        propertyId: property.id, orgId: property.orgId,
-        checkIn: slots.check_in!, checkOut: slots.check_out!,
-        adults: slots.adults!, childrenCount: slots.children.length,
-        todayIso,
-      })
-
       const standard = isStandardBooking(slots, userMessage, property.settings)
-      const priceOk = !!draft && draft.quote.dataReliability !== 'low'
 
-      // AUTO-INVIO solo se: standard + prezzo affidabile + camera disponibile (garantita da draft).
-      // NON blocca mai la camera: passa a proposal_sent, mai availability_blocked.
-      // FASE 1: messaggio semplice e naturale, localizzato; nessuno sconto/tassa/validità/tecnicismi.
-      // Il prezzo mostrato è già l'offerta finale (sconto/last-minute/arrotondamento applicati).
-      if (standard && priceOk && draft) {
-        const lang = normLang(slots.language)
-        const amountEur = Math.round(draft.quote.offerTotalCents / 100)
-        // proposalText antepone già il sostantivo localizzato (Camera/Room/…): togliamo
-        // un eventuale prefisso "Camera " dal nome in DB per evitare "Camera Camera 301".
-        const roomLabel = draft.roomName.replace(/^\s*camera\s+/i, '').trim()
-        return {
-          text: proposalText(lang, roomLabel, amountEur),
-          intent, confidence, stage: 'proposal_sent', status: 'open',
-          source: 'template', escalated: false, createLead: true,
-          slots, slotsReady: true, draft, autoSend: true,
+      // FLUSSO DEFINITIVO · Passo 1 — richiesta standard: mostra TUTTE le camere
+      // disponibili+prezzate (affidabilità non bassa) con prezzo e descrizione.
+      // Il cliente sceglie; Vesta NON blocca nulla e NON propone una sola camera.
+      if (standard) {
+        const all = await selectAllQuotes(sb, {
+          propertyId: property.id, orgId: property.orgId,
+          checkIn: slots.check_in!, checkOut: slots.check_out!,
+          adults: slots.adults!, childrenCount: slots.children.length, todayIso,
+        })
+        const reliable = all.filter((r) => r.quote.dataReliability !== 'low')
+        if (reliable.length > 0) {
+          const lang = normLang(slots.language)
+          const options: RoomOption[] = reliable.map((r) => ({
+            roomId: r.roomId, name: r.roomName, description: r.description,
+            amountEur: Math.round(r.quote.offerTotalCents / 100),
+          }))
+          return {
+            text: proposalAllText(lang, options),
+            intent, confidence, stage: 'proposal_sent', status: 'open',
+            source: 'template', escalated: false, createLead: true,
+            slots, slotsReady: true, proposalRooms: reliable,
+          }
         }
       }
 
@@ -204,6 +202,12 @@ export async function runPipeline(opts: {
       // notifica lo staff/Jacopo (lato route) e risponde con messaggio di cortesia.
       // NESSUN prezzo comunicato all'ospite. Se una bozza è calcolabile, viene salvata
       // per lo staff (passata al chiamante via `draft`).
+      const draft = await selectBestQuote(sb, {
+        propertyId: property.id, orgId: property.orgId,
+        checkIn: slots.check_in!, checkOut: slots.check_out!,
+        adults: slots.adults!, childrenCount: slots.children.length,
+        todayIso,
+      })
       return {
         text: T.courtesy_quote,
         intent, confidence, stage: 'quoting', status: 'open',

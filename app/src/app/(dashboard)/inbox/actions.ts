@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { executeTransition } from '@/lib/quote/stateMachine'
 import { computeQuote } from '@/lib/quote/priceEngine'
+import { selectAllQuotes } from '@/lib/quote/draftProposal'
+import { createNotification } from '@/lib/notifications'
+import { paymentInstructions, alternativesText, noAvailabilityText, normLang } from '@/lib/ai/messages'
 import type { BookingStatus } from '@/lib/quote/types'
 
 async function resolveProperty() {
@@ -216,6 +219,131 @@ export async function transitionRequest(formData: FormData) {
 
   if (!result.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
   redirect(`/inbox/${requestId}?saved=ok`)
+}
+
+/**
+ * FLUSSO DEFINITIVO · Passo 5 — lo staff ha verificato la disponibilità nel PMS e
+ * ha CHIUSO la camera. Solo ora Vesta riserva (hold 24h) e invia all'ospite le
+ * istruzioni di pagamento con IBAN. interested → availability_blocked → awaiting_payment.
+ */
+export async function confirmAvailability(formData: FormData) {
+  const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
+  if (!requestId) redirect('/inbox?error=missing_fields')
+
+  const { supabase, propertyId, orgId } = await resolveProperty()
+
+  const { data: req } = await supabase
+    .from('booking_requests')
+    .select('id, status, conversation_id, language, offer_total_cents')
+    .eq('id', requestId)
+    .eq('org_id', orgId)
+    .single()
+  if (!req) redirect('/inbox?error=not_found')
+  if (req.status !== 'interested') redirect(`/inbox/${requestId}?error=invalid_state`)
+
+  // Camera scelta (da booking_request_items) per il messaggio allo staff/ospite.
+  const { data: items } = await supabase
+    .from('booking_request_items')
+    .select('room_id')
+    .eq('booking_request_id', requestId)
+    .limit(1)
+  let roomName = ''
+  if (items && items[0]?.room_id) {
+    const { data: room } = await supabase.from('rooms').select('name').eq('id', items[0].room_id).single()
+    roomName = room?.name ?? ''
+  }
+
+  // Transizioni (staff): riserva 24h + attesa pagamento.
+  const t1 = await executeTransition(supabase, { requestId, orgId, toStatus: 'availability_blocked', actor: 'staff', note: `Disponibilità verificata e camera chiusa nel PMS dallo staff${roomName ? ` (${roomName})` : ''}` })
+  if (!t1.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
+  const t2 = await executeTransition(supabase, { requestId, orgId, toStatus: 'awaiting_payment', actor: 'staff', note: 'Riservata 24h: inviate istruzioni di pagamento all\'ospite' })
+  if (!t2.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
+
+  // Istruzioni di pagamento all'ospite (IBAN solo ora) nella sua lingua.
+  const { data: prop } = await supabase.from('properties').select('settings').eq('id', propertyId).single()
+  const s = (prop?.settings ?? {}) as Record<string, unknown>
+  const lang = normLang(req.language)
+  const reply = paymentInstructions(lang, {
+    holder: String(s['payment_holder'] ?? ''), iban: String(s['iban'] ?? ''),
+    branch: String(s['payment_branch'] ?? ''), causal: String(s['payment_causal'] ?? 'LunArt'),
+  })
+  if (req.conversation_id) {
+    await supabase.from('messages').insert({
+      org_id: orgId, property_id: propertyId, conversation_id: req.conversation_id,
+      direction: 'out', sender: 'staff', content: reply,
+    })
+  }
+  await createNotification(supabase, {
+    orgId, propertyId, type: 'escalation', title: 'Pagamento atteso',
+    body: `Camera riservata 24h: inviate le istruzioni di bonifico all'ospite${roomName ? ` (${roomName})` : ''}.`,
+    bookingRequestId: requestId, conversationId: req.conversation_id,
+  })
+
+  redirect(`/inbox/${requestId}?saved=availability_confirmed`)
+}
+
+/**
+ * FLUSSO DEFINITIVO · Passo 5 (alternativa) — la camera scelta NON è più disponibile.
+ * Riporta la richiesta a proposal_sent e propone automaticamente le altre camere libere.
+ */
+export async function markUnavailable(formData: FormData) {
+  const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
+  if (!requestId) redirect('/inbox?error=missing_fields')
+
+  const { supabase, propertyId, orgId } = await resolveProperty()
+
+  const { data: req } = await supabase
+    .from('booking_requests')
+    .select('id, status, conversation_id, language, check_in, check_out, adults, children')
+    .eq('id', requestId)
+    .eq('org_id', orgId)
+    .single()
+  if (!req) redirect('/inbox?error=not_found')
+  if (req.status !== 'interested') redirect(`/inbox/${requestId}?error=invalid_state`)
+
+  // Camera scelta da escludere dalle alternative.
+  const { data: items } = await supabase
+    .from('booking_request_items')
+    .select('room_id')
+    .eq('booking_request_id', requestId)
+    .limit(1)
+  const excludedRoomId = items?.[0]?.room_id ?? null
+
+  // Torna a proposal_sent (lo staff rimette in gioco la richiesta con alternative).
+  const t = await executeTransition(supabase, { requestId, orgId, toStatus: 'proposal_sent', actor: 'staff', note: 'Camera scelta non disponibile nel PMS: proposte alternative' })
+  if (!t.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
+
+  // Pulisce la camera scelta (non più valida).
+  await supabase.from('booking_request_items').delete().eq('booking_request_id', requestId)
+
+  const lang = normLang(req.language)
+  let reply = noAvailabilityText(lang)
+  if (req.check_in && req.check_out && req.adults != null) {
+    const all = await selectAllQuotes(supabase, {
+      propertyId, orgId, checkIn: req.check_in, checkOut: req.check_out,
+      adults: req.adults, childrenCount: Array.isArray(req.children) ? req.children.length : 0,
+    })
+    const alternatives = all.filter((r) => r.roomId !== excludedRoomId)
+    if (alternatives.length > 0) {
+      reply = alternativesText(lang, alternatives.map((r) => ({
+        roomId: r.roomId, name: r.roomName, description: r.description,
+        amountEur: Math.round(r.quote.offerTotalCents / 100),
+      })))
+    }
+  }
+  if (req.conversation_id) {
+    await supabase.from('messages').insert({
+      org_id: orgId, property_id: propertyId, conversation_id: req.conversation_id,
+      direction: 'out', sender: 'staff', content: reply,
+    })
+  }
+  await createNotification(supabase, {
+    orgId, propertyId, type: 'escalation', title: 'Camera non disponibile — alternative inviate',
+    body: 'La camera scelta non era disponibile: Vesta ha proposto le alternative all\'ospite.',
+    bookingRequestId: requestId, conversationId: req.conversation_id,
+  })
+
+  redirect(`/inbox/${requestId}?saved=marked_unavailable`)
 }
 
 export async function overridePrice(formData: FormData) {
