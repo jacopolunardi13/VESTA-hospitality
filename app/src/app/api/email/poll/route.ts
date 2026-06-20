@@ -20,6 +20,8 @@ export async function POST(request: Request) {
     const list = await listRecent(token, 25, 3)
 
     const self = (process.env.GMAIL_ADDRESS ?? '').toLowerCase()
+    // Mittenti automatici a cui Vesta NON deve mai rispondere (no-reply, daemon, ecc.).
+    const AUTOMATED = /(no-?reply|do-?not-?reply|mailer-daemon|postmaster)/i
     let processed = 0
     let skipped = 0
     let errors = 0
@@ -30,8 +32,8 @@ export async function POST(request: Request) {
         // Dedup ledger: già processata? (indipendente dallo stato letto/non letto).
         if (await alreadyIngested(sb, property.id, m.id)) { skipped++; continue }
         const email = await getMessage(token, m.id)
-        // Salta le email inviate da noi stessi (sicurezza anti-loop).
-        if (email.from === self) { await markRead(token, m.id); skipped++; continue }
+        // Salta le email inviate da noi stessi o da mittenti automatici (anti-loop / no auto-reply a noreply).
+        if (email.from === self || AUTOMATED.test(email.from)) { await markRead(token, m.id); skipped++; continue }
         const r = await ingestEmail(sb, property, email, token)
         await markRead(token, m.id) // cosmetico: tiene l'inbox in ordine (non è il dedup)
         processed++
