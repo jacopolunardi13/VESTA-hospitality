@@ -3,14 +3,9 @@ import {
   MAX_MESSAGE_LENGTH, clientIp, hashIp, isIpBlocked, checkRateLimit,
   logGuardrail, sessionMessageCount,
 } from '@/lib/ai/guardrail'
-import { getBudgetState } from '@/lib/ai/budget'
-import { runPipeline, SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
-import { persistProposal, selectAllQuotes } from '@/lib/quote/draftProposal'
-import { executeTransition } from '@/lib/quote/stateMachine'
-import { createNotification } from '@/lib/notifications'
-import { isInterest, isPaymentClaim, matchRoomChoice, chooseRoomPrompt, availabilityCheckAck, paymentAck, normLang } from '@/lib/ai/messages'
-import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
-import type { TablesUpdate, Json } from '@/lib/supabase/database.types'
+import { SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
+import { processConversationTurn } from '@/lib/booking/orchestrate'
+import type { PropertyContext } from '@/lib/ai/types'
 
 export async function POST(request: Request) {
   let body: { propertyId?: string; conversationId?: string; message?: string }
@@ -100,7 +95,7 @@ export async function POST(request: Request) {
     metadata: { ip_hash: ipHash },
   })
 
-  // Session cap giornaliero.
+  // Session cap giornaliero (anti-abuse web).
   const sessionLimit = Number(property.settings['ai_session_message_limit'] ?? 30)
   const sessionCount = await sessionMessageCount(sb, conversationId)
   if (sessionCount > sessionLimit) {
@@ -120,254 +115,13 @@ export async function POST(request: Request) {
     })
   }
 
-  // ── Flusso prenotazioni definitivo: progressione di un lead esistente ──
-  // Ha precedenza sulla pipeline normale. Riconosce nel contesto della conversazione
-  // la SCELTA della camera (su un preventivo già inviato) o la COMUNICAZIONE del pagamento.
-  // PRINCIPIO: Vesta non blocca mai una camera né dichiara "riservata" senza staff.
-  {
-    const { data: conv2 } = await sb
-      .from('conversations')
-      .select('booking_request_id, language')
-      .eq('id', conversationId)
-      .single()
-    const lang = normLang(conv2?.language)
-    if (conv2?.booking_request_id) {
-      const leadId = conv2.booking_request_id
-      const { data: lead } = await sb
-        .from('booking_requests')
-        .select('status, check_in, check_out, adults, children')
-        .eq('id', leadId)
-        .single()
-
-      // PASSO 2-4 — scelta camera su un preventivo già inviato.
-      // Solo: crea/aggiorna la richiesta con la camera scelta + notifica staff.
-      // NESSUN blocco camera, NESSUNA dichiarazione "riservata", NESSUN IBAN (avvengono
-      // solo dopo verifica disponibilità + chiusura PMS da parte dello staff).
-      if (lead?.status === 'proposal_sent' && lead.check_in && lead.check_out && lead.adults != null) {
-        const all = await selectAllQuotes(sb, {
-          propertyId, orgId: property.orgId,
-          checkIn: lead.check_in, checkOut: lead.check_out,
-          adults: lead.adults, childrenCount: Array.isArray(lead.children) ? lead.children.length : 0,
-          todayIso: new Date().toISOString().slice(0, 10),
-        })
-        if (all.length > 0) {
-          const options = all.map((r) => ({ roomId: r.roomId, name: r.roomName, amountEur: Math.round(r.quote.offerTotalCents / 100) }))
-          const matched = matchRoomChoice(message, options)
-          let chosen = matched.length === 1 ? all.find((r) => r.roomId === matched[0].roomId) ?? null : null
-          if (!chosen && matched.length === 0 && isInterest(message) && all.length === 1) chosen = all[0]
-
-          if (chosen) {
-            await persistProposal(sb, { orgId: property.orgId, bookingRequestId: leadId, roomName: chosen.roomName, quote: chosen.quote, autoSend: true })
-            const offerEur = Math.round(chosen.quote.offerTotalCents / 100)
-            await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: `Cliente ha scelto: ${chosen.roomName} (€${offerEur}) — richiede verifica disponibilità PMS` })
-            const reply = availabilityCheckAck(lang, chosen.roomName)
-            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
-            await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
-            await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto ${chosen.roomName} (€${offerEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
-            return Response.json({ conversationId, reply, intent: 'booking', stage: 'negotiating', status: 'interested', source: 'template' })
-          }
-
-          // Scelta ambigua, oppure intenzione di procedere con più camere disponibili → chiedi quale.
-          if (matched.length > 1 || (isInterest(message) && all.length > 1)) {
-            const reply = chooseRoomPrompt(lang, matched.length > 1 ? matched : options)
-            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
-            return Response.json({ conversationId, reply, intent: 'booking', stage: 'proposal_sent', status: 'open', source: 'template' })
-          }
-          // Nessuna scelta riconosciuta → prosegui con la pipeline (FAQ/altro/nuova richiesta).
-        }
-      }
-
-      // PASSO 6 — pagamento/contabile comunicato → notifica staff, NESSUNA conferma automatica
-      if (lead?.status === 'awaiting_payment' && isPaymentClaim(message)) {
-        const reply = paymentAck(lang)
-        await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
-        await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Contabile ricevuta – verifica richiesta', body: 'L\'ospite dichiara di aver pagato. Verifica la contabile e premi "Conferma prenotazione".', bookingRequestId: leadId, conversationId })
-        return Response.json({ conversationId, reply, intent: 'booking', stage: 'negotiating', status: 'awaiting_payment', source: 'template' })
-      }
-    }
-  }
-
-  // Budget / safe mode.
-  const budget = await getBudgetState(sb, propertyId, property.settings)
-  if (budget.over80 && !budget.safeMode) {
-    await logGuardrail(sb, { orgId: property.orgId, propertyId, type: 'budget_80', details: { ...budget } })
-  }
-  if (budget.safeMode) {
-    await logGuardrail(sb, { orgId: property.orgId, propertyId, type: 'budget_100', details: { ...budget } })
-  }
-
-  // Storico (ultimi 10 messaggi, esclusa la riga appena inserita gestita come userMessage).
-  const { data: msgs } = await sb
-    .from('messages')
-    .select('direction, content, created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: false })
-    .limit(11)
-  const history: ChatTurn[] = (msgs ?? [])
-    .reverse()
-    .slice(0, -1) // rimuove il messaggio corrente (ultimo)
-    .map((m) => ({ role: m.direction === 'in' ? 'user' : 'assistant', content: m.content }))
-
-  // Pipeline knowledge-first.
-  let result
-  try {
-    result = await runPipeline({
-      sb, property, history, userMessage: message, aiEnabled: !budget.safeMode,
-      todayIso: new Date().toISOString().slice(0, 10),
-    })
-  } catch {
-    const fallback = 'Mi spiace, ho avuto un problema tecnico. Riprova tra poco o lascia un recapito allo staff.'
-    await sb.from('messages').insert({
-      org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
-      direction: 'out', sender: 'ai', content: fallback,
-    })
-    return Response.json({
-      conversationId, reply: fallback, intent: 'unclassified',
-      stage: 'new', status: 'open', source: 'template',
-    }, { status: 200 })
-  }
-
-  // Persisti la risposta (se presente — lo spam non risponde).
-  if (result.text) {
-    await sb.from('messages').insert({
-      org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
-      direction: 'out', sender: 'ai', content: result.text,
-    })
-  }
-
-  // Aggiorna metadati conversazione.
-  await sb.from('conversations').update({
-    intent: result.intent,
-    intent_confidence: result.confidence,
-    stage: result.stage,
-    status: result.status,
-  }).eq('id', conversationId)
-
-  // Lead da chat (booking): crea/collega booking_request + persiste slot + bozza.
-  if (result.createLead) {
-    const { data: conv } = await sb
-      .from('conversations')
-      .select('booking_request_id, guest_name, guest_contact')
-      .eq('id', conversationId)
-      .single()
-
-    let leadId = conv?.booking_request_id ?? null
-    const slots = result.slots
-
-    if (conv && !leadId) {
-      const { data: br } = await sb
-        .from('booking_requests')
-        .insert({
-          org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
-          source: 'website_chat', status: 'received',
-          guest_name: slots?.guest_name ?? conv.guest_name,
-          guest_contact: slots?.guest_contact ?? conv.guest_contact,
-        })
-        .select('id')
-        .single()
-      if (br) {
-        leadId = br.id
-        await sb.from('conversations').update({ booking_request_id: br.id }).eq('id', conversationId)
-        await sb.from('booking_request_events').insert({
-          org_id: property.orgId, booking_request_id: br.id,
-          from_status: null, to_status: 'received', actor: 'system',
-          note: 'Lead generato dalla chat (intent booking)',
-        })
-      }
-    }
-
-    // Persiste gli slot estratti sulla richiesta (solo valori presenti).
-    if (leadId && slots) {
-      const upd: TablesUpdate<'booking_requests'> = {}
-      if (slots.check_in) upd.check_in = slots.check_in
-      if (slots.check_out) upd.check_out = slots.check_out
-      if (slots.adults) upd.adults = slots.adults
-      if (slots.children.length) upd.children = slots.children as Json
-      if (slots.language) upd.language = slots.language
-      if (slots.special_requests) upd.special_requests = slots.special_requests
-      if (slots.guest_name) upd.guest_name = slots.guest_name
-      if (slots.guest_contact) upd.guest_contact = slots.guest_contact
-      if (Object.keys(upd).length > 0) {
-        await sb.from('booking_requests').update(upd).eq('id', leadId).eq('org_id', property.orgId)
-      }
-      // Riflette nome/contatto/lingua anche sulla conversazione.
-      const convUpd: TablesUpdate<'conversations'> = {}
-      if (slots.guest_name) convUpd.guest_name = slots.guest_name
-      if (slots.guest_contact) convUpd.guest_contact = slots.guest_contact
-      if (slots.language) convUpd.language = slots.language
-      if (Object.keys(convUpd).length > 0) {
-        await sb.from('conversations').update(convUpd).eq('id', conversationId)
-      }
-    }
-
-    // Passo 1 (flusso definitivo): preventivo MULTI-camera inviato all'ospite.
-    // Lead → proposal_sent. Nessuna camera ancora scelta (avviene al passo successivo,
-    // gestito dallo short-circuit di scelta camera). Nessun blocco, nessun prezzo singolo.
-    if (leadId && result.proposalRooms && result.proposalRooms.length > 0) {
-      const n = result.proposalRooms.length
-      await executeTransition(sb, {
-        requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
-        note: `Preventivo inviato: ${n} camere disponibili mostrate all'ospite`,
-      })
-      await createNotification(sb, {
-        orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
-        title: `Preventivo inviato · ${n} camere`,
-        body: `Mostrate ${n} camere disponibili all'ospite; in attesa della scelta della camera.`,
-        bookingRequestId: leadId, conversationId,
-      })
-    // Bozza singola (fallback cortesia non-standard / staff): persistita per lo staff.
-    } else if (leadId && result.draft) {
-      await persistProposal(sb, {
-        orgId: property.orgId, bookingRequestId: leadId,
-        roomName: result.draft.roomName, quote: result.draft.quote,
-        autoSend: !!result.autoSend,
-      })
-      const offerStr = (result.draft.quote.offerTotalCents / 100).toFixed(2) + '€'
-
-      if (result.autoSend) {
-        await executeTransition(sb, {
-          requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
-          note: `Proposta standard generata e inviata automaticamente: ${result.draft.roomName}, ${offerStr}`,
-        })
-        await createNotification(sb, {
-          orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
-          title: `Proposta inviata · ${offerStr}`,
-          body: `Inviata automaticamente all'ospite (${result.draft.roomName}).`,
-          bookingRequestId: leadId, conversationId,
-        })
-      } else {
-        await createNotification(sb, {
-          orgId: property.orgId, propertyId, type: 'proposal_draft',
-          title: `Richiesta preventivo da gestire · ${offerStr}`,
-          body: `Per Jacopo: verifica disponibilità/tariffa e invia (${result.draft.roomName}, affidabilità ${result.draft.quote.dataReliability}).`,
-          bookingRequestId: leadId, conversationId,
-        })
-      }
-    } else if (leadId && result.slotsReady && !result.autoSend) {
-      // Fallback cortesia SENZA bozza calcolabile (tariffe/disponibilità mancanti):
-      // lead creato + notifica Jacopo per la proposta personalizzata.
-      await createNotification(sb, {
-        orgId: property.orgId, propertyId, type: 'escalation',
-        title: 'Richiesta preventivo da gestire',
-        body: 'Per Jacopo: verifica disponibilità e migliore tariffa, poi invia una proposta personalizzata.',
-        bookingRequestId: leadId, conversationId,
-      })
-    }
-  }
-
-  // Notifica staff per le escalation / richieste da gestire (pending_staff).
-  if (result.status === 'pending_staff' && result.intent !== 'booking') {
-    await createNotification(sb, {
-      orgId: property.orgId, propertyId, type: 'escalation',
-      title: result.escalated ? 'Richiesta da gestire (escalation)' : 'Nuova richiesta da gestire',
-      body: `Categoria: ${result.intent}. La conversazione richiede attenzione dello staff.`,
-      conversationId,
-    })
-  }
+  // Orchestrazione del turno (condivisa con il canale email).
+  const turn = await processConversationTurn({
+    sb, property, conversationId, userMessage: message, leadSource: 'website_chat',
+  })
 
   return Response.json({
-    conversationId, reply: result.text, intent: result.intent,
-    stage: result.stage, status: result.status, source: result.source,
-    escalated: result.escalated,
+    conversationId, reply: turn.reply, intent: turn.intent,
+    stage: turn.stage, status: turn.status, source: turn.source, escalated: turn.escalated,
   })
 }
