@@ -11,7 +11,7 @@ const INTENTS: ConversationIntent[] = [
 ]
 
 const CLASSIFY_GUIDE = `Classifica il messaggio dell'ospite in UNA categoria. Non trattare ogni messaggio come una prenotazione.
-- booking: vuole prenotare/sapere disponibilità o prezzo per date (date o numero ospiti, "avete posto", "quanto costa dal…").
+- booking: vuole prenotare/sapere disponibilità o prezzo per date (date o numero ospiti, "avete posto", "quanto costa dal…"). Anche messaggi BREVISSIMI con solo un riferimento temporale (es. "domani", "stasera", "oggi", "questo weekend", "il prossimo weekend") in un contesto di richiesta disponibilità vanno classificati come booking.
 - faq: domanda informativa sul soggiorno senza intento immediato di prenotare.
 - guest_support: ha già una prenotazione (riferimenti a prenotazione esistente, codice, date imminenti).
 - partnership: agenzia/tour operator che vuole collaborare con la struttura (tariffe gruppi).
@@ -20,6 +20,21 @@ const CLASSIFY_GUIDE = `Classifica il messaggio dell'ospite in UNA categoria. No
 - spam: spam, link sospetti, testo ripetuto.
 - unclassified: non chiaro.
 Disambiguazione B2B: saas_lead = vuole comprare il software; partnership = porta ospiti; vendor = vende alla struttura. In dubbio tra saas_lead e gli altri, preferisci saas_lead.`
+
+// Riferimenti temporali "richiesta disponibilità" (IT) per i messaggi brevissimi.
+const TEMPORAL = /\b(domani|dopodomani|stasera|stanotte|stamattina|oggi|((quest[oa]|il\s+prossimo|prossim[oa])\s+)?(week[\s-]?end|fine\s+settimana))\b/i
+
+/** Override deterministico: messaggio breve con SOLO riferimento temporale, in un
+ *  contesto di richiesta disponibilità → booking (anche se l'AI è incerta). */
+function isShortTemporalAvailability(message: string): boolean {
+  const m = message.trim()
+  if (m.length === 0 || m.length > 60) return false
+  if (m.split(/\s+/).length > 8) return false
+  return TEMPORAL.test(m)
+}
+function maybeBookingOverride(intent: ConversationIntent, message: string): boolean {
+  return (intent === 'unclassified' || intent === 'faq') && isShortTemporalAvailability(message)
+}
 
 /** Intent detection (Haiku, structured output via tool). Logga in ai_calls. */
 export async function classifyIntent(
@@ -71,22 +86,27 @@ export async function classifyIntent(
     const toolUse = res.content.find((b) => b.type === 'tool_use')
     if (toolUse && toolUse.type === 'tool_use') {
       const input = toolUse.input as { intent?: string; confidence?: number; search_query_it?: string }
-      const intent = (INTENTS as string[]).includes(input.intent ?? '')
+      let intent = (INTENTS as string[]).includes(input.intent ?? '')
         ? (input.intent as ConversationIntent)
         : 'unclassified'
-      const confidence = typeof input.confidence === 'number'
+      let confidence = typeof input.confidence === 'number'
         ? Math.max(0, Math.min(1, input.confidence))
         : 0.5
       const searchQueryIt = typeof input.search_query_it === 'string' ? input.search_query_it : ''
+      if (maybeBookingOverride(intent, userMessage)) { intent = 'booking'; confidence = Math.max(confidence, 0.6) }
       return { intent, confidence, searchQueryIt }
     }
-    return { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
+    return isShortTemporalAvailability(userMessage)
+      ? { intent: 'booking', confidence: 0.6, searchQueryIt: '' }
+      : { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
   } catch (e) {
     await logAiCall(sb, {
       orgId: property.orgId, propertyId: property.id, fn: 'classify', model,
       inputTokens: 0, outputTokens: 0, latencyMs: Date.now() - started,
       success: false, error: e instanceof Error ? e.message : String(e),
     })
-    return { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
+    return isShortTemporalAvailability(userMessage)
+      ? { intent: 'booking', confidence: 0.6, searchQueryIt: '' }
+      : { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
   }
 }
