@@ -110,9 +110,11 @@ const euro = (c: number) => new Intl.NumberFormat('it-IT', { style: 'currency', 
 
 // Una richiesta è NON standard (→ supervisione) se contiene sconti/trattativa,
 // gruppi/eventi, cancellazioni/spostamenti/modifiche, o supera la soglia gruppo.
-const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|grupp|comitiva|matrimoni|nozze|festa|cerimoni|event|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
+// Nota: `\bmatrimoni(o)?\b` marca SOLO l'evento (matrimonio/matrimoni), NON la camera
+// "matrimoniale"/"matrimoniali" (dopo "matrimoni" segue "ale", niente confine di parola).
+const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|grupp|comitiva|\bmatrimoni(o)?\b|nozze|festa|cerimoni|event|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
 
-function isStandardBooking(s: ExtractedSlots, message: string, settings: Record<string, unknown>): boolean {
+export function isStandardBooking(s: ExtractedSlots, message: string, settings: Record<string, unknown>): boolean {
   if (NON_STANDARD.test(message)) return false
   const groupThreshold = Number(settings['escalation_group_guests'] ?? 6)
   const guests = (s.adults ?? 0) + s.children.length
