@@ -7,9 +7,12 @@ export function formatEuro(cents: number): string {
   }).format(cents / 100);
 }
 
+// timeZone fisso Europe/Rome: il rendering (anche server-side su Vercel/UTC) mostra
+// sempre l'ora italiana, evitando lo sfasamento UTC nelle date/orari della dashboard.
 const dateFmt = new Intl.DateTimeFormat("it-IT", {
   day: "numeric",
   month: "short",
+  timeZone: "Europe/Rome",
 });
 
 const dateTimeFmt = new Intl.DateTimeFormat("it-IT", {
@@ -17,6 +20,7 @@ const dateTimeFmt = new Intl.DateTimeFormat("it-IT", {
   month: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Rome",
 });
 
 export function formatDate(iso: string): string {
