@@ -100,16 +100,22 @@ export default function NotificationBell({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-30 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-            <span className="text-sm font-semibold text-slate-900">Notifiche</span>
-            {unread > 0 && (
-              <button type="button" onClick={onMarkAll} className="text-xs text-slate-500 hover:text-slate-800">
-                Segna tutte come lette
-              </button>
-            )}
-          </div>
-          <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+        <>
+          {/* Backdrop solo mobile */}
+          <div className="fixed inset-0 z-30 bg-black/30 md:hidden" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40 flex flex-col bg-white md:absolute md:inset-auto md:right-0 md:top-10 md:z-30 md:max-h-[80vh] md:w-80 md:overflow-hidden md:rounded-lg md:border md:border-slate-200 md:shadow-lg">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-3 md:py-2">
+              <span className="text-base font-semibold text-slate-900 md:text-sm">Notifiche</span>
+              <div className="flex items-center gap-3">
+                {unread > 0 && (
+                  <button type="button" onClick={onMarkAll} className="text-xs text-slate-500 hover:text-slate-800">
+                    Segna tutte come lette
+                  </button>
+                )}
+                <button type="button" onClick={() => setOpen(false)} aria-label="Chiudi" className="text-lg leading-none text-slate-400 hover:text-slate-700 md:hidden">✕</button>
+              </div>
+            </div>
+          <ul className="flex-1 divide-y divide-slate-100 overflow-y-auto md:max-h-96 md:flex-none">
             {items.length === 0 && (
               <li className="px-3 py-6 text-center text-sm text-slate-400">Nessuna notifica.</li>
             )}
@@ -131,7 +137,8 @@ export default function NotificationBell({
               </li>
             ))}
           </ul>
-        </div>
+          </div>
+        </>
       )}
     </div>
   )

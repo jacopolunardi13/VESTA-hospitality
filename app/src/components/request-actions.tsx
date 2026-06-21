@@ -64,14 +64,14 @@ export default function RequestActions({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       {status === 'interested' && (
         <>
           <form action={confirmAvailability}>
             <input type="hidden" name="request_id" value={requestId} />
             <button
               type="submit"
-              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+              className="rounded-md bg-slate-900 w-full px-3 py-2.5 text-center text-sm font-medium sm:w-auto text-white transition-colors hover:bg-slate-700"
             >
               ✅ Disponibile → riserva e richiedi pagamento
             </button>
@@ -80,7 +80,7 @@ export default function RequestActions({
             <input type="hidden" name="request_id" value={requestId} />
             <button
               type="submit"
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+              className="rounded-md border border-slate-300 w-full px-3 py-2.5 text-center text-sm font-medium sm:w-auto text-slate-700 transition-colors hover:bg-slate-100"
             >
               ↩︎ Non disponibile → proponi alternative
             </button>
@@ -93,7 +93,7 @@ export default function RequestActions({
           <input type="hidden" name="to_status" value={a.to} />
           <button
             type="submit"
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-md w-full px-3 py-2.5 text-center text-sm font-medium sm:w-auto transition-colors ${
               a.primary
                 ? 'bg-slate-900 text-white hover:bg-slate-700'
                 : a.danger

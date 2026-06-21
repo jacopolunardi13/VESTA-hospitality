@@ -42,7 +42,7 @@ function RequestRow({ r }: { r: BookingRow }) {
     <li>
       <Link
         href={`/inbox/${r.id}`}
-        className={`flex flex-col gap-2 border-l-4 px-4 py-3 transition-colors hover:bg-slate-50 ${
+        className={`flex flex-col gap-1.5 border-l-4 px-3 py-2.5 transition-colors hover:bg-slate-50 sm:px-4 sm:py-3 ${
           action ? 'border-red-500' : 'border-transparent'
         }`}
       >
@@ -74,7 +74,7 @@ function RequestRow({ r }: { r: BookingRow }) {
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-500">
           {action && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs font-bold tracking-wide text-white uppercase">
+            <span className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase">
               ⚡ {action}
             </span>
           )}
