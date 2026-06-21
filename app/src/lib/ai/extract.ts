@@ -9,7 +9,7 @@ export interface ExtractedSlots {
   check_in: string | null      // ISO date YYYY-MM-DD
   check_out: string | null     // ISO date YYYY-MM-DD
   adults: number | null
-  children: { age: number }[]
+  children: { age: number | null }[]  // age null = bambino citato senza età (mai scartato)
   language: string | null
   guest_name: string | null
   guest_contact: string | null
@@ -22,7 +22,7 @@ Regole:
 - Se l'anno non è indicato, assumi il prossimo futuro coerente.
 - Se una data è ambigua o mancante, lascia null (NON inventare).
 - adults: intero ≥ 1 se indicato, altrimenti null.
-- children: array di {age}; età obbligatoria per ogni bambino citato; [] se nessuno.
+- children: array di {age}; registra OGNI bambino citato anche senza età (age: null se non indicata); NON ometterlo. [] se nessun bambino.
 - language: lingua del messaggio (es. 'it', 'en').
 - guest_name / guest_contact: solo se forniti esplicitamente, altrimenti null.
 - special_requests: richieste particolari (culla, animali, accessibilità, orari), altrimenti null.`
@@ -62,7 +62,7 @@ export async function extractSlots(
               adults: { type: ['integer', 'null'] },
               children: {
                 type: 'array',
-                items: { type: 'object', properties: { age: { type: 'integer' } }, required: ['age'] },
+                items: { type: 'object', properties: { age: { type: ['integer', 'null'] } }, required: ['age'] },
               },
               language: { type: ['string', 'null'] },
               guest_name: { type: ['string', 'null'] },
@@ -91,7 +91,7 @@ export async function extractSlots(
         check_in: i.check_in ?? null,
         check_out: i.check_out ?? null,
         adults: typeof i.adults === 'number' ? i.adults : null,
-        children: Array.isArray(i.children) ? i.children.filter((c) => typeof c?.age === 'number') : [],
+        children: Array.isArray(i.children) ? i.children.map((c) => ({ age: typeof c?.age === 'number' ? c.age : null })) : [],
         language: i.language ?? null,
         guest_name: i.guest_name ?? null,
         guest_contact: i.guest_contact ?? null,

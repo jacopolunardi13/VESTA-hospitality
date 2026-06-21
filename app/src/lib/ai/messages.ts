@@ -24,6 +24,24 @@ export function isPaymentClaim(message: string): boolean {
   return PAYMENT.test(norm(message))
 }
 
+// ── Nota "1 notte assunta" (Fix A: default singola notte se manca la partenza) ──
+const DATE_LOCALE: Record<Lang, string> = { it: 'it-IT', en: 'en-GB', es: 'es-ES', fr: 'fr-FR', de: 'de-DE' }
+function fmtDate(lang: Lang, iso: string): string {
+  try { return new Intl.DateTimeFormat(DATE_LOCALE[lang], { day: 'numeric', month: 'long' }).format(new Date(iso + 'T00:00:00Z')) }
+  catch { return iso }
+}
+export function singleNightNote(lang: Lang, checkInIso: string, checkOutIso: string): string {
+  const ci = fmtDate(lang, checkInIso), co = fmtDate(lang, checkOutIso)
+  const T: Record<Lang, string> = {
+    it: `Considero un soggiorno di 1 notte (${ci} → ${co}), salvo diversa indicazione.`,
+    en: `I'm assuming a 1-night stay (${ci} → ${co}), unless you tell me otherwise.`,
+    es: `Considero una estancia de 1 noche (${ci} → ${co}), salvo que me indique lo contrario.`,
+    fr: `Je considère un séjour d'1 nuit (${ci} → ${co}), sauf indication contraire.`,
+    de: `Ich gehe von 1 Übernachtung aus (${ci} → ${co}), sofern nicht anders angegeben.`,
+  }
+  return T[lang]
+}
+
 // ── Fase 1: proposta (semplice, naturale, niente sconto/tassa/validità) ──
 export function proposalText(lang: Lang, room: string, amountEur: number): string {
   const a = String(amountEur)

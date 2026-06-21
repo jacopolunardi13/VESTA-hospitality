@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import type { BookingStatus } from '@/lib/quote/types'
 import type { Tables } from '@/lib/supabase/database.types'
 import { bookingStatusLabels, nextActionLabels } from '@/lib/labels'
-import { formatDateRange, formatDateTime, formatEuro, formatGuests } from '@/lib/format'
+import { formatDate, formatDateRange, formatDateTime, formatEuro, formatGuests } from '@/lib/format'
 import { ReliabilityChip, ScoreBadge, SourceChip, StatusBadge } from '@/components/badges'
 import type { Reliability, Source } from '@/lib/mock/types'
 
@@ -59,6 +59,8 @@ function RequestRow({ r }: { r: BookingRow }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
           {r.check_in && r.check_out ? (
             <span className="whitespace-nowrap">{formatDateRange(r.check_in, r.check_out)}</span>
+          ) : r.check_in ? (
+            <span className="whitespace-nowrap">Arrivo {formatDate(r.check_in)} · durata da confermare</span>
           ) : (
             <span className="text-slate-400">Date non specificate</span>
           )}

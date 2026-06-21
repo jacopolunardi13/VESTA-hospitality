@@ -4,9 +4,9 @@ import { classifyIntent } from './intent'
 import { searchKnowledge, kbContextText, KB_DIRECT_ANSWER_RANK } from './knowledge'
 import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
-import { extractSlots, slotsComplete, type ExtractedSlots } from './extract'
+import { extractSlots, type ExtractedSlots } from './extract'
 import { selectBestQuote, selectAllQuotes, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
-import { proposalAllText, normLang, type RoomOption } from './messages'
+import { proposalAllText, singleNightNote, normLang, type RoomOption } from './messages'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -69,16 +69,41 @@ function recapText(s: ExtractedSlots): string {
   if (s.check_in && s.check_out) parts.push(`dal ${formatItDate(s.check_in)} al ${formatItDate(s.check_out)}`)
   const guests: string[] = []
   if (s.adults) guests.push(`${s.adults} ${s.adults === 1 ? 'adulto' : 'adulti'}`)
-  if (s.children.length) guests.push(`${s.children.length} ${s.children.length === 1 ? 'bambino' : 'bambini'}${s.children.some((c) => c.age != null) ? ` (${s.children.map((c) => c.age).join(', ')} anni)` : ''}`)
+  if (s.children.length) {
+    const ages = s.children.map((c) => c.age).filter((a): a is number => a != null)
+    guests.push(`${s.children.length} ${s.children.length === 1 ? 'bambino' : 'bambini'}${ages.length ? ` (${ages.join(', ')} anni)` : ''}`)
+  }
   if (guests.length) parts.push(guests.join(' e '))
   return parts.join(', ')
 }
 
-function missingAsk(s: ExtractedSlots): string {
+/** Fix A — default 1 notte: arrivo+ospiti noti, partenza mancante (o non valida) → assume 1 notte.
+ *  Muta `s` e ritorna true se l'assunzione è stata applicata. */
+function applySingleNightDefault(s: ExtractedSlots): boolean {
+  // Partenza non valida (≤ arrivo): ignorala.
+  if (s.check_in && s.check_out && new Date(s.check_out + 'T00:00:00Z') <= new Date(s.check_in + 'T00:00:00Z')) {
+    s.check_out = null
+  }
+  if (s.check_in && s.adults && !s.check_out) {
+    const d = new Date(s.check_in + 'T00:00:00Z')
+    d.setUTCDate(d.getUTCDate() + 1)
+    s.check_out = d.toISOString().slice(0, 10)
+    return true
+  }
+  return false
+}
+
+/** Fix B/C — elenco granulare dei dati realmente mancanti (mai richiede l'arrivo se già noto). */
+function bookingMissing(s: ExtractedSlots): string[] {
   const missing: string[] = []
-  if (!s.check_in || !s.check_out) missing.push('le **date** di arrivo e partenza')
-  if (!s.adults) missing.push('**quante persone** (adulti ed eventuali bambini con età)')
-  return `Con piacere ti preparo un preventivo su misura. Per procedere mi servono ${missing.join(' e ')}.`
+  if (!s.check_in) missing.push('le **date** (almeno la data di arrivo)')
+  if (!s.adults) missing.push('**quante persone** (adulti ed eventuali bambini)')
+  if (s.children.some((c) => c.age == null)) missing.push("l'**età dei bambini**")
+  return missing
+}
+
+function missingAsk(missing: string[]): string {
+  return `Con piacere ti preparo un preventivo su misura. Per procedere mi ${missing.length === 1 ? 'serve' : 'servono'} ${missing.join(' e ')}.`
 }
 
 const euro = (c: number) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(c / 100)
@@ -159,12 +184,15 @@ export async function runPipeline(opts: {
     case 'booking': {
       // Lead da chat + slot filling.
       const slots = await extractSlots(sb, property, userMessage, history, todayIso)
-      const ready = slotsComplete(slots)
+      // Fix A: se arrivo+ospiti noti ma manca la partenza → assume 1 notte.
+      const assumedSingleNight = applySingleNightDefault(slots)
 
-      // Slot incompleti: richiesta deterministica dei dati mancanti (zero AI extra).
-      if (!ready) {
+      // Fix B/C: chiedi SOLO i dati realmente mancanti (mai l'arrivo se già noto;
+      // richiedi l'età dei bambini se mancante invece di scartarli).
+      const missing = bookingMissing(slots)
+      if (missing.length > 0) {
         return {
-          text: missingAsk(slots), intent, confidence, stage: 'collecting_data',
+          text: missingAsk(missing), intent, confidence, stage: 'collecting_data',
           status: 'open', source: 'template', escalated: false, createLead: true,
           slots, slotsReady: false,
         }
@@ -188,8 +216,9 @@ export async function runPipeline(opts: {
             roomId: r.roomId, name: r.roomName, description: r.description,
             amountEur: Math.round(r.quote.offerTotalCents / 100),
           }))
+          const note = assumedSingleNight ? singleNightNote(lang, slots.check_in!, slots.check_out!) + '\n\n' : ''
           return {
-            text: proposalAllText(lang, options),
+            text: note + proposalAllText(lang, options),
             intent, confidence, stage: 'proposal_sent', status: 'open',
             source: 'template', escalated: false, createLead: true,
             slots, slotsReady: true, proposalRooms: reliable,
