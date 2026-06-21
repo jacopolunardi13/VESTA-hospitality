@@ -30,7 +30,10 @@ console.log('\n— STANDARD = false (evento → staff, invariato) —')
 for (const m of ['Vorremmo organizzare il nostro matrimonio', 'ricevimento di matrimonio', 'evento matrimonio', 'festa di nozze', 'una cerimonia']) ok(std(m) === false, `«${m}» → non-standard`)
 
 console.log('\n— Altri non-standard ancora attivi (no regressione) —')
-for (const m of ['potete farmi uno sconto?', 'siamo un gruppo di 12', 'vorrei cancellare la prenotazione']) ok(std(m) === false, `«${m}» → non-standard`)
+for (const m of ['potete farmi uno sconto?', 'vorrei cancellare la prenotazione', 'vorrei modificare la prenotazione']) ok(std(m) === false, `«${m}» → non-standard`)
+
+console.log('\n— Gruppo non più auto-escalato (decide il combinatore) —')
+ok(std('siamo un gruppo di 12') === true, '«siamo un gruppo di 12» → standard (combinatore)')
 
 console.log('\n— E2E runPipeline (motore chat+email) —')
 const { data: rooms } = await sb.from('rooms').select('id').eq('property_id', property.id).is('deleted_at', null)

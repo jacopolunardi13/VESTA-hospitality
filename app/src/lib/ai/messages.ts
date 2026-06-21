@@ -154,6 +154,61 @@ export function proposalAllText(lang: Lang, rooms: RoomOption[]): string {
   return `${intro[lang]}\n\n${list}\n\n${outro[lang]}`
 }
 
+// ── Passo 1 GRUPPI: proposta combinazioni (max Opzione A consigliata + B alternativa) ──
+export interface CombinationOption { roomNames: string[]; capacity: number; amountEur: number }
+
+export function proposalCombinationText(lang: Lang, options: CombinationOption[]): string {
+  const intro: Record<Lang, string> = {
+    it: 'Grazie per la sua richiesta. Per il vostro gruppo possiamo proporre queste combinazioni di camere:',
+    en: 'Thank you for your request. For your group, we can offer these room combinations:',
+    es: 'Gracias por su solicitud. Para su grupo, podemos ofrecer estas combinaciones de habitaciones:',
+    fr: 'Merci pour votre demande. Pour votre groupe, nous pouvons proposer ces combinaisons de chambres :',
+    de: 'Vielen Dank für Ihre Anfrage. Für Ihre Gruppe können wir diese Zimmerkombinationen anbieten:',
+  }
+  const labels: Record<Lang, [string, string]> = {
+    it: ['Opzione A (consigliata)', 'Opzione B (alternativa)'],
+    en: ['Option A (recommended)', 'Option B (alternative)'],
+    es: ['Opción A (recomendada)', 'Opción B (alternativa)'],
+    fr: ['Option A (recommandée)', 'Option B (alternative)'],
+    de: ['Option A (empfohlen)', 'Option B (Alternative)'],
+  }
+  const upTo: Record<Lang, string> = { it: 'fino a', en: 'up to', es: 'hasta', fr: "jusqu'à", de: 'bis zu' }
+  const guests: Record<Lang, string> = { it: 'ospiti', en: 'guests', es: 'huéspedes', fr: 'personnes', de: 'Gäste' }
+  const perStay: Record<Lang, string> = {
+    it: "per l'intero soggiorno, colazione inclusa", en: 'for the entire stay, breakfast included',
+    es: 'por toda la estancia, desayuno incluido', fr: "pour l'ensemble du séjour, petit-déjeuner inclus",
+    de: 'für den gesamten Aufenthalt, Frühstück inklusive',
+  }
+  const note: Record<Lang, string> = {
+    it: 'Le camere sono separate e non comunicanti. Eventuali richieste particolari verranno verificate dal nostro staff.',
+    en: 'The rooms are separate and not connecting. Any special requests will be verified by our staff.',
+    es: 'Las habitaciones están separadas y no son comunicantes. Cualquier petición especial será verificada por nuestro personal.',
+    fr: 'Les chambres sont séparées et non communicantes. Toute demande particulière sera vérifiée par notre personnel.',
+    de: 'Die Zimmer sind separat und nicht verbunden. Besondere Wünsche werden von unserem Team geprüft.',
+  }
+  const outro: Record<Lang, string> = {
+    it: "Mi indichi quale opzione preferisce (A o B) e sarò lieto di guidarla.",
+    en: 'Let me know which option you prefer (A or B) and I will gladly guide you.',
+    es: 'Indíqueme qué opción prefiere (A o B) y estaré encantado de guiarle.',
+    fr: 'Indiquez-moi quelle option vous préférez (A ou B) et je vous guiderai volontiers.',
+    de: 'Sagen Sie mir, welche Option Sie bevorzugen (A oder B), und ich begleite Sie gerne.',
+  }
+  const lines = options.map((o, i) =>
+    `• ${labels[lang][i] ?? `Opzione ${i + 1}`}: ${o.roomNames.join(' + ')} — ${upTo[lang]} ${o.capacity} ${guests[lang]} — €${o.amountEur} ${perStay[lang]}`
+  ).join('\n\n')
+  return `${intro[lang]}\n\n${lines}\n\n${note[lang]}\n\n${outro[lang]}`
+}
+
+/** Riconosce la scelta della combinazione: 0 = Opzione A, 1 = Opzione B, null = nessuna. */
+export function matchCombination(message: string): number | null {
+  const m = norm(message).trim()
+  if (m === 'a') return 0
+  if (m === 'b') return 1
+  if (/\bopzione a\b|\bopcion a\b|\boption a\b|\bla prima\b|\bprima opzione\b|consigliat|recommend|recomendad|recommand|empfohlen/.test(m)) return 0
+  if (/\bopzione b\b|\bopcion b\b|\boption b\b|\bla seconda\b|\bseconda opzione\b|alternativ/.test(m)) return 1
+  return null
+}
+
 // ── Passo 2: disambiguazione scelta camera ──
 export function chooseRoomPrompt(lang: Lang, rooms: RoomOption[]): string {
   const names = rooms.map((r) => `${r.name} (€${r.amountEur})`).join('; ')

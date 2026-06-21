@@ -10,10 +10,11 @@ import type { Database, TablesUpdate, Json } from '@/lib/supabase/database.types
 import { getBudgetState } from '@/lib/ai/budget'
 import { logGuardrail } from '@/lib/ai/guardrail'
 import { runPipeline, childrenNeedingBed } from '@/lib/ai/pipeline'
-import { persistProposal, selectAllQuotes } from '@/lib/quote/draftProposal'
+import { persistProposal, persistCombination, selectAllQuotes, selectAvailableRooms } from '@/lib/quote/draftProposal'
+import { selectRoomCombinations } from '@/lib/quote/roomCombinations'
 import { executeTransition } from '@/lib/quote/stateMachine'
 import { createNotification } from '@/lib/notifications'
-import { isInterest, isPaymentClaim, matchRoomChoice, chooseRoomPrompt, availabilityCheckAck, paymentAck, normLang } from '@/lib/ai/messages'
+import { isInterest, isPaymentClaim, matchRoomChoice, matchCombination, chooseRoomPrompt, availabilityCheckAck, paymentAck, normLang } from '@/lib/ai/messages'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
 
 export interface TurnResult {
@@ -90,6 +91,29 @@ export async function processConversationTurn(opts: {
             return { reply, intent: 'booking', confidence: 1, stage: 'proposal_sent', status: 'open', source: 'template', escalated: false }
           }
           // Nessuna scelta riconosciuta → prosegui con la pipeline.
+        }
+      }
+
+      // PASSO 2-4 (GRUPPI) — scelta di una combinazione (Opzione A/B) su un preventivo gruppo.
+      if (lead?.status === 'proposal_sent' && lead.check_in && lead.check_out && lead.adults != null) {
+        const pick = matchCombination(userMessage)
+        if (pick !== null) {
+          const requiredBeds = lead.adults + childrenNeedingBed(Array.isArray(lead.children) ? (lead.children as { age: number | null }[]) : [])
+          const available = await selectAvailableRooms(sb, { propertyId, orgId: property.orgId, checkIn: lead.check_in, checkOut: lead.check_out, adults: lead.adults, todayIso: new Date().toISOString().slice(0, 10) })
+          const combos = selectRoomCombinations(available.map((r) => ({ roomId: r.roomId, roomName: r.roomName, maxGuests: r.maxGuests, offerTotalCents: r.quote.offerTotalCents })), requiredBeds, { maxOptions: 2 })
+          const chosen = combos[pick]
+          if (chosen) {
+            const rooms = chosen.rooms.map((cr) => available.find((a) => a.roomId === cr.roomId)).filter((r): r is NonNullable<typeof r> => !!r)
+            await persistCombination(sb, { orgId: property.orgId, bookingRequestId: leadId, rooms })
+            const names = rooms.map((r) => r.roomName).join(' + ')
+            const totalEur = Math.round(rooms.reduce((s, r) => s + r.quote.offerTotalCents, 0) / 100)
+            await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: `Cliente ha scelto la combinazione: ${names} (€${totalEur}) — richiede verifica disponibilità PMS` })
+            const reply = availabilityCheckAck(lang, names)
+            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
+            await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
+            await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto la combinazione ${names} (€${totalEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
+            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false }
+          }
         }
       }
 
@@ -222,6 +246,19 @@ export async function processConversationTurn(opts: {
         orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
         title: `Preventivo inviato · ${n} camere`,
         body: `Mostrate ${n} camere disponibili all'ospite; in attesa della scelta della camera.`,
+        bookingRequestId: leadId, conversationId,
+      })
+    // Passo 1 GRUPPI: combinazioni proposte → proposal_sent + notifica staff.
+    } else if (leadId && result.proposalCombinations && result.proposalCombinations.length > 0) {
+      const n = result.proposalCombinations.length
+      await executeTransition(sb, {
+        requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
+        note: `Preventivo gruppo inviato: ${n} combinazioni di camere proposte`,
+      })
+      await createNotification(sb, {
+        orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
+        title: `Preventivo gruppo · ${n} combinazioni`,
+        body: `Gruppo oltre la capienza singola: proposte ${n} combinazioni; in attesa della scelta dell'ospite.`,
         bookingRequestId: leadId, conversationId,
       })
     } else if (leadId && result.draft) {

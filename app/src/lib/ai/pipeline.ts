@@ -5,8 +5,9 @@ import { searchKnowledge, kbContextText, KB_DIRECT_ANSWER_RANK } from './knowled
 import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, type ExtractedSlots } from './extract'
-import { selectBestQuote, selectAllQuotes, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
-import { proposalAllText, singleNightNote, multiRequestAck, childAccommodationNote, normLang, type RoomOption } from './messages'
+import { selectBestQuote, selectAvailableRooms, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
+import { selectRoomCombinations } from '@/lib/quote/roomCombinations'
+import { proposalAllText, proposalCombinationText, singleNightNote, multiRequestAck, childAccommodationNote, normLang, type RoomOption, type CombinationOption } from './messages'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -31,6 +32,8 @@ export interface PipelineResult {
   autoSend?: boolean
   /** Passo 1 flusso definitivo: tutte le camere disponibili mostrate all'ospite. */
   proposalRooms?: RoomQuote[]
+  /** Combinazioni gruppo proposte (Opzione A/B) quando nessuna singola camera basta. */
+  proposalCombinations?: CombinationOption[]
 }
 
 // Template deterministici (zero AI). MVP in italiano; localizzazione successiva.
@@ -109,10 +112,10 @@ function missingAsk(missing: string[]): string {
 const euro = (c: number) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(c / 100)
 
 // Una richiesta è NON standard (→ supervisione) se contiene sconti/trattativa,
-// gruppi/eventi, cancellazioni/spostamenti/modifiche, o supera la soglia gruppo.
-// Nota: `\bmatrimoni(o)?\b` marca SOLO l'evento (matrimonio/matrimoni), NON la camera
-// "matrimoniale"/"matrimoniali" (dopo "matrimoni" segue "ale", niente confine di parola).
-const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|grupp|comitiva|\bmatrimoni(o)?\b|nozze|festa|cerimoni|event|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
+// eventi/cerimonie, cancellazioni/spostamenti/modifiche. I GRUPPI per headcount NON sono
+// più auto-escalati: la fattibilità la decide il combinatore camere (staff solo se nessuna
+// combinazione copre la capienza). Nota: `\bmatrimoni(o)?\b` marca SOLO l'evento.
+const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|\bmatrimoni(o)?\b|nozze|festa|cerimoni|event|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
 
 // Menzione di culla/sistemazione particolare (per la regola "bambino >2 + culla → staff").
 const COT_MENTION = /\bcull[ae]\b|lettino|\bcot\b|sistemazione particolar/i
@@ -128,9 +131,8 @@ export function isStandardBooking(s: ExtractedSlots, message: string, settings: 
   // Bambino > 2 anni con culla/sistemazione particolare richiesta → nota/staff (no auto-quote),
   // senza impedire la richiesta. Default (senza culla): il >2 conta come terzo ospite (capienza).
   if (COT_MENTION.test(message) && s.children.some((c) => c.age != null && c.age > 2)) return false
-  const groupThreshold = Number(settings['escalation_group_guests'] ?? 6)
-  const guests = (s.adults ?? 0) + childrenNeedingBed(s.children)
-  if (guests > groupThreshold) return false
+  // Nessuna soglia headcount: i gruppi sono gestiti dal combinatore camere (Passo 1).
+  void settings
   return true
 }
 
@@ -229,27 +231,52 @@ export async function runPipeline(opts: {
       // disponibili+prezzate (affidabilità non bassa) con prezzo e descrizione.
       // Il cliente sceglie; Vesta NON blocca nulla e NON propone una sola camera.
       if (standard) {
-        const all = await selectAllQuotes(sb, {
+        const lang = normLang(slots.language)
+        const requiredBeds = (slots.adults ?? 0) + childrenNeedingBed(slots.children)
+        const noteSN = assumedSingleNight ? singleNightNote(lang, slots.check_in!, slots.check_out!) + '\n\n' : ''
+        const noteChildren = slots.children.length > 0 ? '\n\n' + childAccommodationNote(lang, slots.children) : ''
+        // Tutte le camere disponibili+prezzate (senza filtro capienza): alimenta sia il
+        // caso a camera singola sia il combinatore gruppi.
+        const available = await selectAvailableRooms(sb, {
           propertyId: property.id, orgId: property.orgId,
-          checkIn: slots.check_in!, checkOut: slots.check_out!,
-          adults: slots.adults!, childrenBeds: childrenNeedingBed(slots.children), todayIso,
+          checkIn: slots.check_in!, checkOut: slots.check_out!, adults: slots.adults!, todayIso,
         })
-        const reliable = all.filter((r) => r.quote.dataReliability !== 'low')
-        if (reliable.length > 0) {
-          const lang = normLang(slots.language)
-          const options: RoomOption[] = reliable.map((r) => ({
+        const singleFit = available.filter((r) => r.maxGuests >= requiredBeds)
+
+        // Caso A — almeno una camera singola soddisfa la capienza → mostra le singole.
+        if (singleFit.length > 0) {
+          const options: RoomOption[] = singleFit.map((r) => ({
             roomId: r.roomId, name: r.roomName, description: r.description,
             amountEur: Math.round(r.quote.offerTotalCents / 100),
           }))
-          const noteSN = assumedSingleNight ? singleNightNote(lang, slots.check_in!, slots.check_out!) + '\n\n' : ''
-          const noteChildren = slots.children.length > 0 ? '\n\n' + childAccommodationNote(lang, slots.children) : ''
           return {
             text: noteSN + proposalAllText(lang, options) + noteChildren,
             intent, confidence, stage: 'proposal_sent', status: 'open',
             source: 'template', escalated: false, createLead: true,
-            slots, slotsReady: true, proposalRooms: reliable,
+            slots, slotsReady: true, proposalRooms: singleFit,
           }
         }
+
+        // Caso B — nessuna singola basta → combinatore gruppi (Opzione A/B).
+        if (available.length > 0) {
+          const combos = selectRoomCombinations(
+            available.map((r) => ({ roomId: r.roomId, roomName: r.roomName, maxGuests: r.maxGuests, offerTotalCents: r.quote.offerTotalCents })),
+            requiredBeds, { maxOptions: 2 }
+          )
+          if (combos.length > 0) {
+            const comboOptions: CombinationOption[] = combos.map((c) => ({
+              roomNames: c.rooms.map((x) => x.roomName), capacity: c.totalCapacity,
+              amountEur: Math.round(c.totalCents / 100),
+            }))
+            return {
+              text: noteSN + proposalCombinationText(lang, comboOptions) + noteChildren,
+              intent, confidence, stage: 'proposal_sent', status: 'open',
+              source: 'template', escalated: false, createLead: true,
+              slots, slotsReady: true, proposalCombinations: comboOptions,
+            }
+          }
+        }
+        // Nessuna combinazione copre la capienza → cortesia/staff (sotto).
       }
 
       // FALLBACK DI CORTESIA — prezzo o disponibilità non verificati, oppure richiesta
