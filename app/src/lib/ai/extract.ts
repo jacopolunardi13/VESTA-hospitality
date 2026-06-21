@@ -47,6 +47,22 @@ function addOneNight(iso: string): string {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10)
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+/**
+ * Normalizza un valore-data: accetta SOLO una data ISO reale (YYYY-MM-DD); qualunque altro
+ * valore — sentinel "<UNKNOWN>", stringa vuota, testo, data inesistente (2026-13-40) — diventa null.
+ * Indispensabile perché l'LLM a volte emette "<UNKNOWN>" (truthy) al posto di null: senza questa
+ * normalizzazione il default 1-notte e il merge (che testano `!check_out`) non scattano e il pricing
+ * riceve una data invalida → fallback cortesia intermittente al posto del preventivo.
+ */
+function normIso(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.trim()
+  if (!ISO_DATE.test(s)) return null
+  const d = new Date(s + 'T00:00:00Z')
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s ? s : null
+}
+
 const NUM_WORDS: Record<string, number> = { un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5, sei: 6, sette: 7, otto: 8 }
 function parseNum(w: string): number | null { const n = parseInt(w, 10); return !isNaN(n) ? n : (NUM_WORDS[w.toLowerCase()] ?? null) }
 
@@ -182,8 +198,8 @@ export async function extractSlots(
     if (tu && tu.type === 'tool_use') {
       const i = tu.input as Partial<ExtractedSlots>
       const children = Array.isArray(i.children) ? i.children.map((c) => ({ age: typeof c?.age === 'number' ? c.age : null })) : []
-      const check_in = i.check_in ?? null
-      const check_out = i.check_out ?? null
+      const check_in = normIso(i.check_in)
+      const check_out = normIso(i.check_out)
       const adults = typeof i.adults === 'number' ? i.adults : null
       // segments: tutte le richieste rilevate; se assenti, sintetizza dalla richiesta piatta.
       const rawSegs = Array.isArray(i.segments) ? i.segments : []
@@ -192,8 +208,8 @@ export async function extractSlots(
         return {
           room_type: seg?.room_type ?? null,
           room_count: typeof seg?.room_count === 'number' ? seg.room_count : null,
-          check_in: seg?.check_in ?? null,
-          check_out: seg?.check_out ?? null,
+          check_in: normIso(seg?.check_in),
+          check_out: normIso(seg?.check_out),
           adults: typeof seg?.adults === 'number' ? seg.adults : null,
           children: Array.isArray(seg?.children) ? seg.children.map((c) => ({ age: typeof c?.age === 'number' ? c.age : null })) : [],
         }
