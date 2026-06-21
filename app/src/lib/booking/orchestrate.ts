@@ -9,7 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, TablesUpdate, Json } from '@/lib/supabase/database.types'
 import { getBudgetState } from '@/lib/ai/budget'
 import { logGuardrail } from '@/lib/ai/guardrail'
-import { runPipeline } from '@/lib/ai/pipeline'
+import { runPipeline, childrenNeedingBed } from '@/lib/ai/pipeline'
 import { persistProposal, selectAllQuotes } from '@/lib/quote/draftProposal'
 import { executeTransition } from '@/lib/quote/stateMachine'
 import { createNotification } from '@/lib/notifications'
@@ -63,7 +63,7 @@ export async function processConversationTurn(opts: {
         const all = await selectAllQuotes(sb, {
           propertyId, orgId: property.orgId,
           checkIn: lead.check_in, checkOut: lead.check_out,
-          adults: lead.adults, childrenCount: Array.isArray(lead.children) ? lead.children.length : 0,
+          adults: lead.adults, childrenBeds: childrenNeedingBed(Array.isArray(lead.children) ? (lead.children as { age: number | null }[]) : []),
           todayIso: new Date().toISOString().slice(0, 10),
         })
         if (all.length > 0) {

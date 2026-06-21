@@ -31,11 +31,11 @@ export async function selectAllQuotes(
     checkIn: string
     checkOut: string
     adults: number
-    childrenCount: number
+    childrenBeds: number  // bambini che richiedono un letto reale (età > 2); 0-2 non contano (culla)
     todayIso?: string
   }
 ): Promise<RoomQuote[]> {
-  const guests = opts.adults + opts.childrenCount
+  const guests = opts.adults + opts.childrenBeds
 
   const { data: rooms } = await sb
     .from('rooms')
@@ -76,11 +76,11 @@ export async function selectBestQuote(
     checkIn: string
     checkOut: string
     adults: number
-    childrenCount: number
+    childrenBeds: number  // bambini che richiedono un letto reale (età > 2); 0-2 non contano (culla)
     todayIso?: string
   }
 ): Promise<SelectedQuote | null> {
-  const guests = opts.adults + opts.childrenCount
+  const guests = opts.adults + opts.childrenBeds
 
   const { data: rooms } = await sb
     .from('rooms')

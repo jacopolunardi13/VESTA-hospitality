@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { executeTransition } from '@/lib/quote/stateMachine'
 import { computeQuote } from '@/lib/quote/priceEngine'
 import { selectAllQuotes } from '@/lib/quote/draftProposal'
+import { childrenNeedingBed } from '@/lib/ai/pipeline'
 import { createNotification } from '@/lib/notifications'
 import { paymentInstructions, alternativesText, noAvailabilityText, normLang } from '@/lib/ai/messages'
 import type { BookingStatus } from '@/lib/quote/types'
@@ -321,7 +322,7 @@ export async function markUnavailable(formData: FormData) {
   if (req.check_in && req.check_out && req.adults != null) {
     const all = await selectAllQuotes(supabase, {
       propertyId, orgId, checkIn: req.check_in, checkOut: req.check_out,
-      adults: req.adults, childrenCount: Array.isArray(req.children) ? req.children.length : 0,
+      adults: req.adults, childrenBeds: childrenNeedingBed(Array.isArray(req.children) ? (req.children as { age: number | null }[]) : []),
     })
     const alternatives = all.filter((r) => r.roomId !== excludedRoomId)
     if (alternatives.length > 0) {

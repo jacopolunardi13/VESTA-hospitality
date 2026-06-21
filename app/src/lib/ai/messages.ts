@@ -62,6 +62,27 @@ export function multiRequestAck(lang: Lang, segments: AckSegment[]): string {
   return T[lang]
 }
 
+// ── Nota sistemazione bambini: culla su richiesta (supplementi confermati staff) +
+//    terzo letto vero solo nelle Superior se serve un letto per un bambino > 2 anni. ──
+export function childAccommodationNote(lang: Lang, children: { age: number | null }[]): string {
+  const hasOlder = children.some((c) => c.age != null && c.age > 2)
+  const cot: Record<Lang, string> = {
+    it: 'Per i bambini la culla è disponibile su richiesta in tutte le camere; eventuali supplementi verranno confermati dallo staff.',
+    en: 'For children, a cot is available on request in all rooms; any supplement will be confirmed by our staff.',
+    es: 'Para los niños, la cuna está disponible bajo petición en todas las habitaciones; cualquier suplemento será confirmado por nuestro personal.',
+    fr: 'Pour les enfants, un lit bébé est disponible sur demande dans toutes les chambres ; tout supplément sera confirmé par notre personnel.',
+    de: 'Für Kinder ist ein Babybett auf Anfrage in allen Zimmern verfügbar; etwaige Zuschläge werden von unserem Team bestätigt.',
+  }
+  const bed: Record<Lang, string> = {
+    it: ' Se serve un letto vero, il terzo letto è disponibile nelle camere Superior.',
+    en: ' If a real extra bed is needed, a third bed is available in the Superior rooms.',
+    es: ' Si se necesita una cama real adicional, la tercera cama está disponible en las habitaciones Superior.',
+    fr: ' Si un vrai lit supplémentaire est nécessaire, le troisième lit est disponible dans les chambres Supérieures.',
+    de: ' Falls ein echtes Zusatzbett benötigt wird, steht in den Superior-Zimmern ein drittes Bett zur Verfügung.',
+  }
+  return cot[lang] + (hasOlder ? bed[lang] : '')
+}
+
 // ── Fase 1: proposta (semplice, naturale, niente sconto/tassa/validità) ──
 export function proposalText(lang: Lang, room: string, amountEur: number): string {
   const a = String(amountEur)

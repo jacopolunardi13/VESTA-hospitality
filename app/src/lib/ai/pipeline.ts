@@ -6,7 +6,7 @@ import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, type ExtractedSlots } from './extract'
 import { selectBestQuote, selectAllQuotes, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
-import { proposalAllText, singleNightNote, multiRequestAck, normLang, type RoomOption } from './messages'
+import { proposalAllText, singleNightNote, multiRequestAck, childAccommodationNote, normLang, type RoomOption } from './messages'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -114,10 +114,22 @@ const euro = (c: number) => new Intl.NumberFormat('it-IT', { style: 'currency', 
 // "matrimoniale"/"matrimoniali" (dopo "matrimoni" segue "ale", niente confine di parola).
 const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|grupp|comitiva|\bmatrimoni(o)?\b|nozze|festa|cerimoni|event|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
 
+// Menzione di culla/sistemazione particolare (per la regola "bambino >2 + culla → staff").
+const COT_MENTION = /\bcull[ae]\b|lettino|\bcot\b|sistemazione particolar/i
+
+/** Bambini che richiedono un letto REALE (età nota e > 2). I 0-2 anni non contano
+ *  (dormono nel letto dei genitori; culla opzionale). Età null → gestita a monte (chiarimento). */
+export function childrenNeedingBed(children: { age: number | null }[]): number {
+  return children.filter((c) => c.age != null && c.age > 2).length
+}
+
 export function isStandardBooking(s: ExtractedSlots, message: string, settings: Record<string, unknown>): boolean {
   if (NON_STANDARD.test(message)) return false
+  // Bambino > 2 anni con culla/sistemazione particolare richiesta → nota/staff (no auto-quote),
+  // senza impedire la richiesta. Default (senza culla): il >2 conta come terzo ospite (capienza).
+  if (COT_MENTION.test(message) && s.children.some((c) => c.age != null && c.age > 2)) return false
   const groupThreshold = Number(settings['escalation_group_guests'] ?? 6)
-  const guests = (s.adults ?? 0) + s.children.length
+  const guests = (s.adults ?? 0) + childrenNeedingBed(s.children)
   if (guests > groupThreshold) return false
   return true
 }
@@ -220,7 +232,7 @@ export async function runPipeline(opts: {
         const all = await selectAllQuotes(sb, {
           propertyId: property.id, orgId: property.orgId,
           checkIn: slots.check_in!, checkOut: slots.check_out!,
-          adults: slots.adults!, childrenCount: slots.children.length, todayIso,
+          adults: slots.adults!, childrenBeds: childrenNeedingBed(slots.children), todayIso,
         })
         const reliable = all.filter((r) => r.quote.dataReliability !== 'low')
         if (reliable.length > 0) {
@@ -229,9 +241,10 @@ export async function runPipeline(opts: {
             roomId: r.roomId, name: r.roomName, description: r.description,
             amountEur: Math.round(r.quote.offerTotalCents / 100),
           }))
-          const note = assumedSingleNight ? singleNightNote(lang, slots.check_in!, slots.check_out!) + '\n\n' : ''
+          const noteSN = assumedSingleNight ? singleNightNote(lang, slots.check_in!, slots.check_out!) + '\n\n' : ''
+          const noteChildren = slots.children.length > 0 ? '\n\n' + childAccommodationNote(lang, slots.children) : ''
           return {
-            text: note + proposalAllText(lang, options),
+            text: noteSN + proposalAllText(lang, options) + noteChildren,
             intent, confidence, stage: 'proposal_sent', status: 'open',
             source: 'template', escalated: false, createLead: true,
             slots, slotsReady: true, proposalRooms: reliable,
@@ -247,7 +260,7 @@ export async function runPipeline(opts: {
       const draft = await selectBestQuote(sb, {
         propertyId: property.id, orgId: property.orgId,
         checkIn: slots.check_in!, checkOut: slots.check_out!,
-        adults: slots.adults!, childrenCount: slots.children.length,
+        adults: slots.adults!, childrenBeds: childrenNeedingBed(slots.children),
         todayIso,
       })
       return {
