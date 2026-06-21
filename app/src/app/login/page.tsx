@@ -1,4 +1,5 @@
 import { login, signup, forgotPassword } from './actions'
+import { platformBrand } from '@/lib/brand'
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'Email o password non corretti.',
@@ -24,10 +25,13 @@ export default async function LoginPage({
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+        {/* Logo piattaforma Vesta (asset statico swappabile). */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={platformBrand.logo} alt={platformBrand.name} className="mb-5 h-9 w-auto" />
         <h1 className="mb-1 text-lg font-semibold text-slate-900">
           {isSignup ? 'Crea un account' : isForgot ? 'Recupera password' : 'Accedi'}
         </h1>
-        <p className="mb-6 text-sm text-slate-500">AI Concierge &amp; Direct Quote</p>
+        <p className="mb-6 text-sm text-slate-500">{platformBrand.tagline}</p>
 
         {isReset && !errorMessage && (
           <p className="mb-4 rounded-md bg-green-50 px-3 py-3 text-sm text-green-800">
@@ -47,7 +51,7 @@ export default async function LoginPage({
               Registrazione completata. Controlla la tua email per confermare l&apos;account e iniziare.
             </p>
             <p className="mt-4 text-center text-sm text-slate-500">
-              <a href="/login" className="font-medium text-slate-900 hover:underline">
+              <a href="/login" className="font-medium text-brand-gold-dark hover:underline">
                 Torna al login
               </a>
             </p>
@@ -65,7 +69,7 @@ export default async function LoginPage({
                   type="email"
                   required
                   autoComplete="email"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-gold focus:outline-none"
                 />
               </div>
               <div>
@@ -79,19 +83,19 @@ export default async function LoginPage({
                   required
                   minLength={6}
                   autoComplete="new-password"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-gold focus:outline-none"
                 />
               </div>
               <button
                 formAction={signup}
-                className="mt-2 w-full rounded-md bg-slate-900 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+                className="mt-2 w-full rounded-md bg-brand-anthracite py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-anthracite-light"
               >
                 Registrati
               </button>
             </form>
             <p className="mt-4 text-center text-sm text-slate-500">
               Hai già un account?{' '}
-              <a href="/login" className="font-medium text-slate-900 hover:underline">
+              <a href="/login" className="font-medium text-brand-gold-dark hover:underline">
                 Accedi
               </a>
             </p>
@@ -102,7 +106,7 @@ export default async function LoginPage({
               Se l&apos;indirizzo è registrato, riceverai un link per reimpostare la password.
             </p>
             <p className="mt-4 text-center text-sm text-slate-500">
-              <a href="/login" className="font-medium text-slate-900 hover:underline">
+              <a href="/login" className="font-medium text-brand-gold-dark hover:underline">
                 Torna al login
               </a>
             </p>
@@ -121,18 +125,18 @@ export default async function LoginPage({
                   required
                   autoComplete="email"
                   autoFocus
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-gold focus:outline-none"
                 />
               </div>
               <button
                 formAction={forgotPassword}
-                className="mt-2 w-full rounded-md bg-slate-900 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+                className="mt-2 w-full rounded-md bg-brand-anthracite py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-anthracite-light"
               >
                 Invia link di recupero
               </button>
             </form>
             <p className="mt-4 text-center text-sm text-slate-500">
-              <a href="/login" className="font-medium text-slate-900 hover:underline">
+              <a href="/login" className="font-medium text-brand-gold-dark hover:underline">
                 Torna al login
               </a>
             </p>
@@ -150,7 +154,7 @@ export default async function LoginPage({
                   type="email"
                   required
                   autoComplete="email"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-gold focus:outline-none"
                 />
               </div>
               <div>
@@ -163,12 +167,12 @@ export default async function LoginPage({
                   type="password"
                   required
                   autoComplete="current-password"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-brand-gold focus:outline-none"
                 />
               </div>
               <button
                 formAction={login}
-                className="mt-2 w-full rounded-md bg-slate-900 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+                className="mt-2 w-full rounded-md bg-brand-anthracite py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-anthracite-light"
               >
                 Accedi
               </button>
@@ -177,7 +181,7 @@ export default async function LoginPage({
               <a href="/login?mode=forgot" className="hover:underline">
                 Password dimenticata?
               </a>
-              <a href="/login?mode=signup" className="font-medium text-slate-900 hover:underline">
+              <a href="/login?mode=signup" className="font-medium text-brand-gold-dark hover:underline">
                 Registrati
               </a>
             </div>

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Concierge & Direct Quote",
-  description: "Dashboard gestore — demo UI con dati mock",
+  title: "Vesta Hospitality · Direct Booking Assistant",
+  description: "Vesta Hospitality — il dipendente virtuale per la tua struttura ricettiva.",
 };
 
 export default function RootLayout({

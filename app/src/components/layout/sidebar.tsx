@@ -37,7 +37,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       className={`${base} font-medium transition-colors ${
-        active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
+        active ? "bg-brand-anthracite text-white" : "text-slate-700 hover:bg-slate-100"
       }`}
     >
       {item.label}

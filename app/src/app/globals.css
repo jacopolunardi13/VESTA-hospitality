@@ -3,6 +3,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Palette Vesta (oro / antracite). Token brand della piattaforma. */
+  --brand-gold: #c9a24b;
+  --brand-gold-dark: #a8842f;
+  --brand-anthracite: #22262b;
+  --brand-anthracite-light: #2e343b;
 }
 
 @theme inline {
@@ -10,6 +15,11 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Espone la palette Vesta come utility Tailwind: bg-brand-gold, text-brand-anthracite, … */
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-dark: var(--brand-gold-dark);
+  --color-brand-anthracite: var(--brand-anthracite);
+  --color-brand-anthracite-light: var(--brand-anthracite-light);
 }
 
 @media (prefers-color-scheme: dark) {

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { platformBrand } from '@/lib/brand'
 import NotificationBell, { type NotificationItem } from './notification-bell'
 
 export default async function Topbar() {
@@ -29,11 +30,12 @@ export default async function Topbar() {
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-slate-200 bg-white px-3 sm:gap-4 sm:px-4">
-      <span className="shrink-0 text-sm font-bold tracking-tight whitespace-nowrap text-slate-900">
-        Vesta Hospitality<span className="hidden font-normal text-slate-400 lg:inline"> · Direct Booking Assistant</span>
-      </span>
+      {/* Logo piattaforma Vesta (asset statico swappabile). eslint-disable: SVG da /public,
+          referenziato per percorso così l'SVG definitivo si sostituisce senza toccare il codice. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={platformBrand.logo} alt={platformBrand.name} className="h-8 w-auto shrink-0" />
       {property && (
-        <span className="min-w-0 truncate text-sm text-slate-600">{property.name}</span>
+        <span className="min-w-0 truncate border-l border-slate-200 pl-2 text-sm text-slate-600 sm:pl-3">{property.name}</span>
       )}
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         {property && <NotificationBell propertyId={property.id} initial={notifications} />}

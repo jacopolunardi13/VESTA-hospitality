@@ -32,12 +32,12 @@ export default function BottomNav() {
               href={t.href}
               onClick={() => setMoreOpen(false)}
               className={`relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
-                active ? "text-slate-900" : "text-slate-400"
+                active ? "text-brand-anthracite" : "text-slate-400"
               }`}
             >
               <span className="text-lg leading-none" aria-hidden>{t.icon}</span>
               <span className="max-w-full truncate">{t.label}</span>
-              {active && <span className="absolute inset-x-5 top-0 h-0.5 rounded bg-slate-900" />}
+              {active && <span className="absolute inset-x-5 top-0 h-0.5 rounded bg-brand-gold" />}
             </Link>
           );
         })}
@@ -45,7 +45,7 @@ export default function BottomNav() {
           type="button"
           onClick={() => setMoreOpen((o) => !o)}
           className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium ${
-            moreActive || moreOpen ? "text-slate-900" : "text-slate-400"
+            moreActive || moreOpen ? "text-brand-anthracite" : "text-slate-400"
           }`}
           aria-label="Altro"
         >

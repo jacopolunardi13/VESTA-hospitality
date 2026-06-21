@@ -1,0 +1,8 @@
+<!-- PLACEHOLDER Vesta · logo orizzontale (wordmark) per chrome chiaro (topbar/login).
+     Sostituibile con l'SVG definitivo mantenendo nome/percorso: nessuna modifica al codice. -->
+<svg width="360" height="96" viewBox="0 0 360 96" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <rect x="8" y="16" width="64" height="64" rx="16" fill="#22262B"/>
+  <path d="M28 30 L40 64 L52 30" fill="none" stroke="#C9A24B" stroke-width="7" stroke-linejoin="miter"/>
+  <text x="88" y="51" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="600" fill="#22262B">Vesta</text>
+  <text x="89" y="74" font-family="Arial, Helvetica, sans-serif" font-size="14" letter-spacing="3" fill="#A8842F">HOSPITALITY</text>
+</svg>
