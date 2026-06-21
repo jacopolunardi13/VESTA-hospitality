@@ -100,7 +100,9 @@ function applySingleNightDefault(s: ExtractedSlots): boolean {
 function bookingMissing(s: ExtractedSlots): string[] {
   const missing: string[] = []
   if (!s.check_in) missing.push('le **date** (almeno la data di arrivo)')
-  if (!s.adults) missing.push('**quante persone** (adulti ed eventuali bambini)')
+  // Se l'ospite ha specificato ≥2 camere, l'occupancy esatta è opzionale (capienza = max).
+  const roomCount = s.segments[0]?.room_count ?? 1
+  if (!s.adults && roomCount < 2) missing.push('**quante persone** (adulti ed eventuali bambini)')
   if (s.children.some((c) => c.age == null)) missing.push("l'**età dei bambini**")
   return missing
 }
@@ -242,38 +244,43 @@ export async function runPipeline(opts: {
           checkIn: slots.check_in!, checkOut: slots.check_out!, adults: slots.adults!, todayIso,
         })
         const singleFit = available.filter((r) => r.maxGuests >= requiredBeds)
+        const combinable = available.map((r) => ({ roomId: r.roomId, roomName: r.roomName, maxGuests: r.maxGuests, offerTotalCents: r.quote.offerTotalCents }))
+        const toComboOptions = (combos: ReturnType<typeof selectRoomCombinations>): CombinationOption[] =>
+          combos.map((c) => ({ roomNames: c.rooms.map((x) => x.roomName), capacity: c.totalCapacity, amountEur: Math.round(c.totalCents / 100) }))
+        const groupReturn = (comboOptions: CombinationOption[]) => ({
+          text: noteSN + proposalCombinationText(lang, comboOptions) + noteChildren,
+          intent, confidence, stage: 'proposal_sent' as const, status: 'open' as const,
+          source: 'template' as const, escalated: false, createLead: true,
+          slots, slotsReady: true, proposalCombinations: comboOptions,
+        })
+        // Numero ESATTO di camere richieste (room_count): 1 = singola; ≥2 = gruppo a numero fisso.
+        const roomCountWanted = slots.segments[0]?.room_count ?? 1
 
-        // Caso A — almeno una camera singola soddisfa la capienza → mostra le singole.
-        if (singleFit.length > 0) {
-          const options: RoomOption[] = singleFit.map((r) => ({
-            roomId: r.roomId, name: r.roomName, description: r.description,
-            amountEur: Math.round(r.quote.offerTotalCents / 100),
-          }))
-          return {
-            text: noteSN + proposalAllText(lang, options) + noteChildren,
-            intent, confidence, stage: 'proposal_sent', status: 'open',
-            source: 'template', escalated: false, createLead: true,
-            slots, slotsReady: true, proposalRooms: singleFit,
+        if (roomCountWanted >= 2) {
+          // Gruppo con numero camere esplicito → combinatore a numero ESATTO (anche se una basterebbe).
+          if (available.length > 0) {
+            const combos = selectRoomCombinations(combinable, requiredBeds, { maxOptions: 2, minRooms: roomCountWanted, maxRooms: roomCountWanted })
+            if (combos.length > 0) return groupReturn(toComboOptions(combos))
           }
-        }
-
-        // Caso B — nessuna singola basta → combinatore gruppi (Opzione A/B).
-        if (available.length > 0) {
-          const combos = selectRoomCombinations(
-            available.map((r) => ({ roomId: r.roomId, roomName: r.roomName, maxGuests: r.maxGuests, offerTotalCents: r.quote.offerTotalCents })),
-            requiredBeds, { maxOptions: 2 }
-          )
-          if (combos.length > 0) {
-            const comboOptions: CombinationOption[] = combos.map((c) => ({
-              roomNames: c.rooms.map((x) => x.roomName), capacity: c.totalCapacity,
-              amountEur: Math.round(c.totalCents / 100),
+          // Numero richiesto non copribile → cortesia/staff (sotto), senza ripiegare su un numero diverso.
+        } else {
+          // Caso A — almeno una camera singola soddisfa la capienza → mostra le singole.
+          if (singleFit.length > 0) {
+            const options: RoomOption[] = singleFit.map((r) => ({
+              roomId: r.roomId, name: r.roomName, description: r.description,
+              amountEur: Math.round(r.quote.offerTotalCents / 100),
             }))
             return {
-              text: noteSN + proposalCombinationText(lang, comboOptions) + noteChildren,
+              text: noteSN + proposalAllText(lang, options) + noteChildren,
               intent, confidence, stage: 'proposal_sent', status: 'open',
               source: 'template', escalated: false, createLead: true,
-              slots, slotsReady: true, proposalCombinations: comboOptions,
+              slots, slotsReady: true, proposalRooms: singleFit,
             }
+          }
+          // Caso B — nessuna singola basta → combinatore minimize (Opzione A/B).
+          if (available.length > 0) {
+            const combos = selectRoomCombinations(combinable, requiredBeds, { maxOptions: 2 })
+            if (combos.length > 0) return groupReturn(toComboOptions(combos))
           }
         }
         // Nessuna combinazione copre la capienza → cortesia/staff (sotto).

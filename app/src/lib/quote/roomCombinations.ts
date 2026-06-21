@@ -25,6 +25,7 @@ export interface RoomCombination {
 export interface CombineOptions {
   maxOptions?: number  // quante combinazioni restituire (default 2: Opzione A + B)
   minRooms?: number    // numero minimo di camere per combinazione (default 1)
+  maxRooms?: number    // numero massimo di camere; con minRooms=maxRooms=N → ESATTAMENTE N camere
 }
 
 /**
@@ -38,6 +39,7 @@ export function selectRoomCombinations(
 ): RoomCombination[] {
   const maxOptions = opts.maxOptions ?? 2
   const minRooms = opts.minRooms ?? 1
+  const maxRooms = opts.maxRooms ?? Infinity
   const n = rooms.length
   if (n === 0 || requiredBeds <= 0 || n > 24) return [] // guardia anti-esplosione (2^24)
 
@@ -49,7 +51,7 @@ export function selectRoomCombinations(
     for (let i = 0; i < n; i++) {
       if (mask & (1 << i)) { subset.push(rooms[i]); cap += rooms[i].maxGuests; cents += rooms[i].offerTotalCents }
     }
-    if (subset.length >= minRooms && cap >= requiredBeds) {
+    if (subset.length >= minRooms && subset.length <= maxRooms && cap >= requiredBeds) {
       combos.push({ rooms: subset, totalCapacity: cap, totalCents: cents, waste: cap - requiredBeds })
     }
   }
