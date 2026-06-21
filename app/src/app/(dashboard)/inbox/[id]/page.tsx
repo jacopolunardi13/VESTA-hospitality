@@ -106,6 +106,15 @@ export default async function BookingRequestPage({
     ? (request.parsed_requests as Array<{ room_type?: string | null; check_in?: string | null; check_out?: string | null; adults?: number | null }>)
     : []
 
+  // Camere distinte negli items: se ≥2 è una COMBINAZIONE gruppo (più camere su un lead).
+  const combinationRooms = Array.from(
+    new Map(
+      (Array.isArray(items) ? (items as Array<{ room_id: string; rooms?: { name?: string } | null }>) : [])
+        .map((it) => [it.room_id, it.rooms?.name ?? 'Camera'] as const)
+    ).values()
+  )
+  const isCombination = combinationRooms.length >= 2
+
   const status = request.status as BookingStatus
   const nextAction = nextActionLabels[status]
   const children = (Array.isArray(request.children) ? request.children : []) as { age: number }[]
@@ -217,6 +226,24 @@ export default async function BookingRequestPage({
         </section>
       )}
 
+      {/* Combinazione gruppo selezionata (più camere su un solo lead): subito visibile allo staff */}
+      {isCombination && (
+        <section className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-indigo-800">
+            Combinazione selezionata · {combinationRooms.length} camere
+          </h2>
+          <ul className="flex flex-col gap-1.5 text-sm text-slate-800">
+            {combinationRooms.map((name, i) => (
+              <li key={i} className="flex items-center gap-2">
+                <span className="text-indigo-400">•</span>
+                <span className="font-medium">{name}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-indigo-700">Camere separate e non comunicanti. Verifica la disponibilità di tutte le camere nel PMS prima di confermare.</p>
+        </section>
+      )}
+
       {/* Dati richiesta */}
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -273,7 +300,9 @@ export default async function BookingRequestPage({
             </h2>
             {items && items.length > 0 && (
               <p className="mb-2 text-sm font-medium text-slate-900">
-                {(items[0] as { rooms?: { name?: string } }).rooms?.name ?? '—'}
+                {isCombination
+                  ? `Combinazione · ${combinationRooms.length} camere (${combinationRooms.join(' + ')})`
+                  : (items[0] as { rooms?: { name?: string } }).rooms?.name ?? '—'}
               </p>
             )}
             <dl className="flex flex-col gap-1.5 text-sm text-slate-700">
