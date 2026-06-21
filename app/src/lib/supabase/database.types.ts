@@ -548,6 +548,7 @@ export type Database = {
           currency: string
           price_source: 'csv' | 'manual' | 'ical' | 'api' | 'ota_stimato' | null
           ai_classification: Json | null
+          parsed_requests: Json | null
           proposal_sent_at: string | null
           interested_at: string | null
           hold_expires_at: string | null
@@ -583,6 +584,7 @@ export type Database = {
           currency?: string
           price_source?: 'csv' | 'manual' | 'ical' | 'api' | 'ota_stimato' | null
           ai_classification?: Json | null
+          parsed_requests?: Json | null
           proposal_sent_at?: string | null
           interested_at?: string | null
           hold_expires_at?: string | null
@@ -618,6 +620,7 @@ export type Database = {
           currency?: string
           price_source?: 'csv' | 'manual' | 'ical' | 'api' | 'ota_stimato' | null
           ai_classification?: Json | null
+          parsed_requests?: Json | null
           proposal_sent_at?: string | null
           interested_at?: string | null
           hold_expires_at?: string | null

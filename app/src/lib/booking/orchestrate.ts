@@ -197,6 +197,8 @@ export async function processConversationTurn(opts: {
       if (slots.special_requests) upd.special_requests = slots.special_requests
       if (slots.guest_name) upd.guest_name = slots.guest_name
       if (slots.guest_contact) upd.guest_contact = slots.guest_contact
+      // Conserva TUTTE le richieste rilevate (multi-camera/multi-periodo), nessuna persa.
+      if (slots.segments && slots.segments.length > 0) upd.parsed_requests = slots.segments as unknown as Json
       if (Object.keys(upd).length > 0) {
         await sb.from('booking_requests').update(upd).eq('id', leadId).eq('org_id', property.orgId)
       }
@@ -252,6 +254,18 @@ export async function processConversationTurn(opts: {
         orgId: property.orgId, propertyId, type: 'escalation',
         title: 'Richiesta preventivo da gestire',
         body: 'Per Jacopo: verifica disponibilità e migliore tariffa, poi invia una proposta personalizzata.',
+        bookingRequestId: leadId, conversationId,
+      })
+    }
+
+    // Multi-richiesta: notifica staff con l'elenco di TUTTE le richieste (nessun auto-preventivo).
+    const segs = result.slots?.segments ?? []
+    if (leadId && segs.length >= 2) {
+      const lines = segs.map((s, n) => `${n + 1}) ${s.room_type ?? 'camera'} ${s.check_in ?? '?'}${s.check_out ? '→' + s.check_out : ''}`).join(' · ')
+      await createNotification(sb, {
+        orgId: property.orgId, propertyId, type: 'escalation',
+        title: `Richiesta multipla · ${segs.length} richieste`,
+        body: `Più richieste in un solo messaggio: ${lines}. Verificale tutte (nessun preventivo automatico inviato).`,
         bookingRequestId: leadId, conversationId,
       })
     }

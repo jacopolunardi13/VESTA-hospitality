@@ -42,6 +42,26 @@ export function singleNightNote(lang: Lang, checkInIso: string, checkOutIso: str
   return T[lang]
 }
 
+// ── Multi-richiesta: ack che elenca TUTTE le richieste rilevate (no auto-preventivo) ──
+export interface AckSegment { room_type: string | null; check_in: string | null; check_out: string | null }
+export function multiRequestAck(lang: Lang, segments: AckSegment[]): string {
+  const list = segments.map((s, n) => {
+    const t = s.room_type ?? (lang === 'it' ? 'camera' : lang === 'en' ? 'room' : lang === 'es' ? 'habitación' : lang === 'fr' ? 'chambre' : 'Zimmer')
+    const d = s.check_in
+      ? (s.check_out ? `${fmtDate(lang, s.check_in)} → ${fmtDate(lang, s.check_out)}` : fmtDate(lang, s.check_in))
+      : (lang === 'it' ? 'date da confermare' : lang === 'en' ? 'dates to confirm' : lang === 'es' ? 'fechas por confirmar' : lang === 'fr' ? 'dates à confirmer' : 'Daten offen')
+    return `${n + 1}) ${t} — ${d}`
+  }).join('\n')
+  const T: Record<Lang, string> = {
+    it: `Grazie. Ho registrato le sue richieste:\n${list}\n\nLe verifichiamo con il nostro staff e le confermiamo a breve.`,
+    en: `Thank you. I've noted your requests:\n${list}\n\nOur staff will check them and confirm shortly.`,
+    es: `Gracias. He registrado sus solicitudes:\n${list}\n\nNuestro personal las verificará y le confirmará en breve.`,
+    fr: `Merci. J'ai bien noté vos demandes :\n${list}\n\nNotre personnel les vérifiera et vous confirmera sous peu.`,
+    de: `Vielen Dank. Ich habe Ihre Anfragen erfasst:\n${list}\n\nUnser Team prüft sie und bestätigt in Kürze.`,
+  }
+  return T[lang]
+}
+
 // ── Fase 1: proposta (semplice, naturale, niente sconto/tassa/validità) ──
 export function proposalText(lang: Lang, room: string, amountEur: number): string {
   const a = String(amountEur)

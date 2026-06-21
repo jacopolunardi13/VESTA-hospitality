@@ -6,7 +6,7 @@ import { generateReply } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, type ExtractedSlots } from './extract'
 import { selectBestQuote, selectAllQuotes, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
-import { proposalAllText, singleNightNote, normLang, type RoomOption } from './messages'
+import { proposalAllText, singleNightNote, multiRequestAck, normLang, type RoomOption } from './messages'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -184,6 +184,17 @@ export async function runPipeline(opts: {
     case 'booking': {
       // Lead da chat + slot filling.
       const slots = await extractSlots(sb, property, userMessage, history, todayIso)
+      // Multi-richiesta (≥2 segmenti: più camere/periodi): conserva TUTTO, NESSUN
+      // preventivo automatico, lead unico + inoltro allo staff (vedi orchestrate).
+      if (slots.segments.length >= 2) {
+        return {
+          text: multiRequestAck(normLang(slots.language), slots.segments),
+          intent, confidence, stage: 'quoting', status: 'open',
+          source: 'template', escalated: false, createLead: true,
+          slots, slotsReady: false,
+        }
+      }
+
       // Fix A: se arrivo+ospiti noti ma manca la partenza → assume 1 notte.
       const assumedSingleNight = applySingleNightDefault(slots)
 

@@ -89,6 +89,23 @@ export default async function BookingRequestPage({
         : Promise.resolve({ data: null }),
     ])
 
+  // Primo messaggio originale dell'ospite (sempre consultabile nel dettaglio).
+  const { data: firstMessage } = request.conversation_id
+    ? await supabase
+        .from('messages')
+        .select('content, created_at')
+        .eq('conversation_id', request.conversation_id)
+        .eq('direction', 'in')
+        .order('created_at')
+        .limit(1)
+        .maybeSingle()
+    : { data: null }
+
+  // Richieste rilevate nel messaggio (multi-camera/multi-periodo).
+  const parsedRequests = Array.isArray(request.parsed_requests)
+    ? (request.parsed_requests as Array<{ room_type?: string | null; check_in?: string | null; check_out?: string | null; adults?: number | null }>)
+    : []
+
   const status = request.status as BookingStatus
   const nextAction = nextActionLabels[status]
   const children = (Array.isArray(request.children) ? request.children : []) as { age: number }[]
@@ -166,6 +183,39 @@ export default async function BookingRequestPage({
           <span className="text-sm font-medium">In attesa dell&apos;ospite — nessuna azione richiesta ora.</span>
         </div>
       ) : null}
+
+      {/* Messaggio originale dell'ospite (sempre consultabile) */}
+      {firstMessage?.content && (
+        <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Messaggio originale</h2>
+          <p className="whitespace-pre-wrap text-sm text-slate-700">{firstMessage.content}</p>
+        </section>
+      )}
+
+      {/* Richieste rilevate (multi-camera/multi-periodo): nessuna informazione persa */}
+      {parsedRequests.length >= 2 && (
+        <section className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-800">
+            Richieste rilevate · {parsedRequests.length}
+          </h2>
+          <ol className="flex flex-col gap-1.5 text-sm text-slate-700">
+            {parsedRequests.map((s, i) => (
+              <li key={i} className="flex flex-wrap justify-between gap-2">
+                <span className="font-medium">{i + 1}) {s.room_type ?? 'camera'}</span>
+                <span className="text-slate-600">
+                  {s.check_in
+                    ? s.check_out
+                      ? formatDateRange(s.check_in, s.check_out)
+                      : `Arrivo ${formatDate(s.check_in)} · durata da confermare`
+                    : 'date da confermare'}
+                  {s.adults ? ` · ${s.adults} adulti` : ''}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-xs text-amber-700">Più richieste in un solo messaggio — verificale tutte. Nessun preventivo automatico inviato.</p>
+        </section>
+      )}
 
       {/* Dati richiesta */}
       <div className="grid gap-4 md:grid-cols-2">
