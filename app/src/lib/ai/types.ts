@@ -30,6 +30,9 @@ export interface IntentResult {
   confidence: number
   /** Query riformulata in parole chiave ITALIANE per il retrieval KB (cross-lingua). */
   searchQueryIt: string
+  /** Richiesta MISTA: domanda informativa/concierge presente IN AGGIUNTA a una prenotazione
+   *  (parole chiave IT per il retrieval KB). Vuota se il messaggio è solo prenotazione. */
+  conciergeQuery: string
 }
 
 /** Esito di una chiamata AI con usage per il logging costi. */

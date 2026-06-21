@@ -19,7 +19,9 @@ const CLASSIFY_GUIDE = `Classifica il messaggio dell'ospite in UNA categoria. No
 - saas_lead: è un gestore di strutture interessato a QUESTO software/assistente.
 - spam: spam, link sospetti, testo ripetuto.
 - unclassified: non chiaro.
-Disambiguazione B2B: saas_lead = vuole comprare il software; partnership = porta ospiti; vendor = vende alla struttura. In dubbio tra saas_lead e gli altri, preferisci saas_lead.`
+Disambiguazione B2B: saas_lead = vuole comprare il software; partnership = porta ospiti; vendor = vende alla struttura. In dubbio tra saas_lead e gli altri, preferisci saas_lead.
+
+RICHIESTA MISTA: se il messaggio è 'booking' MA contiene ANCHE una domanda informativa/concierge separata (es. parcheggio, ZTL, check-in, dove si trova un locale, come arrivare), estrai quella domanda in concierge_query come PAROLE CHIAVE IN ITALIANO (traduci se in altra lingua). Es. "Avete posto il 1 agosto per 2? E dov'è il ristorante Boccaponci?" → intent booking, concierge_query "ristorante boccaponci dove si trova". Vuota se il messaggio è SOLO prenotazione o SOLO informazione.`
 
 // Riferimenti temporali "richiesta disponibilità" (IT) per i messaggi brevissimi.
 const TEMPORAL = /\b(domani|dopodomani|stasera|stanotte|stamattina|oggi|((quest[oa]|il\s+prossimo|prossim[oa])\s+)?(week[\s-]?end|fine\s+settimana))\b/i
@@ -67,8 +69,13 @@ export async function classifyIntent(
                 description:
                   "La domanda dell'ospite riformulata in PAROLE CHIAVE IN ITALIANO per cercare in una knowledge base italiana. Traduci in italiano se il messaggio è in altra lingua (EN/ES/FR/DE). Es. 'Where can I park?' o '¿Dónde puedo aparcar?' → 'parcheggio auto dove'. Stringa vuota se non è una domanda informativa.",
               },
+              concierge_query: {
+                type: 'string',
+                description:
+                  "SOLO per richieste MISTE (intent booking che contengono ANCHE una domanda informativa/concierge): la domanda informativa riformulata in PAROLE CHIAVE IN ITALIANO. Stringa vuota se il messaggio è solo prenotazione o solo informazione.",
+              },
             },
-            required: ['intent', 'confidence', 'search_query_it'],
+            required: ['intent', 'confidence', 'search_query_it', 'concierge_query'],
           },
         },
       ],
@@ -85,7 +92,7 @@ export async function classifyIntent(
 
     const toolUse = res.content.find((b) => b.type === 'tool_use')
     if (toolUse && toolUse.type === 'tool_use') {
-      const input = toolUse.input as { intent?: string; confidence?: number; search_query_it?: string }
+      const input = toolUse.input as { intent?: string; confidence?: number; search_query_it?: string; concierge_query?: string }
       let intent = (INTENTS as string[]).includes(input.intent ?? '')
         ? (input.intent as ConversationIntent)
         : 'unclassified'
@@ -93,12 +100,13 @@ export async function classifyIntent(
         ? Math.max(0, Math.min(1, input.confidence))
         : 0.5
       const searchQueryIt = typeof input.search_query_it === 'string' ? input.search_query_it : ''
+      const conciergeQuery = typeof input.concierge_query === 'string' ? input.concierge_query : ''
       if (maybeBookingOverride(intent, userMessage)) { intent = 'booking'; confidence = Math.max(confidence, 0.6) }
-      return { intent, confidence, searchQueryIt }
+      return { intent, confidence, searchQueryIt, conciergeQuery }
     }
     return isShortTemporalAvailability(userMessage)
-      ? { intent: 'booking', confidence: 0.6, searchQueryIt: '' }
-      : { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
+      ? { intent: 'booking', confidence: 0.6, searchQueryIt: '', conciergeQuery: '' }
+      : { intent: 'unclassified', confidence: 0, searchQueryIt: '', conciergeQuery: '' }
   } catch (e) {
     await logAiCall(sb, {
       orgId: property.orgId, propertyId: property.id, fn: 'classify', model,
@@ -106,7 +114,7 @@ export async function classifyIntent(
       success: false, error: e instanceof Error ? e.message : String(e),
     })
     return isShortTemporalAvailability(userMessage)
-      ? { intent: 'booking', confidence: 0.6, searchQueryIt: '' }
-      : { intent: 'unclassified', confidence: 0, searchQueryIt: '' }
+      ? { intent: 'booking', confidence: 0.6, searchQueryIt: '', conciergeQuery: '' }
+      : { intent: 'unclassified', confidence: 0, searchQueryIt: '', conciergeQuery: '' }
   }
 }

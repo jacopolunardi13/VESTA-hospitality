@@ -42,6 +42,19 @@ export function singleNightNote(lang: Lang, checkInIso: string, checkOutIso: str
   return T[lang]
 }
 
+// ── Richiesta MISTA: intro del blocco risposta alla domanda concierge ──
+// Separa visivamente la risposta informativa dal preventivo, nello STESSO messaggio.
+export function conciergeAnswerIntro(lang: Lang): string {
+  const T: Record<Lang, string> = {
+    it: 'Sulla sua domanda',
+    en: 'About your question',
+    es: 'Sobre su pregunta',
+    fr: 'Concernant votre question',
+    de: 'Zu Ihrer Frage',
+  }
+  return `— ${T[lang]} —`
+}
+
 // ── Multi-richiesta: ack che elenca TUTTE le richieste rilevate (no auto-preventivo) ──
 export interface AckSegment { room_type: string | null; check_in: string | null; check_out: string | null }
 export function multiRequestAck(lang: Lang, segments: AckSegment[]): string {

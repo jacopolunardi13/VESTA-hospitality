@@ -7,7 +7,7 @@ import { needsEscalation } from './guardrail'
 import { extractSlots, type ExtractedSlots } from './extract'
 import { selectBestQuote, selectAvailableRooms, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
 import { selectRoomCombinations } from '@/lib/quote/roomCombinations'
-import { proposalAllText, proposalCombinationText, singleNightNote, multiRequestAck, childAccommodationNote, normLang, type RoomOption, type CombinationOption } from './messages'
+import { proposalAllText, proposalCombinationText, singleNightNote, multiRequestAck, childAccommodationNote, conciergeAnswerIntro, normLang, type Lang, type RoomOption, type CombinationOption } from './messages'
 import type { ChatTurn, PropertyContext } from './types'
 
 export type ReplySource = 'kb' | 'ai' | 'template'
@@ -117,7 +117,10 @@ const euro = (c: number) => new Intl.NumberFormat('it-IT', { style: 'currency', 
 // eventi/cerimonie, cancellazioni/spostamenti/modifiche. I GRUPPI per headcount NON sono
 // più auto-escalati: la fattibilità la decide il combinatore camere (staff solo se nessuna
 // combinazione copre la capienza). Nota: `\bmatrimoni(o)?\b` marca SOLO l'evento.
-const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|\bmatrimoni(o)?\b|nozze|festa|cerimoni|event|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
+// NB: i token "evento" usano word-boundary (\bevent[oi]\b / \bevents?\b) per NON matchare
+// dentro parole comuni e benigne come "prEVENTivo" o "EVENTuale" (falso positivo che
+// mandava in escalation qualunque richiesta di preventivo). Stessa logica di matrimoniale↔matrimonio.
+const NON_STANDARD = /scont|prezzo miglior|miglior prezzo|offerta miglior|trattativ|\bmatrimoni(o)?\b|nozze|\bfest[ae]\b|cerimoni|\bevent[oi]\b|\bevents?\b|meeting|congress|cancell|disdir|spostar|cambi\w* data|modific|rimbors/i
 
 // Menzione di culla/sistemazione particolare (per la regola "bambino >2 + culla → staff").
 const COT_MENTION = /\bcull[ae]\b|lettino|\bcot\b|sistemazione particolar/i
@@ -136,6 +139,33 @@ export function isStandardBooking(s: ExtractedSlots, message: string, settings: 
   // Nessuna soglia headcount: i gruppi sono gestiti dal combinatore camere (Passo 1).
   void settings
   return true
+}
+
+/**
+ * Richiesta MISTA — risponde alla domanda concierge nello STESSO messaggio del preventivo.
+ * Cerca nella KB (query IT) e genera una risposta breve nella lingua dell'ospite, in un blocco
+ * separato sotto il preventivo. Robusto: se l'AI fallisce o non produce testo, restituisce il
+ * testo booking invariato (la domanda concierge non deve MAI bloccare il preventivo).
+ */
+async function composeConciergeAnswer(
+  sb: SupabaseClient<Database>,
+  property: PropertyContext,
+  history: ChatTurn[],
+  conciergeQuery: string,
+  userMessage: string,
+  lang: Lang,
+  bookingText: string
+): Promise<string> {
+  try {
+    const hits = await searchKnowledge(sb, property.id, conciergeQuery, 5)
+    const ask = `L'ospite, oltre alla richiesta di soggiorno (già gestita a parte nello stesso messaggio), chiede anche: «${userMessage}». Rispondi SOLO alla parte informativa/concierge — NON a disponibilità, prezzi o preventivo — in modo conciso e nella stessa lingua dell'ospite. Se l'informazione non è disponibile nelle note, dillo cortesemente e rimanda allo staff.`
+    const reply = await generateReply(sb, property, kbContextText(hits), history, ask)
+    const ans = reply.text.trim()
+    if (!ans) return bookingText
+    return `${bookingText}\n\n${conciergeAnswerIntro(lang)}\n${ans}`
+  } catch {
+    return bookingText
+  }
 }
 
 export async function runPipeline(opts: {
@@ -175,7 +205,7 @@ export async function runPipeline(opts: {
 
   // 3. Intent detection (Haiku) — restituisce anche la query di ricerca tradotta in italiano
   //    (cross-lingua: il retrieval KB italiano funziona anche per domande EN/ES/FR/DE).
-  const { intent, confidence, searchQueryIt } = await classifyIntent(sb, property, userMessage, history)
+  const { intent, confidence, searchQueryIt, conciergeQuery } = await classifyIntent(sb, property, userMessage, history)
 
   // 5. Branch per intent.
   switch (intent) {
@@ -200,6 +230,9 @@ export async function runPipeline(opts: {
         status: 'open', source: 'template', escalated: false, createLead: false }
 
     case 'booking': {
+      // Wrapper: calcola la risposta booking, poi (richiesta MISTA) appende la risposta
+      // concierge nello stesso messaggio. Il corpo interno è invariato.
+      const bookingResult = await (async (): Promise<PipelineResult> => {
       // Lead da chat + slot filling.
       const slots = await extractSlots(sb, property, userMessage, history, todayIso)
       // Multi-richiesta (≥2 segmenti: più camere/periodi): conserva TUTTO, NESSUN
@@ -305,6 +338,15 @@ export async function runPipeline(opts: {
         draft: draft ?? undefined,
         autoSend: false,
       }
+      })()
+      // Richiesta MISTA: domanda concierge presente OLTRE alla prenotazione → rispondi a
+      // ENTRAMBE nello stesso messaggio (preventivo/ack + risposta informativa separata).
+      // Vale per tutti i sotto-rami (proposta, combinazioni, dati mancanti, multi-richiesta, cortesia).
+      if (conciergeQuery && conciergeQuery.trim()) {
+        const lang = normLang(bookingResult.slots?.language)
+        bookingResult.text = await composeConciergeAnswer(sb, property, history, conciergeQuery, userMessage, lang, bookingResult.text)
+      }
+      return bookingResult
     }
 
     case 'faq':
