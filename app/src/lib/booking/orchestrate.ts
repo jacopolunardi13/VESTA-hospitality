@@ -306,6 +306,18 @@ export async function processConversationTurn(opts: {
         bookingRequestId: leadId, conversationId,
       })
     }
+
+    // Richiesta MISTA: la domanda concierge non ha trovato risposta nella KB (es. locale
+    // esterno) → notifica staff con il testo della domanda. Il flusso booking è invariato:
+    // l'ospite ha già ricevuto preventivo + rimando cortese allo staff nello stesso messaggio.
+    if (leadId && result.conciergeUnanswered) {
+      await createNotification(sb, {
+        orgId: property.orgId, propertyId, type: 'escalation',
+        title: 'Domanda concierge senza risposta',
+        body: `L'ospite, insieme alla richiesta di soggiorno, ha posto una domanda a cui la knowledge base non sa rispondere: «${userMessage}». Rispondi tu direttamente.`,
+        bookingRequestId: leadId, conversationId,
+      })
+    }
   }
 
   // Notifica staff per le escalation / richieste da gestire (pending_staff).

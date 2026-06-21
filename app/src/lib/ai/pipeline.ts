@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, ConversationIntent, ConversationStage } from '@/lib/supabase/database.types'
 import { classifyIntent } from './intent'
 import { searchKnowledge, kbContextText, KB_DIRECT_ANSWER_RANK } from './knowledge'
-import { generateReply } from './reply'
+import { generateReply, generateConciergeAnswer } from './reply'
 import { needsEscalation } from './guardrail'
 import { extractSlots, type ExtractedSlots } from './extract'
 import { selectBestQuote, selectAvailableRooms, type SelectedQuote, type RoomQuote } from '@/lib/quote/draftProposal'
@@ -34,6 +34,9 @@ export interface PipelineResult {
   proposalRooms?: RoomQuote[]
   /** Combinazioni gruppo proposte (Opzione A/B) quando nessuna singola camera basta. */
   proposalCombinations?: CombinationOption[]
+  /** Richiesta MISTA: true se la domanda concierge NON ha trovato risposta nella KB
+   *  (→ il chiamante notifica lo staff). Assente/false se la KB ha risposto o nessuna domanda. */
+  conciergeUnanswered?: boolean
 }
 
 // Template deterministici (zero AI). MVP in italiano; localizzazione successiva.
@@ -155,16 +158,20 @@ async function composeConciergeAnswer(
   userMessage: string,
   lang: Lang,
   bookingText: string
-): Promise<string> {
+): Promise<{ text: string; unanswered: boolean }> {
   try {
     const hits = await searchKnowledge(sb, property.id, conciergeQuery, 5)
-    const ask = `L'ospite, oltre alla richiesta di soggiorno (già gestita a parte nello stesso messaggio), chiede anche: «${userMessage}». Rispondi SOLO alla parte informativa/concierge — NON a disponibilità, prezzi o preventivo — in modo conciso e nella stessa lingua dell'ospite. Se l'informazione non è disponibile nelle note, dillo cortesemente e rimanda allo staff.`
-    const reply = await generateReply(sb, property, kbContextText(hits), history, ask)
+    const ask = `L'ospite, oltre alla richiesta di soggiorno (già gestita a parte nello stesso messaggio), chiede anche: «${userMessage}». Rispondi SOLO alla parte informativa/concierge.`
+    // Output strutturato: il modello riporta se ha risposto DALLE note (segnale robusto e
+    // multilingua per la notifica staff, vs. il match generico di un asset KB non pertinente).
+    const reply = await generateConciergeAnswer(sb, property, kbContextText(hits), history, ask)
     const ans = reply.text.trim()
-    if (!ans) return bookingText
-    return `${bookingText}\n\n${conciergeAnswerIntro(lang)}\n${ans}`
+    const unanswered = !reply.answeredFromKb
+    if (!ans) return { text: bookingText, unanswered }
+    return { text: `${bookingText}\n\n${conciergeAnswerIntro(lang)}\n${ans}`, unanswered }
   } catch {
-    return bookingText
+    // L'AI ha fallito: non blocca il preventivo e non inventa una notifica.
+    return { text: bookingText, unanswered: false }
   }
 }
 
@@ -344,7 +351,9 @@ export async function runPipeline(opts: {
       // Vale per tutti i sotto-rami (proposta, combinazioni, dati mancanti, multi-richiesta, cortesia).
       if (conciergeQuery && conciergeQuery.trim()) {
         const lang = normLang(bookingResult.slots?.language)
-        bookingResult.text = await composeConciergeAnswer(sb, property, history, conciergeQuery, userMessage, lang, bookingResult.text)
+        const composed = await composeConciergeAnswer(sb, property, history, conciergeQuery, userMessage, lang, bookingResult.text)
+        bookingResult.text = composed.text
+        bookingResult.conciergeUnanswered = composed.unanswered
       }
       return bookingResult
     }

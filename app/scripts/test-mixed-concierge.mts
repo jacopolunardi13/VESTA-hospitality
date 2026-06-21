@@ -32,9 +32,14 @@ ok(hasProposal(g3) && hasConcierge(g3.text), `G3 booking+ZTL → preventivo + bl
 const h1 = await run('availability Aug 1 for 2 guests, and where can I park?')
 ok(hasProposal(h1) && h1.text.includes('— About your question —'), `H1 EN booking+park → preventivo + blocco concierge IN INGLESE (conc=${h1.text.includes('— About your question —')})`)
 
+console.log('\n— Notifica staff: KB risponde → no flag; KB non sa → flag —')
+ok(g1.conciergeUnanswered === true, `G1 Boccaponci (non in KB) → conciergeUnanswered=true (${g1.conciergeUnanswered})`)
+ok(g2.conciergeUnanswered !== true, `G2 parcheggio (in KB) → nessun flag (${g2.conciergeUnanswered})`)
+ok(g3.conciergeUnanswered !== true, `G3 ZTL (in KB) → nessun flag (${g3.conciergeUnanswered})`)
+
 console.log('\n— PURI: NON devono avere blocco concierge —')
 const b = await run('1 agosto, 2 persone')
-ok(hasProposal(b) && !hasConcierge(b.text), `solo booking → preventivo SENZA blocco concierge (conc=${hasConcierge(b.text)})`)
+ok(hasProposal(b) && !hasConcierge(b.text) && b.conciergeUnanswered !== true, `solo booking → preventivo SENZA blocco concierge né flag (conc=${hasConcierge(b.text)})`)
 const f = await run("c'è il parcheggio?")
 ok(f.intent === 'faq' && !hasConcierge(f.text), `solo FAQ → ramo faq, nessun doppio blocco (intent=${f.intent})`)
 
