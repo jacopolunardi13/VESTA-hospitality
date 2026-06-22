@@ -59,5 +59,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Esclude gli asset statici pubblici (immagini/icone) dall'auth-gate: altrimenti i
+  // visitatori NON autenticati (es. sulla pagina di login) verrebbero reindirizzati a
+  // /login anche per /brand/*.svg, /icon.svg, /apple-icon.png → logo e favicon rotti.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)'],
 }
