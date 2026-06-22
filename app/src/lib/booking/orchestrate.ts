@@ -28,7 +28,7 @@ export interface TurnResult {
 }
 
 /** Sorgente del lead alla creazione (canale d'origine). */
-export type LeadSource = 'website_chat' | 'email'
+export type LeadSource = 'website_chat' | 'email' | 'whatsapp'
 
 export async function processConversationTurn(opts: {
   sb: SupabaseClient<Database>

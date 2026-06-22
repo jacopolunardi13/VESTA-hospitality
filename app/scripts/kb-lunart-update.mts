@@ -4,7 +4,7 @@
 // Replica le convenzioni dell'app (snapshot knowledge_asset_versions + current_version++).
 // Uso: node --env-file=.env.local --import tsx scripts/kb-lunart-update.mts [--dry]
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/supabase/database.types'
+import type { Database, TablesUpdate } from '@/lib/supabase/database.types'
 
 const DRY = process.argv.includes('--dry')
 const PROPERTY_ID = '00000000-0000-0000-0000-000000000011'
@@ -85,7 +85,7 @@ for (const e of edits) {
   if (DRY) { report.updated.push(`${a.title}${e.title ? ' → ' + e.title : ''} (DRY)`); continue }
   const nextVersion = a.current_version + 1
   await sb.from('knowledge_asset_versions').insert({ org_id: orgId, asset_id: a.id, version: nextVersion, title: newTitle, content: e.content, edited_by: editedBy })
-  const upd: Record<string, unknown> = { title: newTitle, content: e.content, current_version: nextVersion }
+  const upd: TablesUpdate<'knowledge_assets'> = { title: newTitle, content: e.content, current_version: nextVersion }
   if (e.tags) upd.tags = e.tags
   if (e.priority != null) upd.priority = e.priority
   await sb.from('knowledge_assets').update(upd).eq('id', a.id)
