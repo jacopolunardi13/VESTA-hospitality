@@ -1,6 +1,6 @@
 // Harness Router L0 + parser OTA — funzioni PURE, nessun DB, nessuna rete (AI mockata).
 // Uso: node --import tsx scripts/test-email-router.mts
-import { classifyEmailDeterministic, classifyEmailCategory, getRoutingRules, type AiCategoryProposer } from '@/lib/email/routing'
+import { classifyEmailDeterministic, classifyEmailCategory, getRoutingRules, hasAutomatedMarkers, type AiCategoryProposer } from '@/lib/email/routing'
 import { parseOtaEmail } from '@/lib/email/ota-parsers'
 import type { InboundEmail } from '@/lib/email/gmail'
 
@@ -36,6 +36,13 @@ ok((await classifyEmailCategory(amb, rules, aiGuest)).category === 'guest', 'AI 
 ok((await classifyEmailCategory(amb, rules, aiWeak)).category === 'guest', 'AI debole (<0.7) → dubbio → guest')
 ok((await classifyEmailCategory(amb, rules)).method === 'default' && (await classifyEmailCategory(amb, rules)).category === 'guest', 'nessuna AI → dubbio → guest (default)')
 ok((await classifyEmailCategory(mk({ from: 'noreply@booking.com' }), rules, aiGuest)).source === 'booking', 'deterministico ha precedenza sull\'AI')
+
+console.log('\n— Rete di sicurezza: hasAutomatedMarkers —')
+ok(hasAutomatedMarkers(mk({ listUnsubscribe: '<mailto:u@x.com>' })) === true, 'List-Unsubscribe → marker automatico')
+ok(hasAutomatedMarkers(mk({ autoSubmitted: 'auto-generated' })) === true, 'Auto-Submitted: auto-generated → marker')
+ok(hasAutomatedMarkers(mk({ autoSubmitted: 'no' })) === false, 'Auto-Submitted: no → umano (nessun marker)')
+ok(hasAutomatedMarkers(mk({ precedence: 'bulk' })) === true, 'Precedence: bulk → marker')
+ok(hasAutomatedMarkers(mk({ from: 'mario@gmail.com', subject: 'Avete posto?' })) === false, 'email ospite normale → nessun marker')
 
 console.log('\n— Parser OTA —')
 const booking = parseOtaEmail('booking', mk({

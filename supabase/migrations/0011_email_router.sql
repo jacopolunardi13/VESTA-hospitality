@@ -15,6 +15,9 @@ create table if not exists public.email_routing_log (
   method text not null check (method in ('deterministic','ai','default')),
   from_address text,
   subject text,
+  -- true = rete di sicurezza finale: email instradata 'guest' ma con marker automatici
+  -- (Auto-Submitted/Precedence:bulk/List-Unsubscribe) → soppressa (nessun lead/risposta).
+  suppressed boolean not null default false,
   decided_at timestamptz not null default now(),
   unique (property_id, gmail_message_id)
 );

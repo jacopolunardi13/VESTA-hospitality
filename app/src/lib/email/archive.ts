@@ -17,12 +17,13 @@ export async function alreadyRouted(sb: SupabaseClient<Database>, propertyId: st
   return Array.isArray(data) && data.length > 0
 }
 
-/** Registra la decisione di routing (audit + dedup). Una riga per ogni email. */
-export async function logRouting(sb: SupabaseClient<Database>, property: PropertyContext, email: InboundEmail, route: RouteResult): Promise<void> {
+/** Registra la decisione di routing (audit + dedup). Una riga per ogni email.
+ *  `suppressed` = rete di sicurezza ha bloccato un'email instradata guest con marker automatici. */
+export async function logRouting(sb: SupabaseClient<Database>, property: PropertyContext, email: InboundEmail, route: RouteResult, suppressed = false): Promise<void> {
   await db(sb).from('email_routing_log').insert({
     org_id: property.orgId, property_id: property.id,
     gmail_message_id: email.id, category: route.category, source: route.source,
-    confidence: route.confidence, method: route.method,
+    confidence: route.confidence, method: route.method, suppressed,
     from_address: email.from, subject: email.subject,
   })
 }

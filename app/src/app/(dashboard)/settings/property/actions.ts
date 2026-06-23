@@ -138,6 +138,27 @@ export async function updateEmailPilot(formData: FormData) {
   redirect('/settings/property?saved=email')
 }
 
+function parseDomains(raw: string | null): string[] {
+  return (raw ?? '').split(/[\n,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean)
+}
+
+// Liste domini del Router L0 (per-property, modificabili senza deploy). Salvate in settings.email_routing.
+export async function updateEmailRouting(formData: FormData) {
+  const otaDomains = parseDomains(formData.get('ota_domains') as string | null)
+  const supplierDomains = parseDomains(formData.get('supplier_domains') as string | null)
+
+  const { supabase, propertyId, currentSettings } = await resolveProperty()
+
+  const { error } = await supabase
+    .from('properties')
+    .update({ settings: { ...currentSettings, email_routing: { otaDomains, supplierDomains } } })
+    .eq('id', propertyId)
+
+  if (error) redirect('/settings/property?error=routing_update_failed')
+
+  redirect('/settings/property?saved=routing')
+}
+
 export async function updateProtezioni(formData: FormData) {
   const budgetRaw = parseFloat((formData.get('ai_daily_budget_euros') as string | null) ?? '5')
   const convLimitRaw = parseFloat(

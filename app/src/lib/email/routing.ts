@@ -38,6 +38,20 @@ export function getRoutingRules(settings: Record<string, unknown> | null | undef
   }
 }
 
+/**
+ * RETE DI SICUREZZA FINALE: l'email porta marcatori di posta automatica?
+ * (Auto-Submitted ≠ "no", Precedence: bulk/list/junk, List-Unsubscribe presente).
+ * Se true, NON deve mai generare lead/risposta/azioni concierge, anche se per errore
+ * fosse classificata 'guest'. Indipendente dal classificatore (difesa in profondità).
+ */
+export function hasAutomatedMarkers(email: InboundEmail): boolean {
+  if ((email.listUnsubscribe ?? '').trim()) return true
+  const as = (email.autoSubmitted ?? '').trim().toLowerCase()
+  if (as && as !== 'no') return true
+  if (/bulk|list|junk/i.test(email.precedence ?? '')) return true
+  return false
+}
+
 function domainOf(addr: string): string {
   const m = (addr ?? '').toLowerCase().match(/@([^>\s]+)/)
   return m ? m[1] : (addr ?? '').toLowerCase()

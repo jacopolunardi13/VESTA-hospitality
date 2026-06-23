@@ -13,6 +13,7 @@ const tabs = [
 
 const moreLinks = [
   { label: "Knowledge base", href: "/knowledge",         icon: "📚" },
+  { label: "Router email",   href: "/email-router",      icon: "🧭" },
   { label: "Impostazioni",   href: "/settings/property", icon: "⚙️" },
 ];
 

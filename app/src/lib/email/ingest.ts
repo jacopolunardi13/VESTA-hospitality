@@ -8,6 +8,7 @@ import { processConversationTurn } from '@/lib/booking/orchestrate'
 import { sendReply, type EmailAttachment, type InboundEmail } from './gmail'
 import { renderEmailHtml } from './template'
 import { emailAutosendEnabled } from './flags'
+import { hasAutomatedMarkers } from './routing'
 import { generateDocument, getDocumentConfig } from '@/lib/documents'
 import type { PropertyContext } from '@/lib/ai/types'
 
@@ -82,6 +83,7 @@ export interface IngestResult {
   stage: string
   replied: boolean
   isNewConversation: boolean
+  suppressed?: boolean
 }
 
 export async function ingestEmail(
@@ -90,6 +92,12 @@ export async function ingestEmail(
   email: InboundEmail,
   accessToken: string
 ): Promise<IngestResult> {
+  // RETE DI SICUREZZA FINALE (difesa in profondità): un'email con marker automatici non deve
+  // MAI generare conversazione/lead/risposta, anche se per errore arrivasse qui come 'guest'.
+  if (hasAutomatedMarkers(email)) {
+    return { conversationId: '', intent: 'suppressed', stage: 'suppressed', replied: false, isNewConversation: false, suppressed: true }
+  }
+
   // 1. Mappa l'email alla conversation del thread o creane una nuova.
   let conversationId = await findThreadConversation(sb, property.id, email)
   const isNewConversation = !conversationId

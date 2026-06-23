@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAccessToken, listRecent, getMessage, markRead } from '@/lib/email/gmail'
 import { ingestEmail, loadEmailProperty } from '@/lib/email/ingest'
-import { classifyEmailCategory, getRoutingRules } from '@/lib/email/routing'
+import { classifyEmailCategory, getRoutingRules, hasAutomatedMarkers } from '@/lib/email/routing'
 import { proposeEmailCategory } from '@/lib/email/routing-ai'
 import { alreadyRouted, logRouting, archiveOtaEmail } from '@/lib/email/archive'
 import { emailMarkRead } from '@/lib/email/flags'
@@ -37,9 +37,12 @@ export async function POST(request: Request) {
 
         // Router L0: deterministico → AI solo sul dubbio → ospite di default.
         const route = await classifyEmailCategory(email, rules, proposeEmailCategory)
-        await logRouting(sb, property, email, route) // audit + dedup (prima del processing)
+        // Rete di sicurezza finale: email con marker automatici NON entra mai nel pipeline,
+        // anche se instradata 'guest' (newsletter/notifiche/PMS sconosciuti mis-classificati).
+        const suppressed = route.category === 'guest' && hasAutomatedMarkers(email)
+        await logRouting(sb, property, email, route, suppressed) // audit + dedup
 
-        if (route.category === 'guest') {
+        if (route.category === 'guest' && !suppressed) {
           const r = await ingestEmail(sb, property, email, token)
           processed++
           results.push({ category: 'guest', from: email.from, subject: email.subject, intent: r.intent, stage: r.stage, replied: r.replied })
@@ -49,7 +52,7 @@ export async function POST(request: Request) {
           results.push({ category: 'ota_pms', source: route.source, from: email.from, subject: email.subject })
         } else {
           skipped++
-          results.push({ category: route.category, from: email.from, subject: email.subject, action: 'none' })
+          results.push({ category: route.category, suppressed, from: email.from, subject: email.subject, action: 'none' })
         }
 
         if (markReadOn) await markRead(token, m.id)

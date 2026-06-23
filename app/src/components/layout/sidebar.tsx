@@ -14,6 +14,7 @@ const mainNav: NavItem[] = [
   { label: "Calendario",    href: "/calendar" },
   { label: "Camere",        href: "/rooms" },
   { label: "Knowledge base", href: "/knowledge" },
+  { label: "Router email", href: "/email-router" },
   { label: "Template" },
   { label: "Follow-up" },
 ];

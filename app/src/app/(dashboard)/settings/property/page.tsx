@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { updateAnagrafica, updateCommerciale, updateAI, updateProtezioni, updateEmailPilot } from './actions'
+import { updateAnagrafica, updateCommerciale, updateAI, updateProtezioni, updateEmailPilot, updateEmailRouting } from './actions'
 
 const TIMEZONES = [
   'Europe/Rome',
@@ -29,6 +29,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   anagrafica_update_failed: 'Errore durante il salvataggio. Riprova.',
   commerciale_update_failed: 'Errore durante il salvataggio. Riprova.',
   email_update_failed: 'Errore durante il salvataggio del canale email. Riprova.',
+  routing_update_failed: 'Errore durante il salvataggio delle liste domini. Riprova.',
   ai_update_failed: 'Errore durante il salvataggio. Riprova.',
   protezioni_update_failed: 'Errore durante il salvataggio. Riprova.',
 }
@@ -99,6 +100,9 @@ export default async function PropertySettingsPage({
   const safeMode = (settings.safe_mode as boolean | undefined) ?? false
   const emailAutosend = (settings.email_autosend_enabled as boolean | undefined) === true
   const emailMarkReadVal = (settings.email_mark_read as boolean | undefined) === true
+  const emailRouting = (settings.email_routing as { otaDomains?: string[]; supplierDomains?: string[] } | undefined) ?? {}
+  const otaDomainsStr = (emailRouting.otaDomains ?? []).join('\n')
+  const supplierDomainsStr = (emailRouting.supplierDomains ?? []).join('\n')
 
   const errorSection = error ? error.split('_')[0] : null
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? 'Errore durante il salvataggio.') : null
@@ -451,6 +455,56 @@ export default async function PropertySettingsPage({
 
           <button formAction={updateEmailPilot} className={saveBtnCls}>
             Salva canale email
+          </button>
+        </form>
+      </section>
+
+      <SectionDivider />
+
+      {/* ── ROUTER EMAIL · LISTE DOMINI ───────────────────────────── */}
+      <section>
+        <h2 className="mb-4 text-base font-semibold text-slate-800">Router email · liste domini</h2>
+        <p className="mb-4 text-sm text-slate-500">
+          Domini riconosciuti dal Router L0, modificabili senza intervento tecnico (uno per riga).
+          Booking, Expedia, Airbnb, QuoVai e QVI sono già riconosciuti di base; qui aggiungi gli altri
+          (es. RoomCloud, channel manager) e i fornitori/amministrazione (commercialista, utenze).
+        </p>
+
+        {saved === 'routing' && (
+          <SectionBanner type="success" message="Liste domini salvate." />
+        )}
+        {errorSection === 'routing' && errorMessage && (
+          <SectionBanner type="error" message={errorMessage} />
+        )}
+
+        <form className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="ota_domains" className={labelCls}>Domini OTA / PMS / channel manager</label>
+            <textarea
+              id="ota_domains"
+              name="ota_domains"
+              rows={4}
+              defaultValue={otaDomainsStr}
+              placeholder={'roomcloud.net\nmychannelmanager.io'}
+              className={inputCls}
+            />
+            <p className="mt-1 text-xs text-slate-400">Queste email vengono archiviate (ota_inbox + reservations_staging), mai risposte.</p>
+          </div>
+          <div>
+            <label htmlFor="supplier_domains" className={labelCls}>Domini fornitori / amministrazione</label>
+            <textarea
+              id="supplier_domains"
+              name="supplier_domains"
+              rows={4}
+              defaultValue={supplierDomainsStr}
+              placeholder={'commercialista.it\nenel.it'}
+              className={inputCls}
+            />
+            <p className="mt-1 text-xs text-slate-400">Escluse dal pipeline concierge: lasciate in casella per lo staff.</p>
+          </div>
+
+          <button formAction={updateEmailRouting} className={saveBtnCls}>
+            Salva liste domini
           </button>
         </form>
       </section>
