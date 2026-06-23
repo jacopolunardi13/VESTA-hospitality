@@ -17,6 +17,9 @@ export interface InboundEmail {
   references: string    // header References (catena thread)
   inReplyTo: string     // header In-Reply-To (fallback mapping conversazione)
   body: string          // testo pulito (quote rimossa)
+  listUnsubscribe?: string // header List-Unsubscribe (→ newsletter)
+  autoSubmitted?: string   // header Auto-Submitted (→ automatico)
+  precedence?: string      // header Precedence (bulk → newsletter)
 }
 
 interface GmailHeader { name: string; value: string }
@@ -102,6 +105,9 @@ export async function getMessage(accessToken: string, id: string): Promise<Inbou
     references: headerOf(j.payload, 'References'),
     inReplyTo: headerOf(j.payload, 'In-Reply-To'),
     body: body || (j.snippet ?? ''),
+    listUnsubscribe: headerOf(j.payload, 'List-Unsubscribe'),
+    autoSubmitted: headerOf(j.payload, 'Auto-Submitted'),
+    precedence: headerOf(j.payload, 'Precedence'),
   }
 }
 

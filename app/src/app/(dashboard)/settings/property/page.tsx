@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { updateAnagrafica, updateCommerciale, updateAI, updateProtezioni } from './actions'
+import { updateAnagrafica, updateCommerciale, updateAI, updateProtezioni, updateEmailPilot } from './actions'
 
 const TIMEZONES = [
   'Europe/Rome',
@@ -28,6 +28,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   anagrafica_missing_name: 'Il nome della struttura è obbligatorio.',
   anagrafica_update_failed: 'Errore durante il salvataggio. Riprova.',
   commerciale_update_failed: 'Errore durante il salvataggio. Riprova.',
+  email_update_failed: 'Errore durante il salvataggio del canale email. Riprova.',
   ai_update_failed: 'Errore durante il salvataggio. Riprova.',
   protezioni_update_failed: 'Errore durante il salvataggio. Riprova.',
 }
@@ -96,6 +97,8 @@ export default async function PropertySettingsPage({
     ((settings.ai_conversation_cost_limit_cents as number | undefined) ?? 50) / 100
   const aiSessionMsgLimit = (settings.ai_session_message_limit as number | undefined) ?? 30
   const safeMode = (settings.safe_mode as boolean | undefined) ?? false
+  const emailAutosend = (settings.email_autosend_enabled as boolean | undefined) === true
+  const emailMarkReadVal = (settings.email_mark_read as boolean | undefined) === true
 
   const errorSection = error ? error.split('_')[0] : null
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? 'Errore durante il salvataggio.') : null
@@ -388,6 +391,66 @@ export default async function PropertySettingsPage({
 
           <button formAction={updateAI} className={saveBtnCls}>
             Salva AI
+          </button>
+        </form>
+      </section>
+
+      <SectionDivider />
+
+      {/* ── CANALE EMAIL (PILOTA) ─────────────────────────────────── */}
+      <section>
+        <h2 className="mb-4 text-base font-semibold text-slate-800">Canale email (pilota)</h2>
+        <p className="mb-4 text-sm text-slate-500">
+          Kill-switch dell&apos;auto-invio email. Con auto-invio <strong>disattivo</strong>, Vesta
+          legge e prepara le risposte (visibili in dashboard) ma <strong>non le invia</strong>: lo
+          staff gestisce a mano. Riguarda solo le risposte automatiche Tier 1; il Tier 2 resta
+          sempre approvato manualmente.
+        </p>
+
+        {saved === 'email' && (
+          <SectionBanner type="success" message="Impostazioni canale email salvate." />
+        )}
+        {errorSection === 'email' && errorMessage && (
+          <SectionBanner type="error" message={errorMessage} />
+        )}
+
+        <form className="flex flex-col gap-4">
+          <div>
+            <p className={labelCls}>Auto-invio email (Tier 1)</p>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="radio" name="email_autosend_enabled" value="true" defaultChecked={emailAutosend} className="accent-slate-900" />
+                Attivo — Vesta invia le risposte Tier 1
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="radio" name="email_autosend_enabled" value="false" defaultChecked={!emailAutosend} className="accent-slate-900" />
+                Disattivo (kill-switch)
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Interruttore reversibile all&apos;istante. Default: disattivo finché non si va live.
+            </p>
+          </div>
+
+          <div>
+            <p className={labelCls}>Marca le email come lette</p>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="radio" name="email_mark_read" value="true" defaultChecked={emailMarkReadVal} className="accent-slate-900" />
+                Sì
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="radio" name="email_mark_read" value="false" defaultChecked={!emailMarkReadVal} className="accent-slate-900" />
+                No (consigliato nei primi giorni)
+              </label>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Con &laquo;No&raquo; le email restano non lette: lo staff vede tutto ciò che Vesta tocca.
+            </p>
+          </div>
+
+          <button formAction={updateEmailPilot} className={saveBtnCls}>
+            Salva canale email
           </button>
         </form>
       </section>

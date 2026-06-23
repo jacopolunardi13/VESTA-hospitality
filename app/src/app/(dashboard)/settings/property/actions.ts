@@ -121,6 +121,23 @@ export async function updateAI(formData: FormData) {
   redirect('/settings/property?saved=ai')
 }
 
+// Canale email (pilota): kill-switch auto-invio + marca-lette. Salvati in settings JSON.
+export async function updateEmailPilot(formData: FormData) {
+  const autosend = formData.get('email_autosend_enabled') === 'true'
+  const markRead = formData.get('email_mark_read') === 'true'
+
+  const { supabase, propertyId, currentSettings } = await resolveProperty()
+
+  const { error } = await supabase
+    .from('properties')
+    .update({ settings: { ...currentSettings, email_autosend_enabled: autosend, email_mark_read: markRead } })
+    .eq('id', propertyId)
+
+  if (error) redirect('/settings/property?error=email_update_failed')
+
+  redirect('/settings/property?saved=email')
+}
+
 export async function updateProtezioni(formData: FormData) {
   const budgetRaw = parseFloat((formData.get('ai_daily_budget_euros') as string | null) ?? '5')
   const convLimitRaw = parseFloat(

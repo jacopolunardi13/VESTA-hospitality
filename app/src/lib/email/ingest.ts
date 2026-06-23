@@ -7,8 +7,11 @@ import type { Database, Json } from '@/lib/supabase/database.types'
 import { processConversationTurn } from '@/lib/booking/orchestrate'
 import { sendReply, type EmailAttachment, type InboundEmail } from './gmail'
 import { renderEmailHtml } from './template'
+import { emailAutosendEnabled } from './flags'
 import { generateDocument, getDocumentConfig } from '@/lib/documents'
 import type { PropertyContext } from '@/lib/ai/types'
+
+const NO_REPLY = /no-?reply|do-?not-?reply|mailer-daemon|postmaster/i
 
 const DEFAULT_PROPERTY_ID = '00000000-0000-0000-0000-000000000011' // LunArt B&B (pilot)
 
@@ -123,8 +126,11 @@ export async function ingestEmail(
   // 4. Consegna: email = invia la risposta in-thread (la persistenza l'ha già fatta il core).
   //    Se le credenziali Gmail non sono configurate, salta l'invio senza errori
   //    (produzione sicura + abilita i test del percorso ingestione senza Gmail reale).
+  // Kill-switch: invia SOLO se l'auto-invio è abilitato (default OFF) e il mittente non è no-reply.
+  // Quando OFF, la risposta è già stata persistita (visibile in dashboard) ma non viene inviata.
   let replied = false
-  if (turn.reply && process.env.GMAIL_REFRESH_TOKEN && accessToken) {
+  const autosend = emailAutosendEnabled(property.settings)
+  if (turn.reply && autosend && !NO_REPLY.test(email.from) && process.env.GMAIL_REFRESH_TOKEN && accessToken) {
     // Corpo HTML brandizzato (struttura) + eventuale allegato PDF (preventivo a totale risolto).
     // Robusto: se branding/documento non disponibili, invia comunque il testo semplice.
     let html: string | undefined
