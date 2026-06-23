@@ -2,6 +2,8 @@
 // pilot email Vesta. Auth server-to-server tramite refresh token (no password).
 // Scope richiesto: https://www.googleapis.com/auth/gmail.modify (read+send+label).
 
+import { randomUUID } from 'node:crypto'
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me'
 
@@ -111,24 +113,60 @@ export async function markRead(accessToken: string, id: string): Promise<void> {
   })
 }
 
-export async function sendReply(
-  accessToken: string,
-  opts: { to: string; from: string; subject: string; body: string; inReplyTo?: string; references?: string; threadId?: string }
-): Promise<void> {
+export interface EmailAttachment { filename: string; mimeType: string; content: Buffer }
+export interface SendReplyOpts {
+  to: string; from: string; subject: string
+  body: string            // testo semplice (fallback)
+  html?: string           // corpo HTML (multipart/alternative)
+  attachments?: EmailAttachment[] // allegati (es. PDF preventivo)
+  inReplyTo?: string; references?: string; threadId?: string
+}
+
+const wrap76 = (b: Buffer) => b.toString('base64').replace(/(.{76})/g, '$1\r\n')
+
+/** Costruisce il MIME completo (testo / multipart-alternative / multipart-mixed con allegati).
+ *  Estratto da sendReply per essere testabile senza inviare. */
+export function buildMimeMessage(opts: SendReplyOpts): string {
   const subject = /^re:/i.test(opts.subject) ? opts.subject : `Re: ${opts.subject || '(nessun oggetto)'}`
-  const lines = [
-    `From: ${opts.from}`,
-    `To: ${opts.to}`,
-    `Subject: ${subject}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset="UTF-8"',
-  ]
+  const headers = [`From: ${opts.from}`, `To: ${opts.to}`, `Subject: ${subject}`, 'MIME-Version: 1.0']
   if (opts.inReplyTo) {
-    lines.push(`In-Reply-To: ${opts.inReplyTo}`)
-    lines.push(`References: ${opts.references ? opts.references + ' ' : ''}${opts.inReplyTo}`)
+    headers.push(`In-Reply-To: ${opts.inReplyTo}`)
+    headers.push(`References: ${opts.references ? opts.references + ' ' : ''}${opts.inReplyTo}`)
   }
-  const mime = lines.join('\r\n') + '\r\n\r\n' + opts.body
-  const raw = Buffer.from(mime, 'utf8').toString('base64url')
+  const atts = opts.attachments ?? []
+  const altPart = (alt: string) => {
+    const p = [`--${alt}`, 'Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: 8bit', '', opts.body]
+    if (opts.html) p.push(`--${alt}`, 'Content-Type: text/html; charset="UTF-8"', 'Content-Transfer-Encoding: 8bit', '', opts.html)
+    p.push(`--${alt}--`)
+    return p.join('\r\n')
+  }
+
+  let mimeBody: string
+  if (atts.length > 0) {
+    const mixed = `mixed_${randomUUID()}`, alt = `alt_${randomUUID()}`
+    headers.push(`Content-Type: multipart/mixed; boundary="${mixed}"`)
+    const parts = [`--${mixed}`, `Content-Type: multipart/alternative; boundary="${alt}"`, '', altPart(alt)]
+    for (const a of atts) {
+      parts.push(`--${mixed}`,
+        `Content-Type: ${a.mimeType}; name="${a.filename}"`,
+        'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${a.filename}"`, '', wrap76(a.content))
+    }
+    parts.push(`--${mixed}--`)
+    mimeBody = parts.join('\r\n')
+  } else if (opts.html) {
+    const alt = `alt_${randomUUID()}`
+    headers.push(`Content-Type: multipart/alternative; boundary="${alt}"`)
+    mimeBody = altPart(alt)
+  } else {
+    headers.push('Content-Type: text/plain; charset="UTF-8"')
+    mimeBody = opts.body
+  }
+  return headers.join('\r\n') + '\r\n\r\n' + mimeBody
+}
+
+export async function sendReply(accessToken: string, opts: SendReplyOpts): Promise<void> {
+  const raw = Buffer.from(buildMimeMessage(opts), 'utf8').toString('base64url')
   const res = await fetch(`${API}/messages/send`, {
     method: 'POST',
     headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },

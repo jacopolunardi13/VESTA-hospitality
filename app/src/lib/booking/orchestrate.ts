@@ -25,6 +25,9 @@ export interface TurnResult {
   status: string
   source: string
   escalated: boolean
+  /** Documento da allegare/recapitare alla risposta (Tier 1): preventivo a totale risolto
+   *  (ospite ha scelto camera/combinazione). Il canale decide allegato/documento/link. */
+  document?: { leadId: string; type: 'preventivo' | 'conferma' }
 }
 
 /** Sorgente del lead alla creazione (canale d'origine). */
@@ -81,7 +84,7 @@ export async function processConversationTurn(opts: {
             await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
             await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto ${chosen.roomName} (€${offerEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
-            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false }
+            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false, document: { leadId, type: 'preventivo' } }
           }
 
           // Scelta ambigua, o intenzione di procedere con più camere → chiedi quale.
@@ -112,7 +115,7 @@ export async function processConversationTurn(opts: {
             await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
             await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto la combinazione ${names} (€${totalEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
-            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false }
+            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false, document: { leadId, type: 'preventivo' } }
           }
         }
       }

@@ -5,7 +5,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import { processConversationTurn } from '@/lib/booking/orchestrate'
-import { sendReply, type InboundEmail } from './gmail'
+import { sendReply, type EmailAttachment, type InboundEmail } from './gmail'
+import { renderEmailHtml } from './template'
+import { generateDocument, getDocumentConfig } from '@/lib/documents'
 import type { PropertyContext } from '@/lib/ai/types'
 
 const DEFAULT_PROPERTY_ID = '00000000-0000-0000-0000-000000000011' // LunArt B&B (pilot)
@@ -123,8 +125,22 @@ export async function ingestEmail(
   //    (produzione sicura + abilita i test del percorso ingestione senza Gmail reale).
   let replied = false
   if (turn.reply && process.env.GMAIL_REFRESH_TOKEN && accessToken) {
+    // Corpo HTML brandizzato (struttura) + eventuale allegato PDF (preventivo a totale risolto).
+    // Robusto: se branding/documento non disponibili, invia comunque il testo semplice.
+    let html: string | undefined
+    let attachments: EmailAttachment[] | undefined
+    try {
+      const config = getDocumentConfig(property)
+      html = renderEmailHtml(config, turn.reply)
+      if (turn.document) {
+        const gen = await generateDocument(sb, property, turn.document.leadId, turn.document.type, { store: true })
+        const slug = config.brandName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        attachments = [{ filename: `${turn.document.type}-${slug}.pdf`, mimeType: 'application/pdf', content: gen.buffer }]
+      }
+    } catch { /* documento/branding non disponibili → fallback al solo testo */ }
     await sendReply(accessToken, {
       to: email.from, from: process.env.GMAIL_ADDRESS ?? '', subject: email.subject, body: turn.reply,
+      html, attachments,
       inReplyTo: email.rfcMessageId, references: email.references, threadId: email.threadId,
     })
     replied = true
