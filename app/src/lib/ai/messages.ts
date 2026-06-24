@@ -324,3 +324,15 @@ export function paymentAck(lang: Lang): string {
   }
   return T[lang]
 }
+
+// ── Punto 8: conferma prenotazione (inviata dallo staff con il PDF di conferma) ──
+export function confirmationText(lang: Lang): string {
+  const T: Record<Lang, string> = {
+    it: `Gentile ospite, confermiamo la sua prenotazione. In allegato trova il documento di conferma. La aspettiamo!`,
+    en: `Dear guest, your booking is confirmed. Please find the confirmation document attached. We look forward to welcoming you!`,
+    es: `Estimado huésped, confirmamos su reserva. Adjuntamos el documento de confirmación. ¡Le esperamos!`,
+    fr: `Cher client, votre réservation est confirmée. Vous trouverez en pièce jointe le document de confirmation. Au plaisir de vous accueillir !`,
+    de: `Sehr geehrter Gast, Ihre Buchung ist bestätigt. Das Bestätigungsdokument finden Sie im Anhang. Wir freuen uns auf Sie!`,
+  }
+  return T[lang]
+}
