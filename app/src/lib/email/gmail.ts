@@ -111,6 +111,14 @@ export async function getMessage(accessToken: string, id: string): Promise<Inbou
   }
 }
 
+// Profilo casella (read-only): indirizzo + totale messaggi. Per la diagnostica del collegamento.
+export async function getProfile(accessToken: string): Promise<{ emailAddress: string; messagesTotal: number }> {
+  const res = await fetch(`${API}/profile`, { headers: { authorization: `Bearer ${accessToken}` } })
+  if (!res.ok) throw new Error(`gmail profile ${res.status}: ${await res.text()}`)
+  const j = (await res.json()) as { emailAddress?: string; messagesTotal?: number }
+  return { emailAddress: j.emailAddress ?? '', messagesTotal: j.messagesTotal ?? 0 }
+}
+
 export async function markRead(accessToken: string, id: string): Promise<void> {
   await fetch(`${API}/messages/${id}/modify`, {
     method: 'POST',
