@@ -499,6 +499,19 @@ export default async function BookingRequestPage({
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Azioni
         </h2>
+        {/* Anteprima documento (Approva e invia): visualizza/scarica il PDF prima dell'invio. */}
+        {status === 'interested' && (
+          <a href={`/api/documents/preview?lead=${id}&type=preventivo`} target="_blank" rel="noopener noreferrer"
+            className="mb-3 inline-block text-sm text-slate-700 underline hover:text-slate-900">
+            📄 Anteprima PDF preventivo
+          </a>
+        )}
+        {status === 'awaiting_payment' && (
+          <a href={`/api/documents/preview?lead=${id}&type=conferma`} target="_blank" rel="noopener noreferrer"
+            className="mb-3 inline-block text-sm text-slate-700 underline hover:text-slate-900">
+            📄 Anteprima PDF conferma
+          </a>
+        )}
         <RequestActions requestId={id} status={status} />
       </section>
 

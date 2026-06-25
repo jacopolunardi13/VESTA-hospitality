@@ -123,8 +123,8 @@ export function paymentInstructions(lang: Lang, b: BankDetails): string {
   const L = labels[lang]
   const bank = `${L.holder}: ${b.holder}\nIBAN: ${b.iban}\n${L.branch}: ${b.branch}\n${L.causal}: ${b.causal}`
   const body: Record<Lang, string> = {
-    it: `Perfetto.\n\nPer confermare la prenotazione è previsto il pagamento anticipato tramite bonifico bancario.\n\nLa camera verrà riservata per 24 ore in attesa del pagamento.\n\n${bank}\n\nUna volta effettuato il bonifico, le chiediamo gentilmente di inviarci la contabile oppure uno screenshot completo del pagamento.\n\nDopo la verifica da parte del nostro staff, riceverà la conferma definitiva della prenotazione.\n\nGrazie e per qualsiasi necessità non esiti a contattarci.\n\nJacopo\nLunArt`,
-    en: `Perfect.\n\nTo confirm the booking, advance payment by bank transfer is required.\n\nThe room will be reserved for 24 hours pending payment.\n\n${bank}\n\nOnce the transfer is made, please kindly send us the receipt or a full screenshot of the payment.\n\nAfter verification by our staff, you will receive the final booking confirmation.\n\nThank you, and please do not hesitate to contact us for anything you need.\n\nJacopo\nLunArt`,
+    it: `La disponibilità è stata verificata e la proposta resta riservata per 24 ore in attesa del pagamento.\n\nPer confermare la prenotazione è previsto il pagamento anticipato tramite bonifico bancario.\n\n${bank}\n\nPer confermare la prenotazione chiediamo gentilmente l'invio della contabile bancaria o di uno screenshot del bonifico effettuato.\n\nDopo la verifica da parte del nostro staff, riceverà la conferma definitiva della prenotazione.\n\nGrazie,\nJacopo\nLunArt`,
+    en: `Availability has been confirmed and the offer is held for 24 hours pending payment.\n\nTo confirm the booking, advance payment by bank transfer is required.\n\n${bank}\n\nTo confirm the booking, please kindly send us the bank receipt or a screenshot of the completed transfer.\n\nAfter verification by our staff, you will receive the final booking confirmation.\n\nThank you,\nJacopo\nLunArt`,
     es: `Perfecto.\n\nPara confirmar la reserva se requiere el pago anticipado mediante transferencia bancaria.\n\nLa habitación se reservará durante 24 horas a la espera del pago.\n\n${bank}\n\nUna vez realizada la transferencia, le rogamos que nos envíe el comprobante o una captura completa del pago.\n\nTras la verificación por parte de nuestro personal, recibirá la confirmación definitiva de la reserva.\n\nGracias y no dude en contactarnos para cualquier necesidad.\n\nJacopo\nLunArt`,
     fr: `Parfait.\n\nPour confirmer la réservation, un paiement anticipé par virement bancaire est requis.\n\nLa chambre sera réservée pendant 24 heures en attente du paiement.\n\n${bank}\n\nUne fois le virement effectué, merci de nous envoyer le reçu ou une capture d'écran complète du paiement.\n\nAprès vérification par notre personnel, vous recevrez la confirmation définitive de la réservation.\n\nMerci et n'hésitez pas à nous contacter pour tout besoin.\n\nJacopo\nLunArt`,
     de: `Perfekt.\n\nZur Bestätigung der Buchung ist eine Vorauszahlung per Banküberweisung erforderlich.\n\nDas Zimmer wird für 24 Stunden bis zum Zahlungseingang reserviert.\n\n${bank}\n\nNach Ausführung der Überweisung senden Sie uns bitte den Beleg oder einen vollständigen Screenshot der Zahlung.\n\nNach der Prüfung durch unser Team erhalten Sie die endgültige Buchungsbestätigung.\n\nVielen Dank, und zögern Sie nicht, uns bei Bedarf zu kontaktieren.\n\nJacopo\nLunArt`,
@@ -321,6 +321,18 @@ export function paymentAck(lang: Lang): string {
     es: `Gracias. Hemos recibido su notificación de pago. Nuestro personal verificará el comprobante y le enviará la confirmación definitiva de la reserva lo antes posible.`,
     fr: `Merci. Nous avons bien reçu votre notification de paiement. Notre personnel vérifiera le reçu et vous enverra la confirmation définitive de la réservation dès que possible.`,
     de: `Vielen Dank. Wir haben Ihre Zahlungsmitteilung erhalten. Unser Team prüft den Beleg und sendet Ihnen so bald wie möglich die endgültige Buchungsbestätigung.`,
+  }
+  return T[lang]
+}
+
+// ── Punto 8: conferma prenotazione (inviata dallo staff con il PDF di conferma) ──
+export function confirmationText(lang: Lang): string {
+  const T: Record<Lang, string> = {
+    it: `Gentile ospite, confermiamo la sua prenotazione. In allegato trova il documento di conferma. La aspettiamo!`,
+    en: `Dear guest, your booking is confirmed. Please find the confirmation document attached. We look forward to welcoming you!`,
+    es: `Estimado huésped, confirmamos su reserva. Adjuntamos el documento de confirmación. ¡Le esperamos!`,
+    fr: `Cher client, votre réservation est confirmée. Vous trouverez en pièce jointe le document de confirmation. Au plaisir de vous accueillir !`,
+    de: `Sehr geehrter Gast, Ihre Buchung ist bestätigt. Das Bestätigungsdokument finden Sie im Anhang. Wir freuen uns auf Sie!`,
   }
   return T[lang]
 }

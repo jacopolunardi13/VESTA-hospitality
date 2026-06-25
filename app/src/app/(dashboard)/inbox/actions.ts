@@ -7,8 +7,19 @@ import { computeQuote } from '@/lib/quote/priceEngine'
 import { selectAllQuotes } from '@/lib/quote/draftProposal'
 import { childrenNeedingBed } from '@/lib/ai/pipeline'
 import { createNotification } from '@/lib/notifications'
-import { paymentInstructions, alternativesText, noAvailabilityText, normLang } from '@/lib/ai/messages'
+import { paymentInstructions, alternativesText, noAvailabilityText, normLang, confirmationText } from '@/lib/ai/messages'
+import { deliverToGuest } from '@/lib/delivery/deliverToGuest'
+import { markPendingSent } from '@/lib/delivery/pendingActions'
+import { generateDocument, getDocumentConfig } from '@/lib/documents'
+import { renderEmailHtml } from '@/lib/email/template'
+import type { PropertyContext } from '@/lib/ai/types'
 import type { BookingStatus } from '@/lib/quote/types'
+
+/** Carica il PropertyContext completo (per generazione documenti + consegna). */
+async function loadPropertyContext(supabase: Awaited<ReturnType<typeof createClient>>, propertyId: string): Promise<PropertyContext> {
+  const { data: p } = await supabase.from('properties').select('id, org_id, name, settings, supervision_mode').eq('id', propertyId).single()
+  return { id: p!.id, orgId: p!.org_id, name: p!.name, settings: (p!.settings ?? {}) as Record<string, unknown>, supervisionMode: p!.supervision_mode }
+}
 
 async function resolveProperty() {
   const supabase = await createClient()
@@ -33,7 +44,7 @@ async function resolveProperty() {
     .single()
   if (!property) redirect('/onboarding')
 
-  return { supabase, propertyId: property.id, orgId: member.org_id }
+  return { supabase, propertyId: property.id, orgId: member.org_id, userId: user.id }
 }
 
 export async function createRequest(formData: FormData) {
@@ -231,7 +242,7 @@ export async function confirmAvailability(formData: FormData) {
   const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
   if (!requestId) redirect('/inbox?error=missing_fields')
 
-  const { supabase, propertyId, orgId } = await resolveProperty()
+  const { supabase, propertyId, orgId, userId } = await resolveProperty()
 
   const { data: req } = await supabase
     .from('booking_requests')
@@ -260,27 +271,84 @@ export async function confirmAvailability(formData: FormData) {
   const t2 = await executeTransition(supabase, { requestId, orgId, toStatus: 'awaiting_payment', actor: 'staff', note: 'Riservata 24h: inviate istruzioni di pagamento all\'ospite' })
   if (!t2.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
 
-  // Istruzioni di pagamento all'ospite (IBAN solo ora) nella sua lingua.
-  const { data: prop } = await supabase.from('properties').select('settings').eq('id', propertyId).single()
-  const s = (prop?.settings ?? {}) as Record<string, unknown>
+  // Proposta commerciale + IBAN (solo ora) nella lingua dell'ospite.
+  const property = await loadPropertyContext(supabase, propertyId)
+  const s = property.settings
   const lang = normLang(req.language)
   const reply = paymentInstructions(lang, {
     holder: String(s['payment_holder'] ?? ''), iban: String(s['iban'] ?? ''),
-    branch: String(s['payment_branch'] ?? ''), causal: String(s['payment_causal'] ?? 'LunArt'),
+    branch: String(s['payment_branch'] ?? ''), causal: String(s['payment_causal'] ?? property.name),
   })
+
+  // Tier 2 (bypassa il kill-switch): genera il PDF preventivo e CONSEGNA proposta + IBAN all'ospite.
   if (req.conversation_id) {
-    await supabase.from('messages').insert({
-      org_id: orgId, property_id: propertyId, conversation_id: req.conversation_id,
-      direction: 'out', sender: 'staff', content: reply,
-    })
+    let html: string | undefined
+    try { html = renderEmailHtml(getDocumentConfig(property), reply) } catch { /* solo testo */ }
+    let attachments: { filename: string; mimeType: string; content: Buffer }[] | undefined
+    let documentPath: string | undefined
+    try {
+      const gen = await generateDocument(supabase, property, requestId, 'preventivo', { store: true })
+      const slug = property.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      attachments = [{ filename: `preventivo-${slug}.pdf`, mimeType: 'application/pdf', content: gen.buffer }]
+      documentPath = gen.storagePath
+    } catch { /* generazione PDF fallita → consegna solo testo */ }
+    await deliverToGuest(supabase, property, req.conversation_id, { text: reply, html, attachments })
+    await markPendingSent(supabase, { bookingRequestId: requestId, kind: 'send_proposal', messageText: reply, documentPath, approvedBy: userId })
   }
+
   await createNotification(supabase, {
-    orgId, propertyId, type: 'escalation', title: 'Pagamento atteso',
-    body: `Camera riservata 24h: inviate le istruzioni di bonifico all'ospite${roomName ? ` (${roomName})` : ''}.`,
+    orgId, propertyId, type: 'escalation', title: 'Proposta inviata · pagamento atteso',
+    body: `Camera riservata 24h: proposta + IBAN inviati all'ospite${roomName ? ` (${roomName})` : ''}.`,
     bookingRequestId: requestId, conversationId: req.conversation_id,
   })
 
   redirect(`/inbox/${requestId}?saved=availability_confirmed`)
+}
+
+/** Punto 8 — conferma prenotazione (staff): verifica pagamento → confermata + conferma PDF inviata. */
+export async function confirmBooking(formData: FormData) {
+  const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
+  if (!requestId) redirect('/inbox?error=missing_fields')
+
+  const { supabase, propertyId, orgId, userId } = await resolveProperty()
+
+  const { data: req } = await supabase
+    .from('booking_requests')
+    .select('id, status, conversation_id, language')
+    .eq('id', requestId).eq('org_id', orgId).single()
+  if (!req) redirect('/inbox?error=not_found')
+  if (req.status !== 'awaiting_payment') redirect(`/inbox/${requestId}?error=invalid_state`)
+
+  const t = await executeTransition(supabase, { requestId, orgId, toStatus: 'confirmed', actor: 'staff', note: 'Pagamento verificato dallo staff: prenotazione confermata' })
+  if (!t.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
+
+  const property = await loadPropertyContext(supabase, propertyId)
+  const lang = normLang(req.language)
+  const reply = confirmationText(lang)
+
+  // Tier 2 (bypassa il kill-switch): genera la conferma PDF e CONSEGNA all'ospite.
+  if (req.conversation_id) {
+    let html: string | undefined
+    try { html = renderEmailHtml(getDocumentConfig(property), reply) } catch { /* solo testo */ }
+    let attachments: { filename: string; mimeType: string; content: Buffer }[] | undefined
+    let documentPath: string | undefined
+    try {
+      const gen = await generateDocument(supabase, property, requestId, 'conferma', { store: true })
+      const slug = property.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      attachments = [{ filename: `conferma-${slug}.pdf`, mimeType: 'application/pdf', content: gen.buffer }]
+      documentPath = gen.storagePath
+    } catch { /* generazione PDF fallita → consegna solo testo */ }
+    await deliverToGuest(supabase, property, req.conversation_id, { text: reply, html, attachments })
+    await markPendingSent(supabase, { bookingRequestId: requestId, kind: 'send_confirmation', messageText: reply, documentPath, approvedBy: userId })
+  }
+
+  await createNotification(supabase, {
+    orgId, propertyId, type: 'escalation', title: 'Prenotazione confermata',
+    body: 'Conferma + PDF di conferma inviati all\'ospite.',
+    bookingRequestId: requestId, conversationId: req.conversation_id,
+  })
+
+  redirect(`/inbox/${requestId}?saved=booking_confirmed`)
 }
 
 /**

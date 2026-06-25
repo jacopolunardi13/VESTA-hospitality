@@ -1,6 +1,6 @@
 'use client'
 
-import { transitionRequest, confirmAvailability, markUnavailable } from '@/app/(dashboard)/inbox/actions'
+import { transitionRequest, confirmAvailability, markUnavailable, confirmBooking } from '@/app/(dashboard)/inbox/actions'
 import type { BookingStatus } from '@/lib/quote/types'
 
 interface ActionDef {
@@ -33,8 +33,8 @@ const actionsByStatus: Record<BookingStatus, ActionDef[]> = {
     { to: 'expired',          label: '⏱ Scaduta' },
     { to: 'cancelled',        label: '✖ Cancella',            danger:  true },
   ],
+  // 'confirmed' è gestito da un'azione dedicata (confirmBooking → conferma PDF), vedi sotto.
   awaiting_payment:      [
-    { to: 'confirmed', label: '✅ Pagamento ricevuto → Conferma', primary: true },
     { to: 'cancelled', label: '✖ Cancella',                       danger:  true },
   ],
   confirmed:             [
@@ -86,6 +86,17 @@ export default function RequestActions({
             </button>
           </form>
         </>
+      )}
+      {status === 'awaiting_payment' && (
+        <form action={confirmBooking}>
+          <input type="hidden" name="request_id" value={requestId} />
+          <button
+            type="submit"
+            className="rounded-md bg-slate-900 w-full px-3 py-2.5 text-center text-sm font-medium sm:w-auto text-white transition-colors hover:bg-slate-700"
+          >
+            ✅ Pagamento ricevuto → Conferma e invia PDF
+          </button>
+        </form>
       )}
       {actions.map(a => (
         <form key={a.to} action={transitionRequest}>

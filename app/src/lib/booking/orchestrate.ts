@@ -14,6 +14,7 @@ import { persistProposal, persistCombination, selectAllQuotes, selectAvailableRo
 import { selectRoomCombinations } from '@/lib/quote/roomCombinations'
 import { executeTransition } from '@/lib/quote/stateMachine'
 import { createNotification } from '@/lib/notifications'
+import { createPendingAction } from '@/lib/delivery/pendingActions'
 import { isInterest, isPaymentClaim, matchRoomChoice, matchCombination, chooseRoomPrompt, availabilityCheckAck, paymentAck, normLang } from '@/lib/ai/messages'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
 
@@ -25,9 +26,6 @@ export interface TurnResult {
   status: string
   source: string
   escalated: boolean
-  /** Documento da allegare/recapitare alla risposta (Tier 1): preventivo a totale risolto
-   *  (ospite ha scelto camera/combinazione). Il canale decide allegato/documento/link. */
-  document?: { leadId: string; type: 'preventivo' | 'conferma' }
 }
 
 /** Sorgente del lead alla creazione (canale d'origine). */
@@ -84,7 +82,9 @@ export async function processConversationTurn(opts: {
             await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
             await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto ${chosen.roomName} (€${offerEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
-            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false, document: { leadId, type: 'preventivo' } }
+            // Tier 2: prepara la proposta (PDF generato all'approvazione, non ora — punto 4→5).
+            await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_proposal', channel: leadSource, documentType: 'preventivo' })
+            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false }
           }
 
           // Scelta ambigua, o intenzione di procedere con più camere → chiedi quale.
@@ -115,7 +115,8 @@ export async function processConversationTurn(opts: {
             await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
             await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto la combinazione ${names} (€${totalEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
-            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false, document: { leadId, type: 'preventivo' } }
+            await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_proposal', channel: leadSource, documentType: 'preventivo' })
+            return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false }
           }
         }
       }
@@ -125,6 +126,8 @@ export async function processConversationTurn(opts: {
         const reply = paymentAck(lang)
         await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
         await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Contabile ricevuta – verifica richiesta', body: 'L\'ospite dichiara di aver pagato. Verifica la contabile e premi "Conferma prenotazione".', bookingRequestId: leadId, conversationId })
+        // Tier 2: prepara la conferma (PDF generato all'approvazione staff — punto 8).
+        await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_confirmation', channel: leadSource, documentType: 'conferma' })
         return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'awaiting_payment', source: 'template', escalated: false }
       }
     }
