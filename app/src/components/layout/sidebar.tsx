@@ -15,6 +15,7 @@ const mainNav: NavItem[] = [
   { label: "Camere",        href: "/rooms" },
   { label: "Knowledge base", href: "/knowledge" },
   { label: "Router email", href: "/email-router" },
+  { label: "Document Center", href: "/documents" },
   { label: "Template" },
   { label: "Follow-up" },
 ];

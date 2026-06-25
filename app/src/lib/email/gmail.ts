@@ -20,15 +20,18 @@ export interface InboundEmail {
   listUnsubscribe?: string // header List-Unsubscribe (→ newsletter)
   autoSubmitted?: string   // header Auto-Submitted (→ automatico)
   precedence?: string      // header Precedence (bulk → newsletter)
+  attachments?: EmailAttachmentRef[] // allegati (id+filename+mime) — bytes via downloadAttachment
 }
 
 interface GmailHeader { name: string; value: string }
 interface GmailPart {
   mimeType?: string
-  body?: { data?: string }
+  filename?: string
+  body?: { data?: string; attachmentId?: string }
   parts?: GmailPart[]
   headers?: GmailHeader[]
 }
+export interface EmailAttachmentRef { id: string; filename: string; mimeType: string }
 interface GmailMessageFull { id: string; threadId: string; snippet?: string; payload?: GmailPart }
 
 export async function getAccessToken(): Promise<string> {
@@ -83,6 +86,20 @@ function extractText(p: GmailPart | undefined): string {
   return ''
 }
 
+/** Estrae i riferimenti agli allegati (parti con filename + attachmentId), ricorsivo. */
+export function extractAttachments(p: GmailPart | undefined): EmailAttachmentRef[] {
+  const out: EmailAttachmentRef[] = []
+  const walk = (part?: GmailPart) => {
+    if (!part) return
+    if (part.filename && part.body?.attachmentId) {
+      out.push({ id: part.body.attachmentId, filename: part.filename, mimeType: part.mimeType ?? 'application/octet-stream' })
+    }
+    for (const sub of part.parts ?? []) walk(sub)
+  }
+  walk(p)
+  return out
+}
+
 function parseFrom(v: string): { email: string; name: string } {
   const m = v.match(/^\s*"?([^"<]*)"?\s*<([^>]+)>\s*$/)
   if (m) return { name: m[1].trim(), email: m[2].trim().toLowerCase() }
@@ -108,7 +125,16 @@ export async function getMessage(accessToken: string, id: string): Promise<Inbou
     listUnsubscribe: headerOf(j.payload, 'List-Unsubscribe'),
     autoSubmitted: headerOf(j.payload, 'Auto-Submitted'),
     precedence: headerOf(j.payload, 'Precedence'),
+    attachments: extractAttachments(j.payload),
   }
+}
+
+/** Scarica i bytes di un allegato (users.messages.attachments.get). */
+export async function downloadAttachment(accessToken: string, messageId: string, attachmentId: string): Promise<Buffer | null> {
+  const res = await fetch(`${API}/messages/${messageId}/attachments/${attachmentId}`, { headers: { authorization: `Bearer ${accessToken}` } })
+  if (!res.ok) return null
+  const j = (await res.json()) as { data?: string }
+  return j.data ? Buffer.from(j.data, 'base64url') : null
 }
 
 // Profilo casella (read-only): indirizzo + totale messaggi. Per la diagnostica del collegamento.

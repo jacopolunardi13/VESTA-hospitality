@@ -28,8 +28,9 @@ export async function logRouting(sb: SupabaseClient<Database>, property: Propert
   })
 }
 
-/** Archivia un'email OTA/PMS: raw in ota_inbox + parsing best-effort in reservations_staging. */
-export async function archiveOtaEmail(sb: SupabaseClient<Database>, property: PropertyContext, email: InboundEmail, route: RouteResult): Promise<void> {
+/** Archivia un'email OTA/PMS: raw in ota_inbox + parsing best-effort in reservations_staging.
+ *  Ritorna l'id ota_inbox (o null) per agganciare eventuali documenti (Document Center). */
+export async function archiveOtaEmail(sb: SupabaseClient<Database>, property: PropertyContext, email: InboundEmail, route: RouteResult): Promise<string | null> {
   const source = route.source ?? 'unknown'
   const { data: inbox } = await db(sb).from('ota_inbox').insert({
     org_id: property.orgId, property_id: property.id,
@@ -42,14 +43,16 @@ export async function archiveOtaEmail(sb: SupabaseClient<Database>, property: Pr
     },
   }).select('id').single()
 
+  const inboxId = (inbox as { id: string } | null)?.id ?? null
   const parsed = parseOtaEmail(source, email)
   await db(sb).from('reservations_staging').insert({
     org_id: property.orgId, property_id: property.id,
-    ota_inbox_id: (inbox as { id: string } | null)?.id ?? null,
+    ota_inbox_id: inboxId,
     source: parsed.source, external_id: parsed.external_id, guest_name: parsed.guest_name,
     check_in: parsed.check_in, check_out: parsed.check_out, room: parsed.room,
     amount_cents: parsed.amount_cents, status: parsed.status,
     confidence: parsed.confidence, verified: false,
     canonical_ref: null, linked_group_id: null, parsed_at: new Date().toISOString(),
   })
+  return inboxId
 }
