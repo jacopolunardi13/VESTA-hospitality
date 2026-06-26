@@ -4,7 +4,7 @@ import { ingestEmail, loadEmailProperty } from '@/lib/email/ingest'
 import { classifyEmailCategory, getRoutingRules, hasAutomatedMarkers } from '@/lib/email/routing'
 import { proposeEmailCategory } from '@/lib/email/routing-ai'
 import { alreadyRouted, logRouting, archiveOtaEmail } from '@/lib/email/archive'
-import { archiveBookingDocuments } from '@/lib/documents-center/ingest'
+import { archiveEmailDocuments } from '@/lib/documents-center/ingest'
 import { emailMarkRead } from '@/lib/email/flags'
 
 // Polling Gmail per il pilot. Protetto da CRON_SECRET. Router L0: classifica OGNI email PRIMA
@@ -49,9 +49,10 @@ export async function POST(request: Request) {
           results.push({ category: 'guest', from: email.from, subject: email.subject, intent: r.intent, stage: r.stage, replied: r.replied })
         } else if (route.category === 'ota_pms') {
           const otaInboxId = await archiveOtaEmail(sb, property, email, route)
-          // Document Center MVP: solo Booking con PDF allegato → archivia documento (best-effort).
-          let doc
-          if (route.source === 'booking') doc = await archiveBookingDocuments(sb, property, email, otaInboxId, token)
+          // Document Center / Back Office Assistant: il registry dei recognizer decide se archiviare
+          // documenti (MVP: solo Booking). best-effort → non rompe mai il poll. Fase 2: i fornitori
+          // italiani (supplier_admin) chiameranno lo stesso archiveEmailDocuments nel loro ramo.
+          const doc = await archiveEmailDocuments(sb, property, email, route, otaInboxId, token)
           processed++
           results.push({ category: 'ota_pms', source: route.source, from: email.from, subject: email.subject, documents: doc })
         } else {

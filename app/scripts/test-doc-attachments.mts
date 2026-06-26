@@ -1,7 +1,11 @@
-// Document Center MVP — unit test (offline, nessuna rete): estrazione allegati Gmail + filtri PDF.
+// Document Center MVP — unit test (offline, nessuna rete): allegati Gmail + filtri PDF + registry
+// recognizer (seam estensibile del Back Office Assistant).
 // Uso: node --import tsx scripts/test-doc-attachments.mts
 import { extractAttachments } from '@/lib/email/gmail'
 import { isPdf, safeName } from '@/lib/documents-center/ingest'
+import { recognizeEmail, RECOGNIZERS } from '@/lib/documents-center/registry'
+import type { InboundEmail } from '@/lib/email/gmail'
+import type { RouteResult } from '@/lib/email/routing'
 
 let pass = 0, fail = 0
 const ok = (c: boolean, m: string) => { if (c) { pass++; console.log('  ✓ ' + m) } else { fail++; console.log('  ✗ ' + m) } }
@@ -39,6 +43,21 @@ ok(!safeName('Fattura 12345.pdf').includes(' '), 'rimuove spazi')
 ok(!safeName('../../etc/passwd').includes('/'), 'rimuove slash (no path traversal)')
 ok(safeName('').length > 0, 'fallback non vuoto')
 ok(/\.pdf$/.test(safeName('Receipt.pdf')), 'mantiene estensione')
+
+console.log('\n— registry recognizer (Supplier Knowledge) —')
+const email = (subject: string): InboundEmail => ({ id: 'm1', threadId: 't1', from: 'noreply@booking.com', fromName: 'Booking', subject, rfcMessageId: '', references: '', inReplyTo: '', body: '' })
+const route = (category: RouteResult['category'], source: RouteResult['source']): RouteResult => ({ category, source, confidence: 0.97, method: 'deterministic' })
+
+const recB = recognizeEmail(email('Booking.com Invoice 123'), route('ota_pms', 'booking'))
+ok(recB?.id === 'booking', 'email Booking (ota_pms/booking) → recognizer booking')
+ok(recB?.library === 'vesta', 'recognizer booking è libreria Vesta')
+const meta = recB!.describe(email('Booking.com Invoice 123'), { id: 'a', filename: 'invoice-123.pdf', mimeType: 'application/pdf' })
+ok(meta.supplier === 'Booking.com' && meta.category === 'invoice' && meta.status === 'ready_for_accountant', 'metadati Booking: invoice → Pronto per il commercialista')
+ok(meta.heading === 'Booking.com Invoice 123', 'heading = oggetto email')
+ok(recognizeEmail(email('Prenotazione Expedia'), route('ota_pms', 'expedia')) === null, 'Expedia → nessun recognizer (MVP solo Booking)')
+ok(recognizeEmail(email('Fattura n.930 TONICO SRL'), route('supplier_admin', null)) === null, 'fornitore italiano (Tonico) → nessun recognizer nell\'MVP (Fase 2)')
+ok(recognizeEmail(email('Disponibilità camera?'), route('guest', null)) === null, 'email ospite → nessun recognizer')
+ok(RECOGNIZERS.length === 1, 'MVP: un solo recognizer registrato (Booking)')
 
 console.log(`\n${fail === 0 ? '✅' : '❌'} ${pass} pass, ${fail} fail`)
 process.exit(fail === 0 ? 0 : 1)
