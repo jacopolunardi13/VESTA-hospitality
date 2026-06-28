@@ -7,6 +7,11 @@ documentazione). Le **decisioni** vivono in [DECISIONS.md](DECISIONS.md); le dat
 ---
 
 ## 2026-06-28
+- **Vincolo permanente — nessuna azione operativa senza PMS**: finché manca un'integrazione PMS/Channel
+  Manager ufficiale, Vesta non esegue autonomamente azioni che modificano lo stato operativo
+  (camere/disponibilità/tariffe/conferme/pagamenti/PMS); blocco camera, conferma e liberazione restano
+  manuali dello staff. Registrato come **rafforzamento di ADR-0011** (+ PROJECT_RULES §5, SECURITY,
+  ARCHITECTURE). Solo documentazione.
 - **Architettura ufficiale "Operating System" (M4→M5)**: `ARCHITECTURE.md` ridefinito come piattaforma
   unica a strati (Foundation · Ingress · Operational Intake · Event Model logico · Interpretation ·
   Domini · Knowledge & Memory · Action/Output) con principio **acquisizione indipendente dagli

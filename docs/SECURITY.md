@@ -20,6 +20,12 @@ go-live**.
 - ✅ **Tier 2** (approvazione staff): invio proposta, conferma, IBAN, blocco camera. Coda
   `pending_actions` + `deliverToGuest` solo su azione staff. **Vesta non blocca camere, non invia IBAN,
   non conferma da sola.** Dettaglio → [ARCHITECTURE.md](ARCHITECTURE.md); decisione → [DECISIONS.md](DECISIONS.md) ADR-0011.
+- 🔒 **Vincolo permanente — nessuna azione operativa senza PMS** (fino a integrazione ufficiale PMS/
+  Channel Manager): Vesta **non** esegue autonomamente azioni che modifichino lo stato operativo —
+  bloccare/liberare camere, modificare disponibilità o tariffe, confermare prenotazioni o pagamenti,
+  aggiornare QuoVai/altri PMS, o qualsiasi azione irreversibile/economicamente vincolante. Blocco
+  camera, conferma e liberazione restano **manuali dello staff**. Elenco completo + flusso a 10 passi:
+  [DECISIONS.md](DECISIONS.md) ADR-0011.
 
 ### Kill-switch canale email
 - ✅ `properties.settings.email_autosend_enabled` (default **OFF**) — Vesta ingerisce/classifica ma non

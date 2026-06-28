@@ -140,7 +140,9 @@ preventivo/combinazioni, fallback cortesia); 6) richiesta mista concierge+bookin
 
 ## Booking Engine & Pricing
 ✅ `orchestrate.ts` + `src/lib/quote/*`: preventivo → scelta → verifica staff → pagamento → conferma.
-Vesta **non blocca camere né dichiara "riservata"** da sola. `quote/priceEngine.ts` = prezzo per-notte da
+Vesta **non blocca camere né dichiara "riservata"** da sola; **finché manca l'integrazione PMS** non
+modifica alcuno stato operativo (il blocco camera, la conferma e la liberazione restano **manuali dello
+staff** — flusso autoritativo in [DECISIONS.md](DECISIONS.md) ADR-0011). `quote/priceEngine.ts` = prezzo per-notte da
 `rate_calendar` (sconti, tassa, affidabilità). ✅ **Non** è "canonico + adapter" (calcolo diretto;
 adapter = Future Evolution). `quote/stateMachine.ts` = transizioni via RPC.
 
@@ -199,7 +201,10 @@ Engine** come framework runtime: **non implementati**. Sono strati/blocchi targe
 ## Principi da non violare
 1. **Acquisizione prima e indipendente dagli interpreti**; interpretazione additiva, re-eseguibile, **mai
    gate**, mai irreversibile.
-2. Vesta **non** blocca camere, **non** invia IBAN, **non** conferma in autonomia (Tier 2).
+2. Vesta **non** blocca camere, **non** invia IBAN, **non** conferma in autonomia (Tier 2). **Finché non
+   esiste un'integrazione PMS ufficiale**, Vesta **non esegue alcuna azione che modifichi lo stato
+   operativo** (camere/disponibilità/tariffe/conferme/pagamenti/aggiornamenti PMS) — vincolo permanente,
+   [DECISIONS.md](DECISIONS.md) ADR-0011.
 3. **Knowledge-first**: deterministico/KB prima dell'AI.
 4. **Spina unica**: i domini parlano ai canali solo via **Delivery**; lo staff via **Notification**.
 5. **Azioni impegnative sempre sotto Policy/Human-in-the-Loop.**

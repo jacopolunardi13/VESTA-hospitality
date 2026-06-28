@@ -32,7 +32,7 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 | ADR-0008 | Hospitality primo dominio | Business | Approvata | [BUSINESS.md](BUSINESS.md) |
 | ADR-0009 | Migrazioni verificate (`to_regclass`) | Database | Approvata | [DATABASE.md](DATABASE.md) |
 | ADR-0010 | Classificazione affermazioni tecniche | Process | Approvata | [../PROJECT_RULES.md](../PROJECT_RULES.md) |
-| ADR-0011 | Human-in-the-Loop (Tier 1/Tier 2) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| ADR-0011 | Human-in-the-Loop (Tier 1/Tier 2) — nessuna azione operativa senza PMS | Architecture | Approvata (rafforzata 28/06) | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | ADR-0012 | Pipeline Knowledge-First | AI | Approvata | [AI.md](AI.md) |
 | ADR-0013 | Orchestrazione condivisa tra canali | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | ADR-0014 | Seam Registry/Recognizer | Architecture | **Superata (→ ADR-0017)** | [ARCHITECTURE.md](ARCHITECTURE.md) |
@@ -174,14 +174,28 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 - **Sostituisce:** —
 
 ## ADR-0011 — Human-in-the-Loop (Tier 1 / Tier 2)
-- **Data:** giugno 2026 ◐ (consolidata 27/06/2026) · **Stato:** Approvata · **Categoria:** Architecture
+- **Data:** giugno 2026 ◐ (consolidata 27/06/2026; **rafforzata 28/06/2026**) · **Stato:** Approvata · **Categoria:** Architecture
 - **Contesto:** azioni che impegnano denaro/camere/promesse verso l'ospite.
 - **Problema:** cosa può fare Vesta in autonomia e cosa no.
 - **Alternative:** automazione totale; approvazione manuale di tutto.
 - **Decisione:** Tier 1 (concierge/FAQ/preventivo informativo) automatico; Tier 2 (proposta, conferma,
   IBAN, blocco camera) sempre approvato dallo staff. Vesta non blocca camere, non invia IBAN, non
   conferma da sola.
-- **Motivazioni:** fiducia e sicurezza; Vesta assiste, non sostituisce il gestore.
+- **🔒 Rafforzamento (28/06/2026) — nessuna azione operativa senza PMS (vincolo permanente fino a nuovo
+  ordine):** finché Vesta non avrà un'**integrazione ufficiale e affidabile con PMS/Channel Manager**
+  (API o equivalente), **non deve eseguire autonomamente alcuna azione che modifichi lo stato operativo**
+  della struttura. In particolare NON deve: bloccare camere · confermare prenotazioni · liberare camere ·
+  modificare disponibilità · modificare tariffe · aggiornare QuoVai/altri PMS · confermare pagamenti ·
+  qualsiasi altra azione irreversibile o economicamente vincolante.
+  **Flusso corretto (autoritativo):** 1) Vesta prepara il preventivo → 2) invia il preventivo → 3) il
+  cliente conferma → 4) Vesta crea una **Pending Action** per lo staff → 5) lo **staff** blocca
+  manualmente la camera per 24h → 6) lo **staff** approva l'invio delle istruzioni di pagamento → 7)
+  Vesta invia la comunicazione → 8) dopo 24h Vesta genera un **promemoria** → 9) lo **staff** verifica il
+  bonifico → 10) **solo lo staff** conferma o libera la camera.
+  **Re-valutazione:** quando esisterà un'integrazione PMS ufficiale, si rivaluterà il livello di
+  automazione (eventuale nuova ADR).
+- **Motivazioni:** fiducia e sicurezza; Vesta assiste, non sostituisce il gestore. Senza una fonte di
+  verità affidabile (PMS), automatizzare lo stato operativo causerebbe incoerenze irreversibili.
 - **Conseguenze positive:** nessuna azione irreversibile non voluta; pilota sicuro.
 - **Trade-off:** lo staff resta nel ciclo per le azioni impegnative.
 - **Documenti:** [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), [../PROJECT_RULES.md](../PROJECT_RULES.md) §5.

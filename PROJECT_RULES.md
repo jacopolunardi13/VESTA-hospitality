@@ -49,7 +49,11 @@ Un guasto deve esplodere subito, non nascondersi.
 ## 5. Human-in-the-Loop
 Le azioni **Tier 2** sono **sempre approvate dallo staff**. Vesta non blocca camere, non invia
 l'IBAN, non conferma prenotazioni e non compie azioni irreversibili verso l'ospite senza approvazione
-umana. → dettagli: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+umana. **Vincolo permanente (fino a integrazione PMS ufficiale):** finché Vesta non avrà
+un'integrazione affidabile con PMS/Channel Manager, **non esegue autonomamente alcuna azione che
+modifichi lo stato operativo** (bloccare/liberare camere, disponibilità, tariffe, conferme,
+pagamenti, aggiornamenti PMS). → elenco completo + flusso: [docs/DECISIONS.md](docs/DECISIONS.md)
+ADR-0011, [docs/SECURITY.md](docs/SECURITY.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## 6. Migrazioni sempre verificate
 Una migrazione **non è "applicata"** finché il catalogo del DB reale non lo conferma (`to_regclass`).
