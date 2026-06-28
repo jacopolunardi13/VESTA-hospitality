@@ -1,185 +1,241 @@
 # ARCHITECTURE
 
-Documento centrale del progetto: **come** è fatto il sistema oggi e **perché** è stato costruito così.
-È diviso in tre parti — *Current State* (solo ciò che esiste), *Architectural Principles* (il ragionamento),
-*Future Evolution* (evoluzioni coerenti con i principi, non roadmap).
+Documento centrale del progetto: **come è progettato** Vesta come piattaforma operativa ("sistema
+operativo" del back office hospitality), **com'è fatto oggi** e **perché**. Tre parti — *Current State*
+(ciò che esiste), *Architectural Principles* (il ragionamento), *Future Evolution* (evoluzioni coerenti,
+non roadmap) — precedute dal **Modello di sistema** ufficiale.
 
-> **Legenda** (PROJECT_RULES §2): ✅ verificata · ◐ dedotta · ○ ipotizzata. Tutte le affermazioni di
-> *Current State* sono verificate sul codice salvo diversa etichetta.
+> **Legenda** (PROJECT_RULES §2): ✅ verificata · ◐ dedotta/parziale · ○ concettuale/futuro. Le
+> affermazioni di *Current State* sono verificate sul codice salvo diversa etichetta.
 
 ---
 
-# Parte 1 — Current State
+# Parte 0 — Modello di sistema (architettura ufficiale)
+
+## Principio guida
+> **L'acquisizione non dipende mai dagli interpreti.** Ogni informazione che entra viene *catturata e
+> registrata* prima e indipendentemente da qualsiasi interpretazione. Gli interpreti aggiungono
+> **significato**, non decidono **cosa entra**. (Vale per documenti, messaggi, prenotazioni, pagamenti,
+> eventi API — tutto.) Decisione: [DECISIONS.md](DECISIONS.md) ADR-0016, ADR-0017.
+
+Conseguenza: Vesta **non** è una collezione di moduli con ingressi separati, ma **una spina dorsale
+unica** a strati, su cui i domini si innestano (il *Capability Engine* è il framework che li rende
+innestabili, non un nodo del dataflow).
+
+## Strati
+```
+        ┌──────────── FOUNDATION (trasversale) ────────────┐
+        │ Identity & Tenant · Security & Policy · Audit     │
+        └──────────────────────────────────────────────────┘
+ INGRESS      INTAKE         EVENT MODEL      INTERPRETATION       DOMINI
+ adapters  → Operational  → (system of    →  Classification +  →  Conversation · Booking
+ (email/WA/   Intake         record +        Recognition/         Document Intelligence
+ web/OTA/     (cattura        dispatch,       Extraction           Financial Intelligence
+ API/webhook/ garantita)      logico)         regole→parser→AI     (Operations/Revenue futuri)
+ upload/…)                                    MAI gate                    │
+                                                                          ▼
+            KNOWLEDGE & MEMORY                                    ACTION & OUTPUT
+       Knowledge Engine · Operational Memory   →   Automation → Human-in-the-Loop
+                                                    → Delivery (esterno) / Notification (staff)
+                                                                          │
+                                              outcome → nuovo evento (audit / re-interpretazione)
+```
+
+## Blocchi e maturità
+| Strato | Blocco | Responsabilità (sintesi) | Maturità |
+|---|---|---|---|
+| Foundation | Identity & Tenant | isolamento org/property (RLS); identità attori/soggetti | ✅ |
+| Foundation | Security & Policy | tier azioni, kill-switch, budget, guardrail | ✅ parziale |
+| Foundation | Audit & Observability | traccia immutabile (routing log, ai_calls) | ✅ parziale |
+| Ingress | Channel Adapters | protocollo canale → envelope canonico; dedup sorgente | ✅ email/WA/web · ◐ OTA · ○ API/webhook generici |
+| Acquisizione | **Operational Intake** | cattura garantita, normalizza, salva raw+allegati | ◐ solo Booking/email |
+| Backbone | **Event Model** | system of record + dispatch (logico, no bus) | ○ implicito (tabelle+chiamate) |
+| Interpretazione | Classification & Routing | "che tipo è?" (Router L0) | ✅ |
+| Interpretazione | Recognition & Extraction | fornitore/categoria/campi/entità; regole→parser→AI | ◐ Booking + parser OTA |
+| Dominio | Conversation Engine | dialogo ospite multicanale | ✅ |
+| Dominio | Booking Engine | ciclo prenotazione | ✅ |
+| Dominio | Document Intelligence | documenti → conoscenza/azioni | ◐ MVP Booking |
+| Dominio | Financial Intelligence | riconciliazione economica | ○ futuro |
+| Conoscenza | Knowledge Engine | KB **curata** per rispondere | ✅ (lessicale) |
+| Memoria | Operational Memory | conoscenza **derivata/accumulata** (entità/scadenze) | ○ futuro |
+| Azione | Automation Engine | regole/schedulazioni/scadenze/follow-up | ◐ cron base |
+| Azione | Human-in-the-Loop | gate approvazione (Tier 2) | ✅ |
+| Azione | Delivery (esterno) | consegna a ospite/fornitore | ✅ |
+| Azione | Notification (interno) | avvisi staff | ✅ minimale |
+| Meta | Capability Engine | **framework** che rende i blocchi innestabili (non runtime) | ◐ embrione (Registry/Recognizer) |
+
+Distinzioni nette: **Knowledge (curata, per rispondere) ≠ Operational Memory (derivata, per
+ricordare/agire)**; **Delivery (esterno) ≠ Notification (staff)**; **Event Model logico ≠ message bus**
+(no infrastruttura distribuita finché la scala non la impone — Product First).
+
+## Envelope canonico
+Ogni input, da qualunque canale, diventa un **OperationalItem**:
+`{ id, tenant(org/property), channel, received_at, sender_identity(raw), correlation/thread_ref,
+raw_payload_ref, attachments[], dedup_keys(source_id, content_hash), type=unknown, interpretations=[] }`.
+L'Intake ne garantisce l'esistenza; l'Interpretazione **aggiunge** a `type`/`interpretations`, non li
+richiede per entrare. (◐ Oggi l'envelope è implicito nei singoli percorsi; è il punto di
+generalizzazione futura.)
+
+## Flusso end-to-end (canonico)
+`Ingress → Intake (raw+allegati salvati, item creato, dedup) → Event "received" → Classification (tipo)
+→ Recognition/Extraction (arricchimento, re-eseguibile) → Dominio/i competenti (stato + Memory +
+Knowledge) → Automation (regole) → Policy/Human-in-the-Loop → Delivery/Notification → Event "actioned"`.
+
+**Casi (stessa spina, canali diversi):**
+- *Email guest + PDF*: conversazione (Conversation Engine) **e**, in parallelo, intake del PDF (Document
+  Intelligence). ◐ *Oggi* il PDF di un'email guest non viene archiviato; nel modello target sì.
+- *Email fornitore + fattura*: nessuna conversazione; intake documento → interprete → categoria/scadenza
+  → Memory → Automation (promemoria) → Notification staff.
+- *Immagine WhatsApp (contabile)*: intake media → (OCR futuro) → collega a pagamento/prenotazione.
+- *Prenotazione OTA*: intake → reservation staging (+ eventuale fattura) → Financial (futuro).
+- *API/Webhook*: adapter HTTP → stesso envelope → dominio per tipo. Nessun percorso speciale.
+- *Upload manuale*: già intake universale (sorgente `upload`) → stessi interpreti.
+- *Canali futuri (PEC, cloud sync)*: nuovo adapter → stesso envelope → zero modifiche a valle.
+
+---
+
+# Parte 1 — Current State (componenti reali, mappati agli strati)
 
 ## Panoramica
-✅ Un'app **Next.js** (Vercel) con tre canali d'ingresso (Web chat, Email, WhatsApp) che convergono su
-**un'unica orchestrazione condivisa** (`processConversationTurn`). Dietro: **Supabase** (dati, RLS,
-storage, pg_cron) e **Anthropic** (LLM). Il dominio è hospitality; i moduli reali sono **Front Office**
-(concierge + prenotazioni) e **Back Office** (Document Center MVP).
+✅ App **Next.js** (Vercel) con tre canali (Web chat, Email, WhatsApp) che convergono su **un'unica
+orchestrazione** (`processConversationTurn`). Dietro: **Supabase** (dati, RLS, storage, pg_cron) e
+**Anthropic** (LLM). Dominio: hospitality; moduli reali: **Front Office** (concierge + prenotazioni) e
+**Back Office** (Document Center MVP).
 
-## Orchestrazione dei canali
+## Channel Adapters + Orchestrazione (Ingress → Conversation)
 ✅ Tutti e tre i canali chiamano `processConversationTurn` (`src/lib/booking/orchestrate.ts`):
 - **Web chat** — `src/app/api/chat/route.ts`: guardrail L1 (IP blocklist, rate limit, cap sessione ~30
   msg/giorno), poi orchestrazione. Risposta **Tier 1 immediata**.
-- **Email** — `src/lib/email/ingest.ts` (`ingestEmail`), innescato dal poll `/api/email/poll`: prima il
-  **Router L0** + rete di sicurezza `hasAutomatedMarkers`, poi orchestrazione. Invio soggetto al
-  **kill-switch** `email_autosend_enabled` (default OFF). Dedup per `gmail_message_id` + threading.
-- **WhatsApp** — `src/app/api/whatsapp/webhook/route.ts` + `src/lib/whatsapp/ingest.ts`: verifica firma
-  HMAC, dedup `wa_message_id`, poi orchestrazione. ◐ Canale **inerte** finché mancano le `WHATSAPP_*`
-  (vedi [INFRASTRUCTURE.md](INFRASTRUCTURE.md)).
+- **Email** — `src/lib/email/ingest.ts` (`ingestEmail`), via poll `/api/email/poll`: prima **Router L0**
+  + rete `hasAutomatedMarkers`, poi orchestrazione. Invio soggetto al **kill-switch**
+  `email_autosend_enabled` (default OFF). Dedup `gmail_message_id` + threading.
+- **WhatsApp** — `src/app/api/whatsapp/webhook/route.ts` + `src/lib/whatsapp/ingest.ts`: firma HMAC,
+  dedup `wa_message_id`. ◐ **inerte** finché mancano le `WHATSAPP_*`.
 
 Il canale è un **adapter sottile**: normalizza l'ingresso, persiste il messaggio, delega la logica.
+(◐ Nota architetturale: oggi l'adapter chiama direttamente l'orchestrazione conversazione; nel modello
+target l'adapter alimenta prima Intake/Event Model, e i domini consumano gli eventi.)
 
 ## Orchestrazione condivisa (`processConversationTurn`)
-✅ Sequenza (`src/lib/booking/orchestrate.ts`):
-1. **Short-circuit prenotazioni**: riconosce scelta camera / combinazione gruppo / comunicazione
-   pagamento su un lead esistente, senza passare dall'AI.
-2. **Budget / safe-mode** (`src/lib/ai/budget.ts`): se la spesa AI giornaliera supera
-   `ai_daily_budget_cents` (default 500 = €5) o se `safe_mode` è attivo → pipeline **senza AI**.
-3. **Storico** ultimi messaggi.
-4. **Pipeline knowledge-first** (`runPipeline`).
-5. **Persistenza risposta** + aggiornamento conversazione (intent/confidence/stage/status).
-6. **Lead booking**: crea/collega `booking_requests`, popola slot, esegue transizioni di stato, crea
-   notifiche staff e **pending action Tier 2**.
+✅ Sequenza: 1) short-circuit prenotazioni (scelta camera/combinazione/pagamento, no AI); 2) budget /
+safe-mode (`ai_daily_budget_cents` default 500=€5 → pipeline senza AI); 3) storico; 4) pipeline
+knowledge-first (`runPipeline`); 5) persistenza risposta + update conversazione; 6) lead booking
+(crea/collega `booking_requests`, slot, transizioni, notifiche, **pending action Tier 2**).
 
-## AI Core
-✅ Modelli (`src/lib/ai/models.ts`): **Haiku** (`claude-haiku-4-5`) per `classify`, `extract`,
-`select_template`; **Sonnet** (`claude-sonnet-4-6`) per `generate_reply`, `distill_kb`.
-✅ **Budget & safe-mode** (`src/lib/ai/budget.ts`): spesa AI loggata in `ai_calls`; oltre soglia →
-safe-mode (zero AI, solo KB). Mapping/costi in dettaglio → [AI.md](AI.md).
+## AI Core (Interpretazione)
+✅ Modelli (`src/lib/ai/models.ts`): **Haiku** per `classify`/`extract`/`select_template`; **Sonnet**
+per `generate_reply`/`distill_kb`. ✅ Budget & safe-mode (`src/lib/ai/budget.ts`, `ai_calls`). Dettaglio
+→ [AI.md](AI.md).
 
-## Router L0 (email)
-✅ `src/lib/email/routing.ts` classifica **ogni** email prima della pipeline in: `guest`, `ota_pms`,
-`supplier_admin`, `newsletter_spam`. Solo `guest` entra nell'orchestrazione.
-- **Deterministico** prima (domini OTA/fornitori, header `List-Unsubscribe`/`Auto-Submitted`/`Precedence`).
-- **AI (Haiku) solo sul dubbio** (`routing-ai.ts`): *propone* la categoria, non decide **mai** se
-  rispondere; accettata solo se non-guest e confidenza ≥ 0.7.
-- **Rete di sicurezza** `hasAutomatedMarkers`: un'email con marker automatici non genera mai
-  lead/risposta, anche se classificata `guest`.
-- **Dubbio → `guest`** (e lasciata non letta): mai perdere un ospite, mai rispondere a OTA/fornitori.
+## Classification & Routing (Router L0)
+✅ `src/lib/email/routing.ts`: categorie `guest`/`ota_pms`/`supplier_admin`/`newsletter_spam`.
+Deterministico (domini OTA + `BASE_SUPPLIER` + header) → **AI solo sul dubbio** (`routing-ai.ts`,
+propone, non decide se rispondere, ≥0.7) → **dubbio = `guest`**. Rete `hasAutomatedMarkers` indipendente.
+(✅ Coerente col principio: classifica il *tipo*, non decide se l'item "entra".)
 
 ## Pipeline Knowledge-First
-✅ `src/lib/ai/pipeline.ts` (`runPipeline`), ordine reale:
-1. **Escalation deterministica** (regex, zero AI).
-2. **Safe-mode / KB lessicale** (se AI disabilitata): risposta solo da KB.
-3. **Intent detection** (Haiku): `spam`, `partnership`, `vendor`, `saas_lead`, `unclassified`, `faq`,
-   `booking`, `guest_support`.
-4. **Branch per intent**: spam→nessuna risposta; partnership/vendor/saas_lead/guest_support→escalation
-   template; unclassified→chiarimento; faq→risposta da KB; booking→motore conversazionale.
-5. **Ramo booking**: estrazione slot (Haiku), default 1 notte se manca il check-out, classificazione
-   **standard/non-standard** (non-standard → staff), calcolo preventivo o combinazioni gruppo,
-   **fallback di cortesia** (nessun prezzo se nessuna combinazione copre).
-6. **Richiesta mista** (concierge + booking): se la KB non risponde alla parte concierge →
-   `conciergeUnanswered` → notifica staff.
+✅ `src/lib/ai/pipeline.ts` (`runPipeline`): 1) escalation deterministica; 2) safe-mode/KB lessicale;
+3) intent (Haiku); 4) branch per intent; 5) ramo booking (slot, default 1 notte, standard/non-standard,
+preventivo/combinazioni, fallback cortesia); 6) richiesta mista concierge+booking.
 
-## Motore conversazionale & Pricing Engine
-✅ Flusso prenotazioni (`orchestrate.ts` + `src/lib/quote/*`): preventivo → scelta camera/combinazione →
-verifica disponibilità staff → comunicazione pagamento → conferma staff. Vesta **non blocca camere e
-non dichiara "riservata"** da sola.
-- `quote/priceEngine.ts` (`computeQuote`): prezzo **per-notte da `rate_calendar`**, sconto diretto /
-  last-minute, tassa di soggiorno, **affidabilità del dato** (freshness). ✅ **Non** è un "modello
-  canonico + adapter": è calcolo diretto su `rate_calendar` (sorgente unica). Il modello canonico+adapter
-  è una **direzione di design**, non codice (vedi *Future Evolution*).
-- `quote/draftProposal.ts`, `quote/roomCombinations.ts` (combinatore gruppi), `quote/stateMachine.ts`
-  (`executeTransition` via RPC Supabase, atomica).
+## Booking Engine & Pricing
+✅ `orchestrate.ts` + `src/lib/quote/*`: preventivo → scelta → verifica staff → pagamento → conferma.
+Vesta **non blocca camere né dichiara "riservata"** da sola. `quote/priceEngine.ts` = prezzo per-notte da
+`rate_calendar` (sconti, tassa, affidabilità). ✅ **Non** è "canonico + adapter" (calcolo diretto;
+adapter = Future Evolution). `quote/stateMachine.ts` = transizioni via RPC.
 
-## Tier 1 / Tier 2
-✅ **Tier 1 (automatico)**: risposte concierge/FAQ/preventivo informativo. Web e WhatsApp immediate;
-email solo se `email_autosend_enabled` ON (default OFF).
-✅ **Tier 2 (approvazione staff)**: invio proposta e conferma. Coda `pending_actions`
-(`src/lib/delivery/pendingActions.ts`); alla pressione del bottone staff, `deliverToGuest`
-(`src/lib/delivery/deliverToGuest.ts`) consegna sul canale della conversazione e **bypassa il
-kill-switch** (azione umana esplicita). Vesta non invia IBAN né conferma da sola. → policy in
-[SECURITY.md](SECURITY.md).
+## Tier 1 / Tier 2 + Delivery (Action & Output)
+✅ **Tier 1** automatico (concierge/FAQ/preventivo informativo; email solo se autosend ON). ✅ **Tier 2**
+con approvazione staff: coda `pending_actions` → `deliverToGuest` consegna sul canale e **bypassa il
+kill-switch**. Vesta non invia IBAN né conferma da sola. → [SECURITY.md](SECURITY.md).
 
-## Document Center (Back Office MVP)
-✅ `src/lib/documents-center/*`: pattern **Registry / Recognizer**.
-- `types.ts` (contratto `DocumentRecognizer`), `registry.ts` (`RECOGNIZERS`, `recognizeEmail`),
-  `recognizers/booking.ts` (libreria Vesta).
-- Flusso: email `ota_pms/booking` con PDF → recognizer la rivendica → PDF su Storage `documents` +
-  record `document_center` (stato `ready_for_accountant`; campi estratti null nell'MVP, niente AI/OCR).
-- ✅ Ingest **best-effort** (non rompe il poll) ma **mai silenzioso** (errori loggati).
+## Document Intelligence (Back Office MVP)
+✅ `src/lib/documents-center/*`: pattern **Registry / Recognizer** + **upload manuale**
+(`/api/documents/upload`, sorgente `upload`, qualsiasi PDF).
+- ◐ Via email: l'archiviazione scatta **solo** nel ramo `ota_pms` con recognizer Booking (gatekeeping).
+  **Decisione M4 (ADR-0017)**: invertire verso *Universal Document Intake* (intake garantito, recognizer
+  = interpreti) → vedi *Future Evolution*.
+- Flusso attuale: email `ota_pms/booking` con PDF → recognizer → PDF su Storage `documents` + record
+  `document_center` (`ready_for_accountant`; campi estratti null nell'MVP). Ingest **best-effort** ma
+  **mai silenzioso**.
+
+## Knowledge Engine
+✅ `src/lib/ai/knowledge.ts`: retrieval **lessicale** (stemmer IT + stopword); `knowledge_assets`,
+filtro `usable_by_concierge`/`deleted_at`; prompt caching. Dettaglio → [KNOWLEDGE.md](KNOWLEDGE.md).
+(○ **Operational Memory** — conoscenza derivata — è blocco distinto e futuro.)
 
 ## Affidabilità dei dati (Fail-Fast)
-✅ Helper `src/lib/supabase/guard.ts` (`dbThrow`): ogni scrittura/lettura DB controlla `.error` e
-**lancia** (dati core) o **logga** (telemetria). Nessun "successo silenzioso" (PROJECT_RULES §4).
+✅ `src/lib/supabase/guard.ts` (`dbThrow`): ogni accesso DB controlla `.error` → lancia (dati core) o
+logga (telemetria). Nessun "successo silenzioso" (PROJECT_RULES §4).
 
-## Notification Center
-✅ **Minimale**: `src/lib/notifications.ts` (`createNotification`) inserisce in tabella `notifications`;
-la dashboard le legge (polling). Tipi: `proposal_auto_sent`, `proposal_draft`, `escalation`. Nessuna
-coda/pubsub/priorità/dedup. È un componente semplice, non un "sistema di notifiche".
+## Notification (Action & Output)
+✅ **Minimale**: `src/lib/notifications.ts` → tabella `notifications`, letta in dashboard (polling). Non
+è un "sistema di notifiche".
 
 ## Non presenti nel codice (per chiarezza)
-✅ **Capability Engine** e **Financial Intelligence**: **non implementati** (nessun riferimento nel
-codice). Sono direzione futura — vedi *Future Evolution*.
-
-## Flussi principali (sintesi)
-- **Concierge**: messaggio → canale → orchestrazione → pipeline KB-first → risposta Tier 1.
-- **Booking**: richiesta → lead + preventivo → scelta → verifica staff → pagamento → conferma staff (Tier 2).
-- **Email non-ospite**: Router L0 → `ota_pms` (+ Document Center se Booking con PDF) / `supplier_admin` /
-  `newsletter_spam` (solo log/archivio, nessuna risposta).
+✅ **Operational Memory**, **Financial Intelligence**, **Event Model formalizzato**, **Capability
+Engine** come framework runtime: **non implementati**. Sono strati/blocchi target — *Future Evolution*.
 
 ---
 
 # Parte 2 — Architectural Principles
 
-- **Perché Knowledge-First.** Rispondere prima dalla conoscenza curata (KB) e dalle regole
-  deterministiche, e usare l'AI solo quando serve, dà risposte più **affidabili e controllabili** e
-  riduce i **costi**. L'AI è un componente, non il cuore decisionale.
-- **Perché Human-in-the-Loop (Tier 2).** Le azioni che impegnano denaro, camere o promesse verso
-  l'ospite sono difficili da annullare: le approva lo staff. Vesta **assiste**, non decide al posto del
-  gestore. È una scelta di **fiducia e sicurezza**, non un limite tecnico.
-- **Perché orchestrazione condivisa.** Un solo `processConversationTurn` per tutti i canali evita che
-  Web, Email e WhatsApp **divergano**: la logica vive in un posto solo, il canale è un adapter sottile.
-- **Perché moduli separati + Registry/Recognizer.** Ogni capability è isolata e si estende
-  **aggiungendo** una scheda al registro, senza toccare l'idraulica (poll/ingest). Dimostrato col
-  Document Center: un nuovo fornitore = un nuovo recognizer.
-- **Perché evitare astrazioni premature.** Il pricing è diretto su `rate_calendar`; il "modello
-  canonico + adapter" e il Capability Engine **non** sono ancora codice. Si costruisce l'astrazione
-  quando un **secondo caso reale** la giustifica, non prima.
-- **Perché Product First.** L'architettura segue il prodotto: ogni livello di complessità deve dare un
-  beneficio reale (PROJECT_RULES, Principio guida).
-- **Compromessi accettati.** Progetto Supabase unico per tutti gli ambienti; migrazioni manuali;
-  pricing a sorgente unica; Notification Center minimale. Sono scelte di semplicità del pilota,
-  documentate e reversibili (vedi [INFRASTRUCTURE.md](INFRASTRUCTURE.md), [DATABASE.md](DATABASE.md)).
-- **Errore da non ripetere.** Gli errori DB venivano ingoiati → un guasto restava nascosto (incidente
-  duplicazione, [CHANGELOG.md](CHANGELOG.md)). Da qui la **Fail-Fast Policy**.
+- **Acquisizione indipendente dagli interpreti** (principio guida, ADR-0016/0017): l'item entra e viene
+  registrato sempre; gli interpreti arricchiscono, non gateano.
+- **Knowledge-First.** Regole/KB deterministiche prima dell'AI → affidabilità, controllo, costo. L'AI è
+  un componente, non il cuore.
+- **Human-in-the-Loop (Tier 2).** Le azioni irreversibili verso l'ospite le approva lo staff. Vesta
+  assiste, non sostituisce.
+- **Orchestrazione/spina unica.** Un solo percorso condiviso evita divergenze tra canali; il canale è un
+  adapter sottile.
+- **Domini innestabili (Capability Engine = framework, non blocco).** Registry/Recognizer come pattern;
+  si estende aggiungendo, non modificando l'idraulica.
+- **Evitare astrazioni premature (Product First).** Event Model **logico**, non un bus; pricing diretto;
+  Capability Engine come pattern. L'astrazione arriva quando un **secondo caso reale** la giustifica.
+- **Compromessi accettati.** Supabase unico per ambienti; migrazioni manuali; pricing sorgente unica;
+  Notification minimale; Event Model implicito. Documentati e reversibili.
+- **Errore da non ripetere.** Errori DB ingoiati → guasti nascosti (incidente duplicazione) → Fail-Fast.
 
 ## Principi da non violare
-1. Vesta **non** blocca camere, **non** invia IBAN, **non** conferma prenotazioni in autonomia (Tier 2).
-2. **Knowledge-first**: deterministico/KB prima dell'AI.
-3. **Orchestrazione unica** per tutti i canali.
-4. **Fail-fast**: nessun errore DB ingoiato.
-5. **Idempotenza/dedup** sugli ingressi (email, WhatsApp, documenti).
-6. **Isolamento multi-tenant** (RLS `org_id`).
-7. **Dubbio → tratta come ospite** e non agire automaticamente.
+1. **Acquisizione prima e indipendente dagli interpreti**; interpretazione additiva, re-eseguibile, **mai
+   gate**, mai irreversibile.
+2. Vesta **non** blocca camere, **non** invia IBAN, **non** conferma in autonomia (Tier 2).
+3. **Knowledge-first**: deterministico/KB prima dell'AI.
+4. **Spina unica**: i domini parlano ai canali solo via **Delivery**; lo staff via **Notification**.
+5. **Azioni impegnative sempre sotto Policy/Human-in-the-Loop.**
+6. **Fail-fast**: nessun errore DB ingoiato. **Event Model = registro**, non stato di dominio.
+7. **Idempotenza/dedup** sugli ingressi. **Isolamento multi-tenant** (RLS). **Dubbio → tratta come
+   ospite** e non agire.
 
 ---
 
 # Future Evolution
-*Evoluzioni coerenti con i principi sopra. NON è una roadmap né un impegno; sono direzioni che, se
-realizzate, rispetterebbero l'architettura attuale.* Direzione di prodotto → [BUSINESS.md](BUSINESS.md),
-[ROADMAP.md](ROADMAP.md).
+*Evoluzioni coerenti con gli strati sopra. NON è una roadmap né un impegno.* Prodotto → [BUSINESS.md](BUSINESS.md);
+priorità → [ROADMAP.md](ROADMAP.md).
 
-- **Capability Engine**: generalizzare il pattern Registry/Recognizer alle altre aree (Front Office /
-  Operations / Back Office / Financial Intelligence / Revenue / Operational Memory), **solo** quando un
-  secondo dominio lo giustifica (no astrazioni premature).
-- **Document Intelligence**: far evolvere il Document Center da archivio a generatore di conoscenza/azioni
-  (scadenze, rinnovi), mantenendo l'ingest **sorgente-agnostico** (email / cloud / upload).
-- **Financial Intelligence**: riconciliazione economica (prenotazioni · pagamenti · payout · commissioni
-  · fatture), appoggiandosi ai dati già linkati (`ota_inbox`, `document_center`).
-- **Pricing adapter**: introdurre adapter per fonti esterne (Airbnb/Booking API) **dietro** l'attuale
-  interfaccia di preventivo, senza riscrivere il motore.
-- **Notification Center reale**: priorità/canali/dedup, se il volume lo richiederà.
+- **Universal Document Intake** (ADR-0017): l'intake documenti diventa garantito e indipendente dai
+  recognizer (che diventano interpreti); ingest sorgente-agnostico (email/cloud/upload). Migrazione
+  graduale dietro flag, Booking invariato.
+- **Operational Intake generalizzato + Event Model formalizzato**: envelope canonico + tabella eventi/
+  outbox, introdotti **quando** serve disaccoppiare (non prima).
+- **Operational Memory**: grafo entità/relazioni/scadenze derivato dagli eventi/documenti.
+- **Financial Intelligence**: riconciliazione (prenotazioni·pagamenti·payout·commissioni·fatture).
+- **Recognition library**: interpreti incrementali (Amazon, Enel, Aruba, TIM, Agenzia Entrate, …),
+  globale + per-struttura (Business Identity Library).
+- **Pricing adapter**, **Notification Center reale**, **OCR immagini**: quando il valore lo giustifica.
+
+## Decisioni aperte (per le fasi successive)
+- Privacy: intake degli allegati delle **email ospite** (sì/no, mascheramento).
+- `content_hash` per dedup di **contenuto** (stesso documento da più canali).
+- Quanto/quando formalizzare l'**Event Model** (tabella eventi vs chiamate dirette).
 
 ---
 
 ## Related Documents
 - [../PROJECT_RULES.md](../PROJECT_RULES.md) — Product First, Human-in-the-Loop, Fail-Fast
-- [DATABASE.md](DATABASE.md) — schema, stato, RLS
-- [INFRASTRUCTURE.md](INFRASTRUCTURE.md) — servizi, cron, ambienti
-- [AI.md](AI.md) — modelli, pipeline, prompt, costi, brand voice
-- [KNOWLEDGE.md](KNOWLEDGE.md) — sistema KB e retrieval
+- [DECISIONS.md](DECISIONS.md) — ADR-0016 (OS a strati), ADR-0017 (Universal Intake), ADR-0014 (superata)
+- [DATABASE.md](DATABASE.md) · [INFRASTRUCTURE.md](INFRASTRUCTURE.md) · [ENVIRONMENT.md](ENVIRONMENT.md)
+- [AI.md](AI.md) · [KNOWLEDGE.md](KNOWLEDGE.md) — interpretazione e conoscenza
 - [BUSINESS.md](BUSINESS.md) · [DOMAINS.md](DOMAINS.md) — visione, Capability Engine, verticali
 - [SECURITY.md](SECURITY.md) — Tier 2, kill-switch, policy azioni
-- [CHANGELOG.md](CHANGELOG.md) · [DECISIONS.md](DECISIONS.md) — incidente e decisioni
+- [CHANGELOG.md](CHANGELOG.md) — eventi e incidenti

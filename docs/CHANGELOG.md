@@ -7,6 +7,11 @@ documentazione). Le **decisioni** vivono in [DECISIONS.md](DECISIONS.md); le dat
 ---
 
 ## 2026-06-28
+- **Architettura ufficiale "Operating System" (M4→M5)**: `ARCHITECTURE.md` ridefinito come piattaforma
+  unica a strati (Foundation · Ingress · Operational Intake · Event Model logico · Interpretation ·
+  Domini · Knowledge & Memory · Action/Output) con principio **acquisizione indipendente dagli
+  interpreti**. Nuove ADR-0016 (OS a strati) e ADR-0017 (Universal Intake: recognizer = interpreti);
+  **ADR-0014 superata**. Solo documentazione, nessun codice modificato.
 - **Riorganizzazione documentazione** (`docs/` + `PROJECT_RULES.md`): introdotta documentazione tecnica
   ufficiale con standard *Current State / Guiding Principles / Future Evolution / Related Documents*,
   registro ADR ([DECISIONS.md](DECISIONS.md)), e archiviazione dei documenti di planning superati in

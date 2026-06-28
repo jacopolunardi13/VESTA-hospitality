@@ -35,8 +35,10 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 | ADR-0011 | Human-in-the-Loop (Tier 1/Tier 2) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | ADR-0012 | Pipeline Knowledge-First | AI | Approvata | [AI.md](AI.md) |
 | ADR-0013 | Orchestrazione condivisa tra canali | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| ADR-0014 | Seam Registry/Recognizer | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| ADR-0014 | Seam Registry/Recognizer | Architecture | **Superata (→ ADR-0017)** | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | ADR-0015 | Governance delle ADR (ADR-driven changes) | Process | Approvata | DECISIONS.md |
+| ADR-0016 | Architettura "Operating System" a strati (acquisition-first) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| ADR-0017 | Recognizer = interpreti, non gatekeeper (Universal Intake) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
 
 ---
 
@@ -211,7 +213,9 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 - **Sostituisce:** —
 
 ## ADR-0014 — Seam Registry / Recognizer (Document Center)
-- **Data:** 25/06/2026 ◐ · **Stato:** Approvata · **Categoria:** Architecture
+- **Data:** 25/06/2026 ◐ · **Stato:** **Superata da [ADR-0017]** (28/06/2026) · **Categoria:** Architecture
+- **Nota:** il pattern Registry/Recognizer resta valido, ma il **ruolo** dei recognizer cambia da
+  *gatekeeper* (decidono SE un documento entra) a *interprete* (decidono COME). Vedi ADR-0017.
 - **Contesto:** Document Center come primo modulo del Back Office Assistant.
 - **Problema:** estendere a nuovi fornitori/documenti senza toccare poll/ingest.
 - **Alternative:** logica hard-coded per fornitore; AI come parser principale.
@@ -236,6 +240,47 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 - **Trade-off:** un passo di verifica prima delle modifiche architetturali.
 - **Documenti:** [../PROJECT_RULES.md](../PROJECT_RULES.md) §7.
 - **Sostituisce:** —
+
+## ADR-0016 — Architettura "Operating System" a strati (acquisition-first)
+- **Data:** 28/06/2026 · **Stato:** Approvata · **Categoria:** Architecture
+- **Contesto:** il sistema era pensato come collezione di moduli con ingressi separati (Conversation,
+  Booking, Document Center…). La milestone M4 ha definito una piattaforma unica.
+- **Problema:** evitare che ogni modulo abbia la propria logica d'ingresso e che informazioni vengano
+  perse o gestite in modo incoerente tra canali.
+- **Alternative:** mantenere moduli indipendenti; introdurre subito un event bus distribuito.
+- **Decisione:** Vesta è una **spina dorsale unica a strati** — Foundation · Ingress · **Operational
+  Intake** · **Event Model (logico)** · Interpretation · Domini · Knowledge & Memory · Action/Output —
+  con principio guida **acquisizione indipendente dagli interpreti**. L'**Event Model resta logico**
+  (system of record + dispatch su Postgres), **non** un message bus. Il **Capability Engine** è il
+  *framework* che rende i blocchi innestabili, **non** un nodo di runtime. **Knowledge ≠ Operational
+  Memory**; **Delivery (esterno) ≠ Notification (staff)**.
+- **Motivazioni:** coerenza tra canali, nessuna informazione persa, estensibilità, Product First.
+- **Conseguenze positive:** un solo percorso per ogni informazione; domini innestabili; migrazione
+  evolutiva (non rewrite — è la formalizzazione di ciò che esiste).
+- **Trade-off:** richiede disciplina nel non far gateare gli interpreti; alcuni strati restano
+  concettuali (Event Model, Operational Memory) finché non servono davvero.
+- **Documenti:** [ARCHITECTURE.md](ARCHITECTURE.md) (Parte 0).
+- **Sostituisce:** —
+
+## ADR-0017 — Recognizer = interpreti, non gatekeeper (Universal Intake)
+- **Data:** 28/06/2026 · **Stato:** Approvata · **Categoria:** Architecture
+- **Contesto:** test reale → un PDF amministrativo arrivato da email non-Booking non entrava nel Document
+  Center (l'ingresso dipendeva dal recognizer Booking).
+- **Problema:** l'acquisizione non deve dipendere dagli interpreti; nessun documento amministrativo deve
+  andare perso solo perché il fornitore non è ancora "conosciuto".
+- **Alternative:** pre-costruire un recognizer per ogni fornitore prima di acquisire (non scalabile);
+  lasciare l'intake gateato.
+- **Decisione:** l'**intake è garantito** per ogni allegato-documento; i recognizer diventano
+  **interpreti** che aggiungono significato (fornitore/categoria/campi/classificazione), e **non**
+  decidono più se il documento entra. Un documento non riconosciuto entra come `to_verify`. Generalizza
+  il principio a **qualsiasi informazione**, non solo i documenti.
+- **Motivazioni:** zero perdite, recognizer incrementali, coerenza con ADR-0016.
+- **Conseguenze positive:** copertura universale; il valore dei recognizer cresce nel tempo senza
+  bloccare l'acquisizione.
+- **Trade-off:** più rumore/triage (serve gate "amministrativo" + vista di verifica); privacy degli
+  allegati ospite e dedup di contenuto (`content_hash`) diventano decisioni da affrontare.
+- **Documenti:** [ARCHITECTURE.md](ARCHITECTURE.md) (Document Intelligence, Future Evolution).
+- **Sostituisce:** **raffina/supera [ADR-0014]** (recognizer: gate → interprete).
 
 ---
 

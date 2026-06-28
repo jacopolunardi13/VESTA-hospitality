@@ -46,6 +46,9 @@ le risposte. Retrieval e modelli AI → [AI.md](AI.md); tabelle → [DATABASE.md
 - **Semplicità prima della potenza** (Product First). Il retrieval lessicale basta per una KB da decine
   di asset: niente vettori finché non servono davvero.
 - **Priorità alle correzioni dello staff.** `priority` fa sì che una correzione batta il testo originale.
+- **Knowledge ≠ Operational Memory.** Il Knowledge Engine è conoscenza **curata** per *rispondere*; la
+  Operational Memory (blocco distinto, futuro) è conoscenza **derivata/accumulata** per *ricordare e
+  agire* (entità, scadenze, storia). Vedi [ARCHITECTURE.md](ARCHITECTURE.md) Parte 0.
 
 ---
 
