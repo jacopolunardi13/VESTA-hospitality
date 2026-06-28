@@ -26,8 +26,16 @@ const STATUS = {
 } as const
 const statusMeta = (s: string) => STATUS[s as keyof typeof STATUS] ?? { label: s, cls: 'bg-slate-100 text-slate-600' }
 
-export default async function DocumentsPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
-  const { f } = await searchParams
+const UPLOAD_ERRORS: Record<string, string> = {
+  nofile: 'Nessun file selezionato.',
+  notpdf: 'Il file deve essere un PDF.',
+  toobig: 'File troppo grande (max 10 MB).',
+  storage: 'Errore nel salvataggio del file. Riprova.',
+  db: 'Errore nella registrazione del documento. Riprova.',
+}
+
+export default async function DocumentsPage({ searchParams }: { searchParams: Promise<{ f?: string; uploaded?: string; error?: string }> }) {
+  const { f, uploaded, error } = await searchParams
   const filter = f === 'sent' || f === 'all' ? f : 'ready'
 
   const supabase = await createClient()
@@ -66,7 +74,40 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
   return (
     <div className="px-1 py-2">
       <h1 className="mb-1 text-xl font-semibold text-slate-900">Document Center — {property.name}</h1>
-      <p className="mb-5 text-sm text-slate-500">Documenti archiviati automaticamente dalle email Booking (fattura PDF allegata). L&apos;email originale e il PDF restano conservati.</p>
+      <p className="mb-5 text-sm text-slate-500">Documenti archiviati automaticamente dalle email Booking (fattura PDF allegata) o caricati manualmente. L&apos;email originale e il PDF restano conservati.</p>
+
+      {uploaded && (
+        <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Documento caricato e registrato correttamente.</div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{UPLOAD_ERRORS[error] ?? 'Errore durante il caricamento.'}</div>
+      )}
+
+      <form action="/api/documents/upload" method="post" encType="multipart/form-data" className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500">Carica documento (PDF)</label>
+          <input type="file" name="file" accept="application/pdf,.pdf" required className="text-sm" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500">Fornitore (facoltativo)</label>
+          <input type="text" name="supplier" placeholder="es. Tonico SRL" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500">Categoria</label>
+          <select name="category" defaultValue="other" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">
+            <option value="invoice">Fattura</option>
+            <option value="contract">Contratto</option>
+            <option value="insurance">Assicurazione</option>
+            <option value="utility">Bolletta</option>
+            <option value="tax">Fiscale</option>
+            <option value="pec">PEC</option>
+            <option value="employee">Personale</option>
+            <option value="certificate">Certificato</option>
+            <option value="other">Altro</option>
+          </select>
+        </div>
+        <button type="submit" className="rounded-md bg-brand-anthracite px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">Carica documento</button>
+      </form>
 
       <div className="mb-4 flex flex-wrap gap-2">
         {tab('ready', 'Pronti per il commercialista', readyCount ?? 0)}
