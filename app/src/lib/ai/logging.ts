@@ -19,7 +19,9 @@ export async function logAiCall(
   sb: SupabaseClient<Database>,
   p: LogAiCallParams
 ): Promise<number> {
-  await sb.from('ai_calls').insert({
+  // Telemetria best-effort: NON deve rompere una richiesta valida → non lancia, ma logga l'errore
+  // (mai silenzioso).
+  const { error } = await sb.from('ai_calls').insert({
     org_id: p.orgId,
     property_id: p.propertyId,
     function: p.fn,
@@ -31,5 +33,6 @@ export async function logAiCall(
     success: p.success,
     error: p.error ?? null,
   })
+  if (error) console.error(`[ai_calls] insert fallito: ${error.message}`)
   return costCents(p.model, p.inputTokens, p.outputTokens)
 }

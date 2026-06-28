@@ -8,31 +8,36 @@ import type { PropertyContext } from '@/lib/ai/types'
 import type { InboundEmail } from './gmail'
 import { parseOtaEmail } from './ota-parsers'
 import type { RouteResult } from './routing'
+import { dbThrow } from '@/lib/supabase/guard'
 
 const db = (sb: SupabaseClient<Database>) => sb as unknown as SupabaseClient
 
-/** Questa email è già stata smistata? (idempotenza del router, indipendente dallo stato letto.) */
+/** Questa email è già stata smistata? (idempotenza del router, indipendente dallo stato letto.)
+ *  Fail-fast: su errore DB LANCIA — non deve mai ritornare `false` mascherando un guasto (era il
+ *  bug del dedup: tabella assente → select in errore → `false` → re-ingest infinito). */
 export async function alreadyRouted(sb: SupabaseClient<Database>, propertyId: string, gmailMessageId: string): Promise<boolean> {
-  const { data } = await db(sb).from('email_routing_log').select('id').eq('property_id', propertyId).eq('gmail_message_id', gmailMessageId).limit(1)
+  const { data, error } = await db(sb).from('email_routing_log').select('id').eq('property_id', propertyId).eq('gmail_message_id', gmailMessageId).limit(1)
+  dbThrow(error, 'alreadyRouted')
   return Array.isArray(data) && data.length > 0
 }
 
 /** Registra la decisione di routing (audit + dedup). Una riga per ogni email.
  *  `suppressed` = rete di sicurezza ha bloccato un'email instradata guest con marker automatici. */
 export async function logRouting(sb: SupabaseClient<Database>, property: PropertyContext, email: InboundEmail, route: RouteResult, suppressed = false): Promise<void> {
-  await db(sb).from('email_routing_log').insert({
+  const { error } = await db(sb).from('email_routing_log').insert({
     org_id: property.orgId, property_id: property.id,
     gmail_message_id: email.id, category: route.category, source: route.source,
     confidence: route.confidence, method: route.method, suppressed,
     from_address: email.from, subject: email.subject,
   })
+  dbThrow(error, 'logRouting')
 }
 
 /** Archivia un'email OTA/PMS: raw in ota_inbox + parsing best-effort in reservations_staging.
  *  Ritorna l'id ota_inbox (o null) per agganciare eventuali documenti (Document Center). */
 export async function archiveOtaEmail(sb: SupabaseClient<Database>, property: PropertyContext, email: InboundEmail, route: RouteResult): Promise<string | null> {
   const source = route.source ?? 'unknown'
-  const { data: inbox } = await db(sb).from('ota_inbox').insert({
+  const { data: inbox, error: inboxErr } = await db(sb).from('ota_inbox').insert({
     org_id: property.orgId, property_id: property.id,
     gmail_message_id: email.id, gmail_thread_id: email.threadId, source,
     from_address: email.from, from_name: email.fromName, subject: email.subject,
@@ -42,10 +47,11 @@ export async function archiveOtaEmail(sb: SupabaseClient<Database>, property: Pr
       precedence: email.precedence, references: email.references, in_reply_to: email.inReplyTo,
     },
   }).select('id').single()
+  dbThrow(inboxErr, 'archiveOtaEmail.ota_inbox')
 
   const inboxId = (inbox as { id: string } | null)?.id ?? null
   const parsed = parseOtaEmail(source, email)
-  await db(sb).from('reservations_staging').insert({
+  const { error: stagingErr } = await db(sb).from('reservations_staging').insert({
     org_id: property.orgId, property_id: property.id,
     ota_inbox_id: inboxId,
     source: parsed.source, external_id: parsed.external_id, guest_name: parsed.guest_name,
@@ -54,5 +60,6 @@ export async function archiveOtaEmail(sb: SupabaseClient<Database>, property: Pr
     confidence: parsed.confidence, verified: false,
     canonical_ref: null, linked_group_id: null, parsed_at: new Date().toISOString(),
   })
+  dbThrow(stagingErr, 'archiveOtaEmail.reservations_staging')
   return inboxId
 }

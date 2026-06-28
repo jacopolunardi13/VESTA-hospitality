@@ -29,7 +29,8 @@ export async function logGuardrail(
     details?: Record<string, unknown>
   }
 ): Promise<void> {
-  await sb.from('guardrail_events').insert({
+  // Best-effort (logging di sicurezza): non lancia, ma rende visibile un eventuale errore.
+  const { error } = await sb.from('guardrail_events').insert({
     org_id: p.orgId,
     property_id: p.propertyId,
     conversation_id: p.conversationId ?? null,
@@ -37,6 +38,7 @@ export async function logGuardrail(
     ip_hash: p.ipHash ?? null,
     details: (p.details ?? {}) as Database['public']['Tables']['guardrail_events']['Insert']['details'],
   })
+  if (error) console.error(`[guardrail_events] insert fallito: ${error.message}`)
 }
 
 export async function isIpBlocked(

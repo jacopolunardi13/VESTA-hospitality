@@ -5,6 +5,7 @@ import {
 } from '@/lib/ai/guardrail'
 import { SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
 import { processConversationTurn } from '@/lib/booking/orchestrate'
+import { dbThrow } from '@/lib/supabase/guard'
 import type { PropertyContext } from '@/lib/ai/types'
 
 export async function POST(request: Request) {
@@ -89,11 +90,11 @@ export async function POST(request: Request) {
   }
 
   // Persisti il messaggio in ingresso (con ip_hash per i contatori anti-abuse).
-  await sb.from('messages').insert({
+  dbThrow((await sb.from('messages').insert({
     org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
     direction: 'in', sender: 'guest', content: message,
     metadata: { ip_hash: ipHash },
-  })
+  })).error, 'chat.inboundMessage')
 
   // Session cap giornaliero (anti-abuse web).
   const sessionLimit = Number(property.settings['ai_session_message_limit'] ?? 30)
@@ -103,12 +104,12 @@ export async function POST(request: Request) {
       orgId: property.orgId, propertyId, conversationId, type: 'msg_limit', ipHash,
       details: { sessionCount, sessionLimit },
     })
-    await sb.from('messages').insert({
+    dbThrow((await sb.from('messages').insert({
       org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
       direction: 'out', sender: 'ai', content: SESSION_LIMIT_TEMPLATE,
-    })
-    await sb.from('conversations').update({ status: 'pending_staff', stage: 'handoff_staff' })
-      .eq('id', conversationId)
+    })).error, 'chat.sessionLimitMessage')
+    dbThrow((await sb.from('conversations').update({ status: 'pending_staff', stage: 'handoff_staff' })
+      .eq('id', conversationId)).error, 'chat.conv.handoff')
     return Response.json({
       conversationId, reply: SESSION_LIMIT_TEMPLATE, intent: 'unclassified',
       stage: 'handoff_staff', status: 'pending_staff', source: 'template',

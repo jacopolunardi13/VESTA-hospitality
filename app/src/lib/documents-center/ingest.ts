@@ -54,11 +54,11 @@ export async function archiveEmailDocuments(
       if (Array.isArray(existing) && existing.length > 0) { out.skipped++; continue }
 
       const bytes = await downloadAttachment(accessToken, email.id, att.id)
-      if (!bytes) { out.errors++; continue }
+      if (!bytes) { console.error(`[doc-ingest] download fallito ${email.id}/${att.id}`); out.errors++; continue }
 
       const up = await sb.storage.from(DOCUMENTS_BUCKET)
         .upload(storagePath, bytes, { contentType: 'application/pdf', upsert: true })
-      if (up.error) { out.errors++; continue }
+      if (up.error) { console.error(`[doc-ingest] storage ${storagePath}: ${up.error.message}`); out.errors++; continue }
 
       const meta = rec.describe(email, att)
       const ins = await db(sb).from('document_center').insert({
@@ -73,9 +73,11 @@ export async function archiveEmailDocuments(
         attachments: [{ filename, mime: 'application/pdf' }],
         status: meta.status,
       })
-      if (ins.error) { out.errors++; continue }
+      // Best-effort: NON lancia (non deve rompere il poll) ma logga sempre l'errore (mai silenzioso).
+      if (ins.error) { console.error(`[doc-ingest] insert document_center: ${ins.error.message}`); out.errors++; continue }
       out.created++
-    } catch {
+    } catch (e) {
+      console.error(`[doc-ingest] eccezione: ${e instanceof Error ? e.message : String(e)}`)
       out.errors++
     }
   }

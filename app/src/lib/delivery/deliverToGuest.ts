@@ -7,6 +7,7 @@ import type { Database, Json } from '@/lib/supabase/database.types'
 import type { PropertyContext } from '@/lib/ai/types'
 import { getAccessToken, sendReply, type EmailAttachment } from '@/lib/email/gmail'
 import { buildWhatsAppDeps } from '@/lib/whatsapp/client'
+import { dbThrow } from '@/lib/supabase/guard'
 
 export interface OutboundContent {
   text: string
@@ -36,11 +37,11 @@ export async function deliverToGuest(
   const to = conv?.guest_contact ?? ''
 
   // Persisti sempre il messaggio outbound (visibile in dashboard).
-  await sb.from('messages').insert({
+  dbThrow((await sb.from('messages').insert({
     org_id: property.orgId, property_id: property.id, conversation_id: conversationId,
     direction: 'out', sender: 'staff', content: content.text,
     metadata: { channel: source, tier2: true } as Json,
-  })
+  })).error, 'deliverToGuest.message')
 
   if (source === 'email') {
     if (!process.env.GMAIL_REFRESH_TOKEN || !to) return { channel: 'email', sent: false, note: 'gmail non configurato o destinatario mancante' }

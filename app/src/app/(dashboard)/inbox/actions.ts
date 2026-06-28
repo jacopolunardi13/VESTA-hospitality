@@ -12,6 +12,7 @@ import { deliverToGuest } from '@/lib/delivery/deliverToGuest'
 import { markPendingSent } from '@/lib/delivery/pendingActions'
 import { generateDocument, getDocumentConfig } from '@/lib/documents'
 import { renderEmailHtml } from '@/lib/email/template'
+import { dbThrow } from '@/lib/supabase/guard'
 import type { PropertyContext } from '@/lib/ai/types'
 import type { BookingStatus } from '@/lib/quote/types'
 
@@ -77,14 +78,14 @@ export async function createRequest(formData: FormData) {
 
   if (error || !request) redirect('/inbox?error=create_failed')
 
-  await supabase.from('booking_request_events').insert({
+  dbThrow((await supabase.from('booking_request_events').insert({
     org_id: orgId,
     booking_request_id: request.id,
     from_status: null,
     to_status: 'received',
     actor: 'staff',
     note: 'Richiesta creata manualmente dallo staff',
-  })
+  })).error, 'inbox.createRequest.event')
 
   redirect(`/inbox/${request.id}?saved=created`)
 }
@@ -401,10 +402,10 @@ export async function markUnavailable(formData: FormData) {
     }
   }
   if (req.conversation_id) {
-    await supabase.from('messages').insert({
+    dbThrow((await supabase.from('messages').insert({
       org_id: orgId, property_id: propertyId, conversation_id: req.conversation_id,
       direction: 'out', sender: 'staff', content: reply,
-    })
+    })).error, 'inbox.markUnavailable.message')
   }
   await createNotification(supabase, {
     orgId, propertyId, type: 'escalation', title: 'Camera non disponibile — alternative inviate',
@@ -443,7 +444,7 @@ export async function overridePrice(formData: FormData) {
     redirect(`/inbox/${requestId}?error=not_editable`)
   }
 
-  await supabase
+  dbThrow((await supabase
     .from('booking_requests')
     .update({
       gross_total_cents: grossCents,
@@ -451,16 +452,16 @@ export async function overridePrice(formData: FormData) {
       offer_total_cents: offerCents,
     })
     .eq('id', requestId)
-    .eq('org_id', orgId)
+    .eq('org_id', orgId)).error, 'inbox.overridePrice.update')
 
-  await supabase.from('booking_request_events').insert({
+  dbThrow((await supabase.from('booking_request_events').insert({
     org_id: orgId,
     booking_request_id: requestId,
     from_status: req.status,
     to_status: req.status,
     actor: 'staff',
     note: `Prezzo aggiornato: lordo ${grossCents}¢, sconto ${validDisc}%, offerta ${offerCents}¢`,
-  })
+  })).error, 'inbox.overridePrice.event')
 
   redirect(`/inbox/${requestId}?saved=price_updated`)
 }

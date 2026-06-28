@@ -16,6 +16,7 @@ import { executeTransition } from '@/lib/quote/stateMachine'
 import { createNotification } from '@/lib/notifications'
 import { createPendingAction } from '@/lib/delivery/pendingActions'
 import { isInterest, isPaymentClaim, matchRoomChoice, matchCombination, chooseRoomPrompt, availabilityCheckAck, paymentAck, normLang } from '@/lib/ai/messages'
+import { dbThrow } from '@/lib/supabase/guard'
 import type { ChatTurn, PropertyContext } from '@/lib/ai/types'
 
 export interface TurnResult {
@@ -79,8 +80,8 @@ export async function processConversationTurn(opts: {
             const offerEur = Math.round(chosen.quote.offerTotalCents / 100)
             await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: `Cliente ha scelto: ${chosen.roomName} (€${offerEur}) — richiede verifica disponibilità PMS` })
             const reply = availabilityCheckAck(lang, chosen.roomName)
-            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
-            await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
+            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
+            dbThrow((await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)).error, 'orchestrate.conv.stage')
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto ${chosen.roomName} (€${offerEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
             // Tier 2: prepara la proposta (PDF generato all'approvazione, non ora — punto 4→5).
             await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_proposal', channel: leadSource, documentType: 'preventivo' })
@@ -90,7 +91,7 @@ export async function processConversationTurn(opts: {
           // Scelta ambigua, o intenzione di procedere con più camere → chiedi quale.
           if (matched.length > 1 || (isInterest(userMessage) && all.length > 1)) {
             const reply = chooseRoomPrompt(lang, matched.length > 1 ? matched : options)
-            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
+            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
             return { reply, intent: 'booking', confidence: 1, stage: 'proposal_sent', status: 'open', source: 'template', escalated: false }
           }
           // Nessuna scelta riconosciuta → prosegui con la pipeline.
@@ -112,8 +113,8 @@ export async function processConversationTurn(opts: {
             const totalEur = Math.round(rooms.reduce((s, r) => s + r.quote.offerTotalCents, 0) / 100)
             await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: `Cliente ha scelto la combinazione: ${names} (€${totalEur}) — richiede verifica disponibilità PMS` })
             const reply = availabilityCheckAck(lang, names)
-            await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
-            await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)
+            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
+            dbThrow((await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)).error, 'orchestrate.conv.stage')
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto la combinazione ${names} (€${totalEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
             await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_proposal', channel: leadSource, documentType: 'preventivo' })
             return { reply, intent: 'booking', confidence: 1, stage: 'negotiating', status: 'interested', source: 'template', escalated: false }
@@ -124,7 +125,7 @@ export async function processConversationTurn(opts: {
       // PASSO 6 — pagamento/contabile comunicato → notifica staff, NESSUNA conferma automatica.
       if (lead?.status === 'awaiting_payment' && isPaymentClaim(userMessage)) {
         const reply = paymentAck(lang)
-        await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })
+        dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
         await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Contabile ricevuta – verifica richiesta', body: 'L\'ospite dichiara di aver pagato. Verifica la contabile e premi "Conferma prenotazione".', bookingRequestId: leadId, conversationId })
         // Tier 2: prepara la conferma (PDF generato all'approvazione staff — punto 8).
         await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_confirmation', channel: leadSource, documentType: 'conferma' })
@@ -163,26 +164,26 @@ export async function processConversationTurn(opts: {
     })
   } catch {
     const fallback = 'Mi spiace, ho avuto un problema tecnico. Riprova tra poco o lascia un recapito allo staff.'
-    await sb.from('messages').insert({
+    dbThrow((await sb.from('messages').insert({
       org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
       direction: 'out', sender: 'ai', content: fallback,
-    })
+    })).error, 'orchestrate.fallbackMessage')
     return { reply: fallback, intent: 'unclassified', confidence: 0, stage: 'new', status: 'open', source: 'template', escalated: false }
   }
 
   // Persisti la risposta (se presente — lo spam non risponde).
   if (result.text) {
-    await sb.from('messages').insert({
+    dbThrow((await sb.from('messages').insert({
       org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
       direction: 'out', sender: 'ai', content: result.text,
-    })
+    })).error, 'orchestrate.replyMessage')
   }
 
   // Aggiorna metadati conversazione.
-  await sb.from('conversations').update({
+  dbThrow((await sb.from('conversations').update({
     intent: result.intent, intent_confidence: result.confidence,
     stage: result.stage, status: result.status,
-  }).eq('id', conversationId)
+  }).eq('id', conversationId)).error, 'orchestrate.conv.meta')
 
   // Lead (booking): crea/collega booking_request + slot + esito preventivo.
   if (result.createLead) {
@@ -196,7 +197,7 @@ export async function processConversationTurn(opts: {
     const slots = result.slots
 
     if (conv && !leadId) {
-      const { data: br } = await sb
+      const { data: br, error: brErr } = await sb
         .from('booking_requests')
         .insert({
           org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
@@ -206,14 +207,15 @@ export async function processConversationTurn(opts: {
         })
         .select('id')
         .single()
+      dbThrow(brErr, 'orchestrate.booking_requests.insert')
       if (br) {
         leadId = br.id
-        await sb.from('conversations').update({ booking_request_id: br.id }).eq('id', conversationId)
-        await sb.from('booking_request_events').insert({
+        dbThrow((await sb.from('conversations').update({ booking_request_id: br.id }).eq('id', conversationId)).error, 'orchestrate.conv.leadLink')
+        dbThrow((await sb.from('booking_request_events').insert({
           org_id: property.orgId, booking_request_id: br.id,
           from_status: null, to_status: 'received', actor: 'system',
           note: `Lead generato da ${leadSource === 'email' ? 'email' : 'chat'} (intent booking)`,
-        })
+        })).error, 'orchestrate.booking_request_events')
       }
     }
 
@@ -230,14 +232,14 @@ export async function processConversationTurn(opts: {
       // Conserva TUTTE le richieste rilevate (multi-camera/multi-periodo), nessuna persa.
       if (slots.segments && slots.segments.length > 0) upd.parsed_requests = slots.segments as unknown as Json
       if (Object.keys(upd).length > 0) {
-        await sb.from('booking_requests').update(upd).eq('id', leadId).eq('org_id', property.orgId)
+        dbThrow((await sb.from('booking_requests').update(upd).eq('id', leadId).eq('org_id', property.orgId)).error, 'orchestrate.booking_requests.update')
       }
       const convUpd: TablesUpdate<'conversations'> = {}
       if (slots.guest_name) convUpd.guest_name = slots.guest_name
       if (slots.guest_contact) convUpd.guest_contact = slots.guest_contact
       if (slots.language) convUpd.language = slots.language
       if (Object.keys(convUpd).length > 0) {
-        await sb.from('conversations').update(convUpd).eq('id', conversationId)
+        dbThrow((await sb.from('conversations').update(convUpd).eq('id', conversationId)).error, 'orchestrate.conv.guestInfo')
       }
     }
 

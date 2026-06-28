@@ -10,6 +10,7 @@ import { renderEmailHtml } from './template'
 import { emailAutosendEnabled } from './flags'
 import { hasAutomatedMarkers } from './routing'
 import { getDocumentConfig } from '@/lib/documents'
+import { dbThrow } from '@/lib/supabase/guard'
 import type { PropertyContext } from '@/lib/ai/types'
 
 const NO_REPLY = /no-?reply|do-?not-?reply|mailer-daemon|postmaster/i
@@ -117,14 +118,14 @@ export async function ingestEmail(
 
   // 2. Persisti il messaggio in ingresso con i metadati di threading Gmail
   //    (servono per dedup + mapping dei messaggi successivi dello stesso thread).
-  await sb.from('messages').insert({
+  dbThrow((await sb.from('messages').insert({
     org_id: property.orgId, property_id: property.id, conversation_id: conversationId,
     direction: 'in', sender: 'guest', content: email.body,
     metadata: {
       channel: 'email', gmail_thread_id: email.threadId, gmail_message_id: email.id,
       rfc_message_id: email.rfcMessageId, from: email.from, subject: email.subject,
     } as Json,
-  })
+  })).error, 'ingestEmail.inboundMessage')
 
   // 3. Orchestrazione condivisa con la chat (short-circuit/pipeline/lead + salva risposta).
   const turn = await processConversationTurn({
