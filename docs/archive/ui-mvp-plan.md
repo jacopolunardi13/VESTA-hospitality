@@ -1,6 +1,6 @@
 # AI Concierge & Direct Quote — Piano UI dell'MVP
 
-> Versione 0.10 — 13 giugno 2026 (aggiunti §7 flusso prenotazione, §8 cost control & anti abuse, pricing dinamico, §9 intent detection a 8 categorie, §10 flusso conversazionale, §11 fase finale MVP; D7 collegata al [Property Knowledge System](property-knowledge-system.md); testi allineati alla [LunArt Voice](lunart-voice.md); audit 13/06: tutti i valori enum DB aggiornati a EN post-0002, collisioni status IT→EN risolte)
+> Versione 0.11 — 14 giugno 2026 (aggiornate priorità schermate: D1+D2 elevate a P0 critiche come cuore del flusso prenotazione; chiarito ruolo KB come infrastruttura AI; aggiornata tabella priorità §6)
 > Derivato da `supabase/schema.sql` (migrazione 0001), [product-brief](product-brief.md), [roadmap](roadmap.md), [dev-plan](dev-plan.md).
 > Solo progettazione: nessun riferimento implementativo oltre alle route.
 
@@ -524,40 +524,44 @@ Editor inline/modale: nome, max ospiti, descrizione, ordinamento (drag ≡).
 
 ### Dentro l'MVP (P0 = indispensabile, P1 = necessario ma può essere essenziale)
 
-| Schermata / elemento | Priorità | Note di taglio |
-|---|---|---|
-| G1 Web chat + G2 card proposta | **P0** | Cuore del prodotto, nessun taglio |
-| A1 Login, A2 Onboarding | **P0** | Onboarding può essere form unico invece di wizard |
-| D1 Inbox richieste | **P0** | Con checklist setup integrata |
-| D2 Dettaglio richiesta (macchina a stati + timeline) | **P0** | La timeline può essere collassata, le azioni no |
-| D5 Calendario tariffe (editing manuale) | **P0** | Senza tariffe niente proposte |
-| D6 Camere | **P0** | CRUD minimo |
-| D7 Knowledge base (testo) | **P0** | Upload PDF: P1 (decisione aperta su estrazione testo) |
-| D3/D4 Conversazioni + risposta staff | **P1** | L'escalation è promessa dell'MVP; UI può essere spartana |
-| D5 Import CSV + feed iCal | **P1** | Possono slittare a fine Fase 1 (già previsto in roadmap) |
-| D8 Template (personalizzazione) | **P1** | All'inizio bastano i template globali in sola lettura |
-| D9 Follow-up | **P1** | Regole default precaricate; editor può arrivare a fine fase |
-| D10 Impostazioni property | **P0** | Senza sconto/hold/pagamento il flusso non chiude |
-| D11 Org e membri | **P1** | All'inizio basta il solo owner; inviti a fine fase |
-| D12 AI e costi | **P1** | Anche solo contatori aggregati |
+Il criterio di priorità riflette la gerarchia strategica: il flusso prenotazione viene prima di tutto il resto.
+
+| Schermata / elemento | Priorità | Fase | Note di taglio |
+|---|---|---|---|
+| A1 Login, A2 Onboarding | **P0** | 1a ✅ | Onboarding può essere form unico invece di wizard |
+| D5 Calendario tariffe (editing manuale) | **P0** | 1a ✅ | Senza tariffe niente proposte |
+| D6 Camere | **P0** | 1a ✅ | CRUD minimo |
+| D7 Knowledge base (testo) | **P0 infrastruttura** | 1a ✅ | CRUD operativo. Non è una feature utente finale ma il substrato dell'AI; upload PDF: P1 |
+| **D1 Inbox richieste** | **P0 critico** | 1b | Home del prodotto e home operativa del gestore. Con checklist setup integrata |
+| **D2 Dettaglio richiesta** (macchina a stati + azioni + timeline) | **P0 critico** | 1b | Cuore del Direct Quote. Le azioni di stato non si tagliano; la timeline può essere collassata |
+| D10 Impostazioni property | **P0** | 1b | Senza sconto/hold/pagamento il flusso non chiude |
+| G1 Web chat + G2 card proposta | **P0** | 1c | Canale di acquisizione principale; nessun taglio |
+| D3/D4 Conversazioni + risposta staff | **P1** | 1c | L'escalation è promessa dell'MVP; UI può essere spartana |
+| D5 Import CSV + feed iCal | **P1** | 1c | Slittati da 1a; non bloccanti per il primo flusso prenotazione |
+| D8 Template (personalizzazione) | **P1** | 1d | All'inizio bastano i template globali in sola lettura |
+| D9 Follow-up | **P1** | 1d | Regole default precaricate; editor può arrivare a fine fase |
+| D11 Org e membri | **P1** | 1d | All'inizio basta il solo owner; inviti a fine fase |
+| D12 AI e costi | **P1** | 1d | Anche solo contatori aggregati |
+| D13 Analytics KPI | **P1** | 1d | Ultima schermata da costruire; indispensabile per la chiusura del pilot |
 
 ### Post-MVP (Fase 2–3) — fuori da questo piano UI
 
 | Elemento | Fase |
 |---|---|
 | Inbox unificata multicanale (WhatsApp, email) + presa in carico (`assigned_to`) | 2 |
+| KB strutturata: coverage score, gap report, 9 domande d'oro, auto-learning end-to-end | 2 |
 | Coda revisione KB auto-learning (`kb_suggestions`: proposta → approva/rifiuta) | 2 |
 | "Salva risposta in KB" da D4 | 2 |
 | Pagina proposta dedicata per l'ospite (link fuori dalla chat) | 2 |
+| Revenue Assistant (analisi competitor, suggerimenti tariffari, alert prezzi) | 3 |
 | Canali OTA/social in D1/D3 (filtri già predisposti via `source_category`) | 3 |
-| Analytics complete (conversione proposta→confermata, valore prenotazioni dirette) | 3 |
+| Analytics avanzate (conversione proposta→confermata, valore prenotazioni dirette) | 3 |
 | Billing, piani, onboarding self-service completo | 3 |
 | Permessi UI differenziati per ruolo | 3 |
 
 ### Criterio guida
 
-Il percorso che deve essere impeccabile è **uno solo**: *richiesta in chat → proposta → interessato → blocco → pagamento → confermata*, con il gestore che capisce sempre "cosa devo fare adesso" dalla Inbox. Tutto il resto (template custom, CSV, iCal, inviti, statistiche) è contorno e può essere essenziale o rimandato dentro la Fase 1.
-
+Il percorso che deve essere impeccabile è **uno solo**: *richiesta → proposta con prezzo calcolato → interessato → blocco → pagamento → confermata*, con il gestore che capisce sempre "cosa devo fare adesso" da D1 e può eseguire l'azione corretta da D2. Tutto il resto (chat AI, template, CSV, iCal, statistiche) serve questo percorso.
 ---
 
 ## 7. Approfondimento: il flusso che genera prenotazioni

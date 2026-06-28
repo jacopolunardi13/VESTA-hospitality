@@ -1,16 +1,31 @@
 # AI Concierge & Direct Quote — Product Brief
 
-> Versione 0.10 — 13 giugno 2026
-> Allineata allo schema database reale (`supabase/schema.sql`, migrazione 0001). Aggiunti cost control & anti abuse, **prezzo dinamico operativo**, **intent detection** a 8 categorie, KPI del funnel, **LunArt Voice**, fase finale MVP (**governo sconti, human handoff con SLA, dashboard KPI**) e **Property Knowledge System**.
+> Versione 0.11 — 14 giugno 2026
+> Aggiornato con riallineamento priorità strategiche: prenotazioni come cuore del prodotto (Priorità 1), AI pre-prenotazione (Priorità 2), Knowledge Base come infrastruttura architetturale AI (Priorità 3), Revenue Assistant come feature naming esplicita (Priorità 4), fuori scope esplicitato.
 
 ## 1. Visione
 
-AI Concierge è un **SaaS multi-tenant** per hotel indipendenti, B&B, affittacamere e case vacanza che unisce due motori complementari:
+AI Concierge è un **sistema operativo AI per l'hospitality** — non un chatbot, non un FAQ bot. È il motore che supporta vendite, prenotazioni, pricing, operatività e in futuro un dipendente virtuale supervisionato.
 
-1. **Concierge AI** — risponde agli ospiti 24/7, in linguaggio naturale e multilingua, sui canali che già usano, attingendo alla knowledge base della struttura.
-2. **Direct Quote** — trasforma le richieste di informazioni in **preventivi diretti tracciati**: calcolo prezzo da calendario tariffe, sconto diretto rispetto alle OTA, proposta con scadenza, blocco disponibilità (hold 24h), conferma a pagamento ricevuto. Ogni richiesta è un lead con punteggio e follow-up automatici.
+Nella sua forma attuale è un **SaaS multi-tenant** per hotel indipendenti, B&B, affittacamere e case vacanza che unisce due motori complementari:
 
-Il concierge porta la conversazione; il Direct Quote la converte in prenotazione disintermediata.
+1. **Direct Quote** — trasforma le richieste di informazioni in **preventivi diretti tracciati**: calcolo prezzo da calendario tariffe, sconto diretto rispetto alle OTA, proposta con scadenza, blocco disponibilità (hold 24h), conferma a pagamento ricevuto. Ogni richiesta è un lead con punteggio e follow-up automatici. **Questo è il cuore del prodotto.**
+2. **Concierge AI** — risponde agli ospiti 24/7, in linguaggio naturale e multilingua, sui canali che già usano, attingendo alla knowledge base della struttura. Serve il Direct Quote: converte le conversazioni in richieste di prenotazione.
+
+Il Direct Quote chiude la vendita; il Concierge AI porta l'ospite al momento giusto.
+
+## 1-bis. Gerarchia di priorità del prodotto
+
+Ogni decisione di sviluppo, ogni trade-off di scope si risolve con questa gerarchia:
+
+| Priorità | Area | Cosa include |
+|---|---|---|
+| **1 — Critica** | Core PMS | Proprietà, Camere, Calendario tariffe, Disponibilità, **Prenotazioni** (macchina a stati, inbox, Direct Quote) |
+| **2 — Alta** | AI pre-prenotazione | Preventivatore automatico, comprensione richieste ospiti, verifica disponibilità, generazione offerte, supporto prenotazione diretta |
+| **3 — Infrastruttura** | Knowledge Base | FAQ, procedure operative, informazioni struttura — **base dati condivisa per Concierge e preventivatore. Non è una feature utente finale ma un'infrastruttura critica per tutta la pipeline AI** |
+| **4 — Importante** | Revenue Assistant | Analisi competitor, suggerimenti tariffari, alert prezzi, supporto decisioni commerciali |
+| **Bassa** | Task operativi | Pulizie, manutenzioni, workflow staff — fuori scope attuale |
+| **Non ora** | Tassa soggiorno, analytics avanzate, chatbot standalone | Non supportano la vendita; rimandati o esclusi |
 
 ## 2. Problema
 
@@ -53,7 +68,7 @@ Per ogni **organization** (il tenant: il soggetto che paga e ha gli utenti) con 
 
 ### MVP (Fase 1) — Concierge + Direct Quote su web chat
 - Onboarding organization + property; membri con ruoli.
-- **Property Knowledge System** ([specifica dedicata](property-knowledge-system.md)): la fonte unica di verità della struttura — asset tipizzati con versioning e priorità di retrieval, categorie standard con le 9 domande d'oro obbligatorie, separazione rigida dati strutturati/testo (i numeri non vivono mai nelle FAQ), coverage score, gap report e correzioni dello staff che battono sempre il testo originale. Multi-struttura, modificabile dal gestore senza interventi tecnici.
+- **Property Knowledge System** ([specifica dedicata](property-knowledge-system.md)): infrastruttura dati critica per tutta la pipeline AI — non una feature utente finale, ma il substrato che rende possibili Concierge, Direct Quote e futuro dipendente virtuale. La fonte unica di verità della struttura: asset tipizzati con versioning e priorità di retrieval, categorie standard con le 9 domande d'oro obbligatorie, separazione rigida dati strutturati/testo (i numeri non vivono mai nelle FAQ), coverage score, gap report e correzioni dello staff che battono sempre il testo originale. Multi-struttura, modificabile dal gestore senza interventi tecnici. Il CRUD base è nell'MVP (C10); le funzionalità strutturate (coverage score, auto-learning) arrivano in Fase 2.
 - **Web chat ospite** (link/QR, multilingua, nessun login).
 - **Intent detection** su ogni conversazione (8 categorie) con instradamento: solo "prenotazione" genera booking request; inbox dedicate per partnership/commerciale e **Lead SaaS** (gestori interessati al software, priorità alta); spam archiviato senza AI; "Inbox per categoria" con conteggi separati in dashboard.
 - Motore conversazionale Claude con grounding sulla KB della property.
@@ -69,9 +84,16 @@ Per ogni **organization** (il tenant: il soggetto che paga e ha gli utenti) con 
 - **Dashboard KPI** a 5 blocchi: operativo, commerciale, conversione, OTA vs diretto, AI vs staff.
 
 ### Post-MVP (Fasi 2–3)
-- Canali **WhatsApp** ed **email** (il DB già traccia tutti i source, inclusi social e Google Business).
-- **KB auto-learning** attivo end-to-end (cattura correzioni/gap → distillazione AI → approvazione → pubblicazione).
+
+**Fase 2 — Knowledge Base strutturata + Canali**
+- **KB strutturata**: coverage score, gap report, 9 domande d'oro obbligatorie, review reminder. La KB CRUD base è operativa nell'MVP (C10); qui diventa un sistema vivente che migliora da sola.
+- **KB auto-learning** attivo end-to-end (cattura correzioni/gap → distillazione AI → approvazione → pubblicazione con `supersedes_asset_id`).
 - Retrieval semantico (embeddings/RAG): lo schema è già predisposto (`knowledge_embeddings`, provider-agnostic); nell'MVP la KB viaggia interamente nel prompt con caching.
+- Canali **WhatsApp** ed **email** (il DB già traccia tutti i source, inclusi social e Google Business).
+- Inbox unificata multicanale.
+
+**Fase 3 — Revenue Assistant + OTA + Monetizzazione**
+- **Revenue Assistant**: analisi competitor (prezzi OTA per stesse date), suggerimenti tariffari, alert prezzi quando le OTA scendono sotto la tariffa diretta, supporto alle decisioni commerciali.
 - Integrazione messaggistica **OTA** (Booking.com, Expedia, Airbnb), social (Instagram, Messenger).
 - Pagamenti online integrati (oggi: verifica manuale del bonifico/pagamento da parte dello staff).
 - Billing SaaS e piani di abbonamento (Stripe), analytics avanzate.
@@ -80,6 +102,10 @@ Per ogni **organization** (il tenant: il soggetto che paga e ha gli utenti) con 
 - Channel manager in scrittura verso le OTA (i feed iCal sono di sola lettura, mai prezzi).
 - PMS completo (si valuteranno integrazioni).
 - App mobile nativa.
+- **Gestione task operativi** (pulizie, manutenzioni, workflow staff) — diverso modello di prodotto.
+- **Tassa di soggiorno come modulo separato** — è un campo nella proposta, non una feature autonoma.
+- **Dashboard analytics avanzate** non collegate alle prenotazioni — D13 copre il necessario; BI avanzata è Fase 3+.
+- **Chatbot FAQ standalone** non integrati nel flusso di prenotazione — contrario alla visione.
 
 ## 7. Canali di interazione
 
