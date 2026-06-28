@@ -26,6 +26,10 @@ const BASE_OTA: { source: OtaSource; domains: string[] }[] = [
   { source: 'quovai', domains: ['quovai.com', 'quovai.it'] },
   { source: 'qvi', domains: ['qvi.it', 'qvi.com'] },
 ]
+// Mittenti chiaramente NON-guest (notifiche/fornitori comuni): stessa forma di BASE_OTA, nessun nuovo
+// meccanismo. Risolve i falsi positivi del pilot (notifiche Amazon/Poste, fornitore Tonico) che non
+// portano marcatori automatici e cadevano in 'guest'. Estendibile per-property via settings.supplierDomains.
+const BASE_SUPPLIER: string[] = ['amazon.it', 'posteitaliane.it', 'tonicosrl.it']
 const OTA_SUBJECT = /\b(prenotazione|reservation|booking)\b.*\b(nuov|new|confermat|confirmed|cancellat|cancel|modific|chang)/i
 const NEWSLETTER = /\bnewsletter\b|unsubscribe|disiscriv|cancella iscrizione/i
 const NOREPLY = /(no-?reply|do-?not-?reply|mailer-daemon|postmaster|notifications?@|automated@)/i
@@ -65,6 +69,8 @@ export function classifyEmailDeterministic(email: InboundEmail, rules: RoutingRu
 
   for (const o of BASE_OTA) if (o.domains.some((d) => endsWithDomain(dom, d)))
     return { category: 'ota_pms', source: o.source, confidence: 0.97, method: 'deterministic' }
+  for (const base of BASE_SUPPLIER) if (endsWithDomain(dom, base))
+    return { category: 'supplier_admin', source: null, confidence: 0.95, method: 'deterministic' }
   for (const d of rules.otaDomains) if (endsWithDomain(dom, d.toLowerCase()))
     return { category: 'ota_pms', source: 'unknown', confidence: 0.9, method: 'deterministic' }
   for (const d of rules.supplierDomains) if (endsWithDomain(dom, d.toLowerCase()))
