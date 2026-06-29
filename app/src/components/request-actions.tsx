@@ -49,10 +49,15 @@ const actionsByStatus: Record<BookingStatus, ActionDef[]> = {
 export default function RequestActions({
   requestId,
   status,
+  paymentTaskOpen = false,
 }: {
   requestId: string
   status: BookingStatus
+  /** Se c'è una task operativa di pagamento aperta, le azioni vivono nella task card dedicata. */
+  paymentTaskOpen?: boolean
 }) {
+  if (status === 'awaiting_payment' && paymentTaskOpen) return null
+
   const actions = actionsByStatus[status]
 
   if (actions.length === 0 && status !== 'interested') {

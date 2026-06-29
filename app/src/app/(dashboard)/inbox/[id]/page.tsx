@@ -5,7 +5,9 @@ import { actorLabels, bookingStatusLabels, nextActionLabels } from '@/lib/labels
 import { formatDate, formatDateRange, formatDateTime, formatEuro, formatGuests } from '@/lib/format'
 import { ReliabilityChip, ScoreBadge, SourceChip, StatusBadge } from '@/components/badges'
 import RequestActions from '@/components/request-actions'
-import { sendProposal, overridePrice, approveProposalDraft } from '../actions'
+import { sendProposal, overridePrice, approveProposalDraft, confirmBooking, markPaymentNotReceived } from '../actions'
+import { getOpenTaskForBooking } from '@/lib/tasks/operationalTasks'
+import { presentTask, type TaskActionKind } from '@/lib/tasks/catalog'
 import type { BookingStatus } from '@/lib/quote/types'
 import type { Reliability, Source } from '@/lib/mock/types'
 
@@ -55,7 +57,7 @@ export default async function BookingRequestPage({
   const saved = sp['saved']
   const errorKey = sp['error']
 
-  const { supabase, propertyId, orgId, settings } = await resolveProperty()
+  const { supabase, propertyId, settings } = await resolveProperty()
 
   const { data: request } = await supabase
     .from('booking_requests')
@@ -66,6 +68,14 @@ export default async function BookingRequestPage({
     .single()
 
   if (!request) notFound()
+
+  // Task operativa aperta (work inbox): se presente, è la superficie d'azione prioritaria.
+  const openTask = await getOpenTaskForBooking(supabase, id)
+  const taskCard = openTask ? presentTask(openTask.type, { guestName: request.guest_name }) : null
+  const actionForKind: Record<TaskActionKind, typeof confirmBooking> = {
+    confirm_paid: confirmBooking,
+    mark_not_paid: markPaymentNotReceived,
+  }
 
   const [{ data: items }, { data: events }, { data: scoring }, { data: rooms }] =
     await Promise.all([
@@ -144,6 +154,9 @@ export default async function BookingRequestPage({
           {saved === 'proposal_sent' && '✓ Proposta inviata — richiesta in attesa dell\'ospite.'}
           {saved === 'price_updated' && '✓ Prezzo aggiornato.'}
           {saved === 'ok' && '✓ Stato aggiornato.'}
+          {saved === 'availability_confirmed' && '✓ Camera riservata 24h: proposta + IBAN inviati all\'ospite.'}
+          {saved === 'booking_confirmed' && '✓ Prenotazione confermata: conferma + PDF inviati all\'ospite.'}
+          {saved === 'payment_not_received' && '✓ Comunicazione di scadenza inviata. Libera la camera manualmente nel PMS.'}
         </div>
       )}
       {errorKey && (
@@ -192,6 +205,37 @@ export default async function BookingRequestPage({
           <span className="text-sm font-medium">In attesa dell&apos;ospite — nessuna azione richiesta ora.</span>
         </div>
       ) : null}
+
+      {/* Operational Queue · task della prenotazione: linguaggio dal Task Catalog, esattamente due azioni */}
+      {taskCard && (
+        <section className="rounded-lg border-2 border-purple-300 bg-purple-50 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg" aria-hidden>{taskCard.icon}</span>
+            <h2 className="text-sm font-bold text-purple-900">{taskCard.title}</h2>
+          </div>
+          <p className="mt-1 text-sm text-purple-800">{taskCard.description}</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {taskCard.actions.map((a) => (
+              <form key={a.code} action={actionForKind[a.kind]}>
+                <input type="hidden" name="request_id" value={id} />
+                <button
+                  type="submit"
+                  className={`rounded-md w-full px-3 py-2.5 text-center text-sm font-medium sm:w-auto transition-colors ${
+                    a.style === 'primary'
+                      ? 'bg-slate-900 text-white hover:bg-slate-700'
+                      : a.style === 'danger'
+                        ? 'border border-red-300 bg-white text-red-700 hover:bg-red-50'
+                        : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {a.label}
+                </button>
+              </form>
+            ))}
+          </div>
+          {taskCard.note && <p className="mt-2 text-xs text-purple-700">{taskCard.note}</p>}
+        </section>
+      )}
 
       {/* Messaggio originale dell'ospite (sempre consultabile) */}
       {firstMessage?.content && (
@@ -512,7 +556,7 @@ export default async function BookingRequestPage({
             📄 Anteprima PDF conferma
           </a>
         )}
-        <RequestActions requestId={id} status={status} />
+        <RequestActions requestId={id} status={status} paymentTaskOpen={!!openTask} />
       </section>
 
       {/* Timeline + Score */}

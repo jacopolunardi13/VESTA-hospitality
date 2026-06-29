@@ -336,3 +336,19 @@ export function confirmationText(lang: Lang): string {
   }
   return T[lang]
 }
+
+/**
+ * Comunicazione di scadenza al cliente (ramo "pagamento non ricevuto").
+ * Inviata SOLO dall'azione manuale staff: la finestra di pagamento (24h) è
+ * scaduta senza pagamento, la prenotazione in attesa decade. Nessun IBAN.
+ */
+export function expiryText(lang: Lang): string {
+  const T: Record<Lang, string> = {
+    it: `Gentile ospite, non avendo ricevuto il pagamento entro le 24 ore previste, la prenotazione in attesa è decaduta e la camera è stata rimessa a disposizione. Se è ancora interessato al soggiorno, ci contatti pure: saremo lieti di verificare nuovamente la disponibilità.`,
+    en: `Dear guest, as we did not receive your payment within the 24 hours indicated, your pending reservation has lapsed and the room has been released. If you are still interested in staying with us, please get in touch: we would be glad to check availability again.`,
+    es: `Estimado huésped, al no haber recibido el pago dentro de las 24 horas previstas, la reserva en espera ha caducado y la habitación se ha vuelto a poner a disposición. Si sigue interesado en su estancia, contáctenos: estaremos encantados de comprobar de nuevo la disponibilidad.`,
+    fr: `Cher client, n'ayant pas reçu votre paiement dans les 24 heures indiquées, votre réservation en attente a expiré et la chambre a été remise à disposition. Si vous êtes toujours intéressé par votre séjour, contactez-nous : nous serons heureux de vérifier à nouveau la disponibilité.`,
+    de: `Sehr geehrter Gast, da wir Ihre Zahlung nicht innerhalb der angegebenen 24 Stunden erhalten haben, ist Ihre vorgemerkte Reservierung verfallen und das Zimmer wurde wieder freigegeben. Wenn Sie weiterhin an einem Aufenthalt interessiert sind, kontaktieren Sie uns gerne: Wir prüfen die Verfügbarkeit gerne erneut.`,
+  }
+  return T[lang]
+}

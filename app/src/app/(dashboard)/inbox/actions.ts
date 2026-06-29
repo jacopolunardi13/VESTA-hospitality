@@ -7,9 +7,10 @@ import { computeQuote } from '@/lib/quote/priceEngine'
 import { selectAllQuotes } from '@/lib/quote/draftProposal'
 import { childrenNeedingBed } from '@/lib/ai/pipeline'
 import { createNotification } from '@/lib/notifications'
-import { paymentInstructions, alternativesText, noAvailabilityText, normLang, confirmationText } from '@/lib/ai/messages'
+import { paymentInstructions, alternativesText, noAvailabilityText, normLang, confirmationText, expiryText } from '@/lib/ai/messages'
 import { deliverToGuest } from '@/lib/delivery/deliverToGuest'
 import { markPendingSent } from '@/lib/delivery/pendingActions'
+import { resolveTaskForBooking } from '@/lib/tasks/operationalTasks'
 import { generateDocument, getDocumentConfig } from '@/lib/documents'
 import { renderEmailHtml } from '@/lib/email/template'
 import { dbThrow } from '@/lib/supabase/guard'
@@ -343,6 +344,10 @@ export async function confirmBooking(formData: FormData) {
     await markPendingSent(supabase, { bookingRequestId: requestId, kind: 'send_confirmation', messageText: reply, documentPath, approvedBy: userId })
   }
 
+  // Sotto-flusso scadenza · ramo "pagamento ricevuto": risolve l'eventuale task
+  // 'booking.payment_window_expired' aperta (idempotente: no-op se non esiste).
+  await resolveTaskForBooking(supabase, { bookingRequestId: requestId, type: 'booking.payment_window_expired', resolution: 'paid' })
+
   await createNotification(supabase, {
     orgId, propertyId, type: 'escalation', title: 'Prenotazione confermata',
     body: 'Conferma + PDF di conferma inviati all\'ospite.',
@@ -350,6 +355,52 @@ export async function confirmBooking(formData: FormData) {
   })
 
   redirect(`/inbox/${requestId}?saved=booking_confirmed`)
+}
+
+/**
+ * Sotto-flusso scadenza · ramo "Pagamento non ricevuto" (azione staff dedicata).
+ * A differenza del generico "Cancella", invia all'ospite la comunicazione di
+ * scadenza. La camera va liberata MANUALMENTE nel PMS (Vesta non tocca l'inventario).
+ * awaiting_payment → cancelled + expiryText all'ospite + task risolta 'not_paid'.
+ */
+export async function markPaymentNotReceived(formData: FormData) {
+  const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
+  if (!requestId) redirect('/inbox?error=missing_fields')
+
+  const { supabase, propertyId, orgId } = await resolveProperty()
+
+  const { data: req } = await supabase
+    .from('booking_requests')
+    .select('id, status, conversation_id, language')
+    .eq('id', requestId).eq('org_id', orgId).single()
+  if (!req) redirect('/inbox?error=not_found')
+  if (req.status !== 'awaiting_payment') redirect(`/inbox/${requestId}?error=invalid_state`)
+
+  const t = await executeTransition(supabase, {
+    requestId, orgId, toStatus: 'cancelled', actor: 'staff',
+    note: 'Pagamento non ricevuto entro la scadenza (24h): prenotazione decaduta. Liberare la camera manualmente nel PMS.',
+  })
+  if (!t.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
+
+  // Comunicazione di scadenza all'ospite (Tier 2, bypassa il kill-switch). Nessun allegato, nessun IBAN.
+  const property = await loadPropertyContext(supabase, propertyId)
+  const lang = normLang(req.language)
+  const reply = expiryText(lang)
+  if (req.conversation_id) {
+    let html: string | undefined
+    try { html = renderEmailHtml(getDocumentConfig(property), reply) } catch { /* solo testo */ }
+    await deliverToGuest(supabase, property, req.conversation_id, { text: reply, html })
+  }
+
+  await resolveTaskForBooking(supabase, { bookingRequestId: requestId, type: 'booking.payment_window_expired', resolution: 'not_paid' })
+
+  await createNotification(supabase, {
+    orgId, propertyId, type: 'escalation', title: 'Pagamento non ricevuto · prenotazione decaduta',
+    body: 'Inviata comunicazione di scadenza all\'ospite. Libera la camera manualmente nel PMS.',
+    bookingRequestId: requestId, conversationId: req.conversation_id,
+  })
+
+  redirect(`/inbox/${requestId}?saved=payment_not_received`)
 }
 
 /**
