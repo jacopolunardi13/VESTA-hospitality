@@ -18,8 +18,9 @@ TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres +
 
 ## 3-bis. Foundations (Costituzione del prodotto)
 - **`docs/foundations/PRODUCT.md`** — ✅ **creato** ed è ora parte delle **Foundations** (commit **`49eb3fc`**). Sintesi delle 3 fonti approvate, con tre registri separati (Fondamenta confermate / Direzioni creative / Open Questions) + preambolo "fonte di verità", confini SSOT verso BRAND/WORKFLOW/ENGINEERING ed *Evolution Rules*.
-- **Stato documentazione Foundations:** **in corso.** PRODUCT.md = **completato**; **`BRAND.md` · `WORKFLOW.md` · `ENGINEERING.md` = non ancora creati** (citati nei confini SSOT di PRODUCT.md).
-- **Prossimo passo consigliato (Foundations):** il prossimo documento sarà **`BRAND.md`** (identità di marca), da avviare **solo su decisione esplicita** — per ora non iniziato. La **priorità operativa del progetto** resta comunque l'apply di `0014` + E2E della milestone Operational Queue (vedi §4).
+- **`docs/foundations/WORKFLOW.md`** — ✅ **creato**: workflow ufficiale (commerciale + pagamento) fino al PMS, ancorato ad **ADR-0011**. Il workflow è stato **verificato allineato al codice** (audit per-clausola, **zero discrepanze**; migrazione 0014 + E2E già superati).
+- **Stato documentazione Foundations:** **in corso.** PRODUCT.md + WORKFLOW.md = **completati**; **`BRAND.md` · `ENGINEERING.md` = non ancora creati**.
+- **Prossimo passo consigliato (Foundations):** **`BRAND.md`** (identità di marca), da avviare **solo su decisione esplicita**. La **priorità operativa** resta il primo utilizzo reale su LunArt (merge milestone → produzione → attivazione sorvegliata).
 
 ## 4. Prossimo task
 **Completare Operational Queue / scadenza pagamento 24h.** Prerequisito bloccante: **apply `0014` nel SQL Editor** (DDL = solo titolare), poi verifica `to_regclass` + E2E `scripts/test-payment-expiry-e2e.mts` sui 6 obiettivi. Solo dopo (con approvazione): attivare autosend + cron email.

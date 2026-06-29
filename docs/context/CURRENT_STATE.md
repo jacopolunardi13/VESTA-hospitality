@@ -1,7 +1,7 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-06-29 · branch `document-center` · HEAD `297a9d6` · ✅ verificato con git
+> **Aggiornato:** 2026-06-29 · branch `document-center` · HEAD `3c27677` · ✅ verificato con git
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato)
@@ -16,8 +16,8 @@
 
 ## Documentazione — solo su `document-center` (doc-only, oltre `main`)
 - **Context Layer** `docs/context/` (`e304b45`, ADR-0018): CURRENT_STATE, NEXT_TASK, OPEN_DECISIONS, KNOWN_ISSUES, PROJECT_SYNC_REPORT (+ TEMPLATE).
-- **Foundations** — nuova cartella `docs/foundations/` con **`PRODUCT.md`** (`49eb3fc`), la Costituzione del prodotto. Stato Foundations: **in corso** (`BRAND.md` / `WORKFLOW.md` / `ENGINEERING.md` non ancora creati).
-- Aggiornamento `PROJECT_SYNC_REPORT.md` (`297a9d6`).
+- **Foundations** `docs/foundations/`: **`PRODUCT.md`** (Costituzione) + **`WORKFLOW.md`** (workflow ufficiale Tier-1/Tier-2 + scadenza 24h fino al PMS, ancorato ad ADR-0011). Stato Foundations: **in corso** (`BRAND.md` / `ENGINEERING.md` non ancora creati).
+- Il **workflow ufficiale** è stato **verificato allineato al codice** (audit per-clausola, nessuna discrepanza) e codificato in `WORKFLOW.md`.
 
 ## Solo nel working tree (NON committato) — milestone corrente
 **Operational Queue** (`operational_tasks`) + sotto-flusso **scadenza pagamento 24h**:

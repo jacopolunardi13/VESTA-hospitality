@@ -42,8 +42,9 @@ rimandano), **Documentation as Code**, **ADR-driven changes** (vedi [DECISIONS.m
 | Documento | Scopo |
 |---|---|
 | [foundations/PRODUCT.md](foundations/PRODUCT.md) | **Costituzione del prodotto**: cos'è Vesta, perché esiste, principi confermati, direzioni creative, open questions |
+| [foundations/WORKFLOW.md](foundations/WORKFLOW.md) | **Workflow ufficiale** (commerciale + pagamento) fino all'integrazione PMS: dettaglio del flusso Tier-1/Tier-2 + scadenza 24h (SSOT del flusso; ancorato ad ADR-0011) |
 
-Futuri e già citati nei confini SSOT di `PRODUCT.md` (non ancora creati): `BRAND.md` (identità di marca), `WORKFLOW.md` (flussi operativi), `ENGINEERING.md` (principi di ingegneria).
+Futuri e già citati nei confini SSOT di `PRODUCT.md` (non ancora creati): `BRAND.md` (identità di marca), `ENGINEERING.md` (principi di ingegneria).
 
 ## Context — stato vivo (ADR-0018)
 `docs/context/` è il **layer di stato vivo**, distinto dal layer di *conoscenza* qui sopra: snapshot
