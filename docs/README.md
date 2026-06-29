@@ -36,6 +36,21 @@ rimandano), **Documentation as Code**, **ADR-driven changes** (vedi [DECISIONS.m
 | [RUNBOOKS/](RUNBOOKS/) | Procedure operative passo-passo |
 | [archive/](archive/) | Documenti di planning **superati** (sola lettura, storici) |
 
+## Context — stato vivo (ADR-0018)
+`docs/context/` è il **layer di stato vivo**, distinto dal layer di *conoscenza* qui sopra: snapshot
+**sintetici e operativi** che **rimandano** alle SSOT (non le duplicano). È la fonte di verità di "dove
+siamo adesso" e va aggiornato a ogni milestone (PROJECT_RULES §1.4 e §13). **Non** segue la struttura
+ADR-0005 (è snapshot, non conoscenza).
+
+| Documento | Scopo |
+|---|---|
+| [context/CURRENT_STATE.md](context/CURRENT_STATE.md) | Fotografia: branch, cosa è in main, working tree, milestone corrente |
+| [context/NEXT_TASK.md](context/NEXT_TASK.md) | Prossimo passo eseguibile: prerequisiti, comandi/test, criteri DoD |
+| [context/OPEN_DECISIONS.md](context/OPEN_DECISIONS.md) | Solo decisioni **non ancora prese** + ADR candidate (decise → DECISIONS.md) |
+| [context/KNOWN_ISSUES.md](context/KNOWN_ISSUES.md) | Problemi noti / rischi / workaround con priorità |
+| [context/PROJECT_SYNC_REPORT_TEMPLATE.md](context/PROJECT_SYNC_REPORT_TEMPLATE.md) | Template stabile del report di riallineamento |
+| [context/PROJECT_SYNC_REPORT.md](context/PROJECT_SYNC_REPORT.md) | **Report vivo** da copiare in una nuova chat ChatGPT/Claude |
+
 ## Da dove iniziare
 - Nuovo al progetto → [ARCHITECTURE.md](ARCHITECTURE.md) + [../PROJECT_RULES.md](../PROJECT_RULES.md).
 - Devi operare (migrazioni, cron, deploy, test) → [RUNBOOKS/](RUNBOOKS/).

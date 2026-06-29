@@ -39,6 +39,7 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 | ADR-0015 | Governance delle ADR (ADR-driven changes) | Process | Approvata | DECISIONS.md |
 | ADR-0016 | Architettura "Operating System" a strati (acquisition-first) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | ADR-0017 | Recognizer = interpreti, non gatekeeper (Universal Intake) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| ADR-0018 | Context Layer (stato vivo nel repo) per sync assistenti | Process | Approvata | [context/](context/) · [../PROJECT_RULES.md](../PROJECT_RULES.md) |
 
 ---
 
@@ -295,6 +296,18 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
   allegati ospite e dedup di contenuto (`content_hash`) diventano decisioni da affrontare.
 - **Documenti:** [ARCHITECTURE.md](ARCHITECTURE.md) (Document Intelligence, Future Evolution).
 - **Sostituisce:** **raffina/supera [ADR-0014]** (recognizer: gate → interprete).
+
+## ADR-0018 — Context Layer (stato vivo nel repo) per la sincronizzazione assistenti
+- **Data:** 29/06/2026 · **Stato:** Approvata · **Categoria:** Process
+- **Contesto:** lo "stato vivo" del progetto (dove siamo, prossimo task, decisioni aperte, problemi) era frammentato tra ROADMAP/CHANGELOG/DEPLOYMENT **e** nella memoria privata dell'assistente — invisibile ad altri assistenti (es. ChatGPT) e soggetto a drift (es. `DEPLOYMENT.md` diceva "`document-center` non in `main`" mentre git mostrava `main` == `document-center`).
+- **Problema:** rendere il **repository GitHub** l'unica fonte di verità dello stato, così che qualsiasi assistente (Claude o ChatGPT) si riallinei dal repo, non dalle chat.
+- **Alternative:** lasciare lo stato nelle chat/memoria; un singolo file di stato monolitico; affidarsi solo a ROADMAP/CHANGELOG (che hanno scopi diversi: priorità e storia, non snapshot).
+- **Decisione:** introdurre un **layer di contesto** in `docs/context/` distinto dal layer di conoscenza (`docs/*`): `CURRENT_STATE.md`, `NEXT_TASK.md`, `OPEN_DECISIONS.md`, `KNOWN_ISSUES.md`, `PROJECT_SYNC_REPORT_TEMPLATE.md` (template stabile) e `PROJECT_SYNC_REPORT.md` (report vivo da incollare in chat). I file sono **snapshot sintetici** che **rimandano** alle SSOT (no duplicazione, PROJECT_RULES §3). Confine netto: `OPEN_DECISIONS` contiene solo decisioni **non ancora prese**; alla decisione diventano ADR qui e sono rimosse. Aggiornarli è parte della **Definition of Done** (PROJECT_RULES §1.4 + §13).
+- **Motivazioni:** eliminare la dipendenza dalle chat; riallineo rapido di un assistente; coerenza repo↔stato.
+- **Conseguenze positive:** stato sempre nel repo, versionato e diff-abile; onboarding di un assistente in minuti; drift documentale reso visibile e correggibile.
+- **Trade-off:** sei file in più da mantenere a ogni milestone (mitigato da stile sintetico, header `data·commit·branch` e gate DoD). La memoria privata dell'assistente viene **degradata a puntatore** verso `docs/context/` per non creare una terza fonte di verità.
+- **Documenti:** [context/](context/), [../PROJECT_RULES.md](../PROJECT_RULES.md) §1 e §13, [README.md](README.md).
+- **Sostituisce:** —
 
 ---
 

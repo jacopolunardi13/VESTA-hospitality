@@ -22,10 +22,11 @@ semplice.
 Una funzionalità è **completata** solo quando, *contemporaneamente*:
 1. il codice è integrato nel branch **`main`**;
 2. le migrazioni sono **realmente applicate e verificate con `to_regclass`** (mai assunte);
-3. è stato eseguito con successo un **test end-to-end sul percorso reale**.
+3. è stato eseguito con successo un **test end-to-end sul percorso reale**;
+4. la **documentazione di contesto** in `docs/context/` è aggiornata — almeno `CURRENT_STATE.md`, `NEXT_TASK.md` e `PROJECT_SYNC_REPORT.md` (vedi §13).
 
 Se manca anche un solo punto → la feature è **"implementata, non completata"**.
-→ dettagli: [docs/DATABASE.md](docs/DATABASE.md), [docs/TESTING.md](docs/TESTING.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+→ dettagli: [docs/DATABASE.md](docs/DATABASE.md), [docs/TESTING.md](docs/TESTING.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/context/](docs/context/)
 
 ## 2. Classificazione delle affermazioni tecniche
 Ogni affermazione tecnica deve essere etichettata come **verificata**, **dedotta** o **ipotizzata**.
@@ -95,6 +96,16 @@ strettamente necessario. Isolamento multi-tenant via RLS.
 **Autosend OFF di default**; kill-switch sempre disponibile; nessuna automazione che possa contattare
 ospiti reali senza verifica preventiva.
 → dettagli: [docs/SECURITY.md](docs/SECURITY.md), [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md)
+
+## 13. Context Layer — lo stato vivo vive nel repo
+La **fonte di verità dello stato del progetto è il repository**, non le chat né la memoria di un
+assistente. Lo stato vivo è in `docs/context/` (distinto dalla *conoscenza* in `docs/`): `CURRENT_STATE.md`
+(fotografia), `NEXT_TASK.md` (prossimo passo), `OPEN_DECISIONS.md` (solo decisioni non ancora prese),
+`KNOWN_ISSUES.md` (problemi/rischi), `PROJECT_SYNC_REPORT_TEMPLATE.md` (template) e `PROJECT_SYNC_REPORT.md`
+(report vivo da incollare per riallineare un assistente). Sono **snapshot sintetici che rimandano** alle
+SSOT (§3): non duplicano ROADMAP/CHANGELOG/SECURITY/DECISIONS. **Ogni milestone importante li aggiorna
+prima di essere considerata completa** (integra §1.4). → dettagli: [docs/context/](docs/context/),
+[docs/DECISIONS.md](docs/DECISIONS.md) ADR-0018.
 
 ---
 
