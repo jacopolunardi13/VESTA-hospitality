@@ -36,6 +36,15 @@ rimandano), **Documentation as Code**, **ADR-driven changes** (vedi [DECISIONS.m
 | [RUNBOOKS/](RUNBOOKS/) | Procedure operative passo-passo |
 | [archive/](archive/) | Documenti di planning **superati** (sola lettura, storici) |
 
+## Foundations — la Costituzione del prodotto
+`docs/foundations/` raccoglie i documenti **fondativi** (fonte di verità del prodotto), distinti dalla conoscenza tecnica (`docs/*`) e dallo stato vivo (`docs/context/`).
+
+| Documento | Scopo |
+|---|---|
+| [foundations/PRODUCT.md](foundations/PRODUCT.md) | **Costituzione del prodotto**: cos'è Vesta, perché esiste, principi confermati, direzioni creative, open questions |
+
+Futuri e già citati nei confini SSOT di `PRODUCT.md` (non ancora creati): `BRAND.md` (identità di marca), `WORKFLOW.md` (flussi operativi), `ENGINEERING.md` (principi di ingegneria).
+
 ## Context — stato vivo (ADR-0018)
 `docs/context/` è il **layer di stato vivo**, distinto dal layer di *conoscenza* qui sopra: snapshot
 **sintetici e operativi** che **rimandano** alle SSOT (non le duplicano). È la fonte di verità di "dove
