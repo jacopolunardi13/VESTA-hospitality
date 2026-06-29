@@ -1,18 +1,23 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-06-29 · branch `document-center` · HEAD `efe5e03` · ✅ verificato con git
+> **Aggiornato:** 2026-06-29 · branch `document-center` · HEAD `297a9d6` · ✅ verificato con git
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato)
-- Branch corrente: **`document-center`**.
-- `main` e `document-center` sono **lo stesso commit `efe5e03`** (`git rev-list --left-right --count main...document-center` → `0 0`). Nessuna divergenza: tutto ciò che è su `document-center` è anche in `main`.
+- Branch corrente: **`document-center`** (HEAD `297a9d6`).
+- `main` fermo a **`efe5e03`**; `document-center` è **avanti di 3 commit doc-only** non ancora in `main` (`git rev-list --left-right --count main...document-center` → `0 3`): `e304b45` (Context Layer), `49eb3fc` (Foundations/PRODUCT.md), `297a9d6` (aggiornamento report).
 
 ## In `main` (= efe5e03)
 - **Front Office** — AI Concierge + motore prenotazioni/preventivi (flusso Tier-1/Tier-2). In produzione.
 - **Document Center MVP (Booking)** — codice in `main` (commit `1548c89`/`85c72f8`/`94b1381`). ⚠️ "in main" ≠ "completato per DoD" (vedi sotto).
 - **Fail-Fast** su tutte le scritture Supabase (`d15b87a`).
 - **Documentazione v1.0** + architettura "Operating System" a strati + ADR-0011 rafforzata.
+
+## Documentazione — solo su `document-center` (doc-only, oltre `main`)
+- **Context Layer** `docs/context/` (`e304b45`, ADR-0018): CURRENT_STATE, NEXT_TASK, OPEN_DECISIONS, KNOWN_ISSUES, PROJECT_SYNC_REPORT (+ TEMPLATE).
+- **Foundations** — nuova cartella `docs/foundations/` con **`PRODUCT.md`** (`49eb3fc`), la Costituzione del prodotto. Stato Foundations: **in corso** (`BRAND.md` / `WORKFLOW.md` / `ENGINEERING.md` non ancora creati).
+- Aggiornamento `PROJECT_SYNC_REPORT.md` (`297a9d6`).
 
 ## Solo nel working tree (NON committato) — milestone corrente
 **Operational Queue** (`operational_tasks`) + sotto-flusso **scadenza pagamento 24h**:
