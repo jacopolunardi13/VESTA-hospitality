@@ -5,6 +5,7 @@ import {
 } from '@/lib/ai/guardrail'
 import { SESSION_LIMIT_TEMPLATE } from '@/lib/ai/pipeline'
 import { processConversationTurn } from '@/lib/booking/orchestrate'
+import { recordDelivery } from '@/lib/delivery/recordDelivery'
 import { dbThrow } from '@/lib/supabase/guard'
 import type { PropertyContext } from '@/lib/ai/types'
 
@@ -119,6 +120,13 @@ export async function POST(request: Request) {
   // Orchestrazione del turno (condivisa con il canale email).
   const turn = await processConversationTurn({
     sb, property, conversationId, userMessage: message, leadSource: 'website_chat',
+  })
+
+  // Canale web: la risposta è mostrata subito dal widget = consegnata. Finalizza la
+  // consegna (sent) e — se è stato generato un preventivo — fa avanzare a proposal_sent.
+  await recordDelivery(sb, {
+    property, conversationId,
+    leadId: turn.leadId, proposalGenerated: turn.proposalGenerated, outcome: 'sent',
   })
 
   return Response.json({

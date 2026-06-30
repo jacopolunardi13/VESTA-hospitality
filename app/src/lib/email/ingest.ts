@@ -8,6 +8,7 @@ import { processConversationTurn } from '@/lib/booking/orchestrate'
 import { sendReply, type InboundEmail } from './gmail'
 import { renderEmailHtml } from './template'
 import { emailAutosendEnabled } from './flags'
+import { recordDelivery, type DeliveryOutcome } from '@/lib/delivery/recordDelivery'
 import { hasAutomatedMarkers } from './routing'
 import { getDocumentConfig } from '@/lib/documents'
 import { dbThrow } from '@/lib/supabase/guard'
@@ -139,18 +140,38 @@ export async function ingestEmail(
   // Quando OFF, la risposta è già stata persistita (visibile in dashboard) ma non viene inviata.
   let replied = false
   const autosend = emailAutosendEnabled(property.settings)
-  if (turn.reply && autosend && !NO_REPLY.test(email.from) && process.env.GMAIL_REFRESH_TOKEN && accessToken) {
-    // Tier 1: corpo HTML brandizzato (struttura), SENZA allegati. Il PDF preventivo è Tier 2,
-    // inviato solo all'approvazione staff (Fase B).
-    let html: string | undefined
-    try { html = renderEmailHtml(getDocumentConfig(property), turn.reply) }
-    catch { /* branding non disponibile → solo testo */ }
-    await sendReply(accessToken, {
-      to: email.from, from: process.env.GMAIL_ADDRESS ?? '', subject: email.subject, body: turn.reply,
-      html,
-      inReplyTo: email.rfcMessageId, references: email.references, threadId: email.threadId,
+  if (turn.reply) {
+    let outcome: DeliveryOutcome
+    if (!autosend) {
+      // Kill-switch OFF: NESSUN invio. La bozza resta pronta in dashboard.
+      outcome = 'autosend_off'
+    } else if (NO_REPLY.test(email.from) || !process.env.GMAIL_REFRESH_TOKEN || !accessToken) {
+      // Autosend ON ma consegna non possibile (mittente no-reply o credenziali assenti).
+      outcome = 'failed'
+    } else {
+      try {
+        // Tier 1: corpo HTML brandizzato (struttura), SENZA allegati. Il PDF preventivo è Tier 2,
+        // inviato solo all'approvazione staff (Fase B).
+        let html: string | undefined
+        try { html = renderEmailHtml(getDocumentConfig(property), turn.reply) }
+        catch { /* branding non disponibile → solo testo */ }
+        await sendReply(accessToken, {
+          to: email.from, from: process.env.GMAIL_ADDRESS ?? '', subject: email.subject, body: turn.reply,
+          html,
+          inReplyTo: email.rfcMessageId, references: email.references, threadId: email.threadId,
+        })
+        outcome = 'sent'
+        replied = true
+      } catch {
+        outcome = 'failed'
+      }
+    }
+    // Finalizza la consegna: aggiorna delivery_status e — solo se 'sent' — fa avanzare
+    // la pratica a proposal_sent. Con autosend OFF la pratica NON diventa "Preventivo inviato".
+    await recordDelivery(sb, {
+      property, conversationId,
+      leadId: turn.leadId, proposalGenerated: turn.proposalGenerated, outcome,
     })
-    replied = true
   }
 
   return { conversationId, intent: turn.intent, stage: turn.stage, replied, isNewConversation }

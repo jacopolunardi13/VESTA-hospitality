@@ -2,6 +2,7 @@ import type { BookingStatus, ConversationStatus, Priority, Reliability, Source }
 import {
   bookingStatusLabels,
   conversationStatusLabels,
+  deliveryStatusLabels,
   reliabilityLabels,
   sourceLabels,
 } from "@/lib/labels";
@@ -25,6 +26,31 @@ export function StatusBadge({ status }: { status: BookingStatus }) {
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${statusStyles[status]}`}
     >
       {bookingStatusLabels[status]}
+    </span>
+  );
+}
+
+const deliveryStyles: Record<string, string> = {
+  draft: "bg-amber-100 text-amber-900",
+  sent: "bg-green-100 text-green-800",
+  failed: "bg-red-100 text-red-700",
+  autosend_off: "bg-orange-100 text-orange-900",
+};
+const deliveryIcon: Record<string, string> = {
+  draft: "📝",
+  sent: "✓",
+  failed: "⚠",
+  autosend_off: "⏸",
+};
+
+/** Stato di CONSEGNA di un messaggio (bozza / inviata / fallita / autosend OFF). */
+export function DeliveryBadge({ status }: { status?: string | null }) {
+  if (!status || !deliveryStatusLabels[status]) return null;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap ${deliveryStyles[status] ?? "bg-slate-100 text-slate-700"}`}
+    >
+      {deliveryIcon[status] ?? ""} {deliveryStatusLabels[status]}
     </span>
   );
 }

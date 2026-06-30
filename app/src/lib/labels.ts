@@ -54,6 +54,14 @@ export const senderLabels: Record<Sender, string> = {
   staff: "Staff",
 };
 
+// Stato di CONSEGNA del messaggio (distinto dallo stato della pratica).
+export const deliveryStatusLabels: Record<string, string> = {
+  draft: "Bozza · non inviata",
+  sent: "Inviata all'ospite",
+  failed: "Invio fallito",
+  autosend_off: "Non inviata · autosend OFF",
+};
+
 export const actorLabels: Record<EventActor, string> = {
   system: "Sistema",
   staff: "Staff",

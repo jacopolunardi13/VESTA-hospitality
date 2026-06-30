@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 import { runPipeline } from '@/lib/ai/pipeline'
 import { ingestEmail, loadEmailProperty } from '@/lib/email/ingest'
+import { executeTransition } from '@/lib/quote/stateMachine'
 import type { InboundEmail } from '@/lib/email/gmail'
 import type { PropertyContext } from '@/lib/ai/types'
 
@@ -35,10 +36,12 @@ const conv = r1.conversationId
 const { data: c1 } = await sb.from('conversations').select('booking_request_id').eq('id', conv).single()
 const leadId = c1!.booking_request_id!
 const { data: br1 } = await sb.from('booking_requests').select('status').eq('id', leadId).single()
-ok(br1!.status === 'proposal_sent', `email gruppo → lead proposal_sent (${br1!.status})`)
-const { data: nGrp } = await sb.from('notifications').select('title').eq('booking_request_id', leadId).ilike('title', '%gruppo%')
-ok((nGrp ?? []).length > 0, 'notifica staff "Preventivo gruppo"')
+ok(br1!.status === 'received', `email gruppo (autosend OFF) → bozza, lead received (${br1!.status})`)
+const { data: nGrp } = await sb.from('notifications').select('title').eq('booking_request_id', leadId).ilike('title', '%Bozza%')
+ok((nGrp ?? []).length > 0, 'notifica staff "Bozza preventivo pronta" (autosend OFF)')
 
+// autosend OFF → simulo l'invio dello staff per proseguire con la scelta della combinazione.
+await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'staff', note: 'test: staff invia la bozza gruppo' })
 const r2 = await ingestEmail(sb, property, mk(2, 'Opzione A'), '')
 ok(r2.conversationId === conv, 'stessa conversation (1 lead)')
 const { count: leadCount } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('conversation_id', conv)

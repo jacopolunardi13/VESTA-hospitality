@@ -51,8 +51,13 @@ const lead1 = await leadOf(conv)
 console.log('  conversationId:', conv, '| nuova:', r1.isNewConversation, '| lead:', lead1)
 ok(r1.isNewConversation === true, 'conversation creata (prima email del thread)')
 ok(!!lead1, 'booking_request creato')
-ok((await statusOf(lead1!)) === 'proposal_sent', 'stato = proposal_sent dopo preventivo')
+ok((await statusOf(lead1!)) === 'received', 'autosend OFF → bozza: lead resta received (NON proposal_sent)')
+ok(r1.replied === false, 'nessuna email inviata all\'ospite (autosend OFF)')
 ok((await leadCount(conv)) === 1, 'esattamente 1 booking_request')
+
+// Con autosend OFF la bozza non parte: simulo l'invio dello staff (approva e invia)
+// per proseguire il thread come farebbe l'ospite dopo aver ricevuto il preventivo.
+await executeTransition(sb, { requestId: lead1!, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'staff', note: 'test: staff approva e invia la bozza' })
 
 console.log('\n──────── EMAIL 2 · scelta Camera 303 (stesso thread) ────────')
 const r2 = await ingestEmail(sb, property, mk(2, 'Vorrei procedere con la Camera 303', 'Re: Disponibilità agosto'), '')

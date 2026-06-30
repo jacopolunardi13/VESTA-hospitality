@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { senderLabels, bookingStatusLabels } from '@/lib/labels'
 import { formatDateTime } from '@/lib/format'
-import { ConversationStatusBadge, SourceChip, StatusBadge } from '@/components/badges'
+import { ConversationStatusBadge, DeliveryBadge, SourceChip, StatusBadge } from '@/components/badges'
 import StaffReplyBox from '@/components/staff-reply-box'
 import type { Sender, ConversationStatus, Source } from '@/lib/mock/types'
 import type { BookingStatus } from '@/lib/quote/types'
@@ -47,7 +47,7 @@ export default async function ConversationPage({
   const [{ data: messages }, lead] = await Promise.all([
     supabase
       .from('messages')
-      .select('id, sender, content, created_at, metadata')
+      .select('id, sender, content, created_at, metadata, delivery_status')
       .eq('conversation_id', id)
       .order('created_at'),
     conversation.booking_request_id
@@ -102,9 +102,10 @@ export default async function ConversationPage({
               key={m.id}
               className={`flex max-w-[85%] flex-col ${sender === 'guest' ? 'self-end items-end' : 'self-start items-start'}`}
             >
-              <span className="px-1 text-[10px] uppercase tracking-wide text-slate-400">
+              <span className="flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-wide text-slate-400">
                 {senderLabels[sender]} · {formatDateTime(m.created_at)}
-                {meta.followup && <span className="ml-1 text-indigo-500">· ↻ follow-up auto</span>}
+                {meta.followup && <span className="text-indigo-500">· ↻ follow-up auto</span>}
+                {sender !== 'guest' && <DeliveryBadge status={m.delivery_status} />}
               </span>
               <div className={`rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap ${bubbleStyles[sender]}`}>
                 {m.content}

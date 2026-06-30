@@ -27,6 +27,11 @@ export interface TurnResult {
   status: string
   source: string
   escalated: boolean
+  /** true se questo turno ha GENERATO un preventivo (bozza). La transizione a
+   *  proposal_sent NON avviene qui: la decide il canale alla consegna reale. */
+  proposalGenerated?: boolean
+  /** lead collegato, per consentire al canale di finalizzare la consegna. */
+  leadId?: string
 }
 
 /** Sorgente del lead alla creazione (canale d'origine). */
@@ -42,6 +47,11 @@ export async function processConversationTurn(opts: {
   const { sb, property, conversationId, userMessage } = opts
   const propertyId = property.id
   const leadSource: LeadSource = opts.leadSource ?? 'website_chat'
+
+  // Separazione stato-pratica / stato-consegna: il core GENERA (bozza), il canale
+  // CONSEGNA. Questi due valori dicono al canale se finalizzare un preventivo.
+  let proposalGenerated = false
+  let returnLeadId: string | undefined
 
   // ── Flusso prenotazioni definitivo: progressione di un lead esistente ──
   // Riconosce la SCELTA della camera (su un preventivo già inviato) o la
@@ -80,7 +90,7 @@ export async function processConversationTurn(opts: {
             const offerEur = Math.round(chosen.quote.offerTotalCents / 100)
             await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: `Cliente ha scelto: ${chosen.roomName} (€${offerEur}) — richiede verifica disponibilità PMS` })
             const reply = availabilityCheckAck(lang, chosen.roomName)
-            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
+            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply, delivery_status: 'draft' })).error, 'orchestrate.message')
             dbThrow((await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)).error, 'orchestrate.conv.stage')
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto ${chosen.roomName} (€${offerEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
             // Tier 2: prepara la proposta (PDF generato all'approvazione, non ora — punto 4→5).
@@ -91,7 +101,7 @@ export async function processConversationTurn(opts: {
           // Scelta ambigua, o intenzione di procedere con più camere → chiedi quale.
           if (matched.length > 1 || (isInterest(userMessage) && all.length > 1)) {
             const reply = chooseRoomPrompt(lang, matched.length > 1 ? matched : options)
-            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
+            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply, delivery_status: 'draft' })).error, 'orchestrate.message')
             return { reply, intent: 'booking', confidence: 1, stage: 'proposal_sent', status: 'open', source: 'template', escalated: false }
           }
           // Nessuna scelta riconosciuta → prosegui con la pipeline.
@@ -113,7 +123,7 @@ export async function processConversationTurn(opts: {
             const totalEur = Math.round(rooms.reduce((s, r) => s + r.quote.offerTotalCents, 0) / 100)
             await executeTransition(sb, { requestId: leadId, orgId: property.orgId, toStatus: 'interested', actor: 'guest', note: `Cliente ha scelto la combinazione: ${names} (€${totalEur}) — richiede verifica disponibilità PMS` })
             const reply = availabilityCheckAck(lang, names)
-            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
+            dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply, delivery_status: 'draft' })).error, 'orchestrate.message')
             dbThrow((await sb.from('conversations').update({ stage: 'negotiating' }).eq('id', conversationId)).error, 'orchestrate.conv.stage')
             await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Verifica disponibilità richiesta', body: `L'ospite ha scelto la combinazione ${names} (€${totalEur}). Verifica la disponibilità nel PMS, poi premi "Disponibile → riserva" oppure "Non disponibile".`, bookingRequestId: leadId, conversationId })
             await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_proposal', channel: leadSource, documentType: 'preventivo' })
@@ -125,7 +135,7 @@ export async function processConversationTurn(opts: {
       // PASSO 6 — pagamento/contabile comunicato → notifica staff, NESSUNA conferma automatica.
       if (lead?.status === 'awaiting_payment' && isPaymentClaim(userMessage)) {
         const reply = paymentAck(lang)
-        dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply })).error, 'orchestrate.message')
+        dbThrow((await sb.from('messages').insert({ org_id: property.orgId, property_id: propertyId, conversation_id: conversationId, direction: 'out', sender: 'ai', content: reply, delivery_status: 'draft' })).error, 'orchestrate.message')
         await createNotification(sb, { orgId: property.orgId, propertyId, type: 'escalation', title: 'Contabile ricevuta – verifica richiesta', body: 'L\'ospite dichiara di aver pagato. Verifica la contabile e premi "Conferma prenotazione".', bookingRequestId: leadId, conversationId })
         // Tier 2: prepara la conferma (PDF generato all'approvazione staff — punto 8).
         await createPendingAction(sb, { orgId: property.orgId, propertyId, conversationId, bookingRequestId: leadId, kind: 'send_confirmation', channel: leadSource, documentType: 'conferma' })
@@ -166,7 +176,7 @@ export async function processConversationTurn(opts: {
     const fallback = 'Mi spiace, ho avuto un problema tecnico. Riprova tra poco o lascia un recapito allo staff.'
     dbThrow((await sb.from('messages').insert({
       org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
-      direction: 'out', sender: 'ai', content: fallback,
+      direction: 'out', sender: 'ai', content: fallback, delivery_status: 'draft',
     })).error, 'orchestrate.fallbackMessage')
     return { reply: fallback, intent: 'unclassified', confidence: 0, stage: 'new', status: 'open', source: 'template', escalated: false }
   }
@@ -175,7 +185,7 @@ export async function processConversationTurn(opts: {
   if (result.text) {
     dbThrow((await sb.from('messages').insert({
       org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
-      direction: 'out', sender: 'ai', content: result.text,
+      direction: 'out', sender: 'ai', content: result.text, delivery_status: 'draft',
     })).error, 'orchestrate.replyMessage')
   }
 
@@ -243,50 +253,27 @@ export async function processConversationTurn(opts: {
       }
     }
 
-    // Passo 1: preventivo MULTI-camera → proposal_sent + notifica staff.
+    returnLeadId = leadId ?? undefined
+
+    // Passo 1: preventivo MULTI-camera → BOZZA generata. La transizione a
+    // proposal_sent e la notifica "inviato" NON avvengono qui: le decide il
+    // canale, e SOLO se la consegna all'ospite avviene davvero (recordDelivery).
     if (leadId && result.proposalRooms && result.proposalRooms.length > 0) {
-      const n = result.proposalRooms.length
-      await executeTransition(sb, {
-        requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
-        note: `Preventivo inviato: ${n} camere disponibili mostrate all'ospite`,
-      })
-      await createNotification(sb, {
-        orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
-        title: `Preventivo inviato · ${n} camere`,
-        body: `Mostrate ${n} camere disponibili all'ospite; in attesa della scelta della camera.`,
-        bookingRequestId: leadId, conversationId,
-      })
-    // Passo 1 GRUPPI: combinazioni proposte → proposal_sent + notifica staff.
+      proposalGenerated = true
+    // Passo 1 GRUPPI: combinazioni proposte → BOZZA generata.
     } else if (leadId && result.proposalCombinations && result.proposalCombinations.length > 0) {
-      const n = result.proposalCombinations.length
-      await executeTransition(sb, {
-        requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
-        note: `Preventivo gruppo inviato: ${n} combinazioni di camere proposte`,
-      })
-      await createNotification(sb, {
-        orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
-        title: `Preventivo gruppo · ${n} combinazioni`,
-        body: `Gruppo oltre la capienza singola: proposte ${n} combinazioni; in attesa della scelta dell'ospite.`,
-        bookingRequestId: leadId, conversationId,
-      })
+      proposalGenerated = true
     } else if (leadId && result.draft) {
       await persistProposal(sb, {
         orgId: property.orgId, bookingRequestId: leadId,
         roomName: result.draft.roomName, quote: result.draft.quote, autoSend: !!result.autoSend,
       })
-      const offerStr = (result.draft.quote.offerTotalCents / 100).toFixed(2) + '€'
       if (result.autoSend) {
-        await executeTransition(sb, {
-          requestId: leadId, orgId: property.orgId, toStatus: 'proposal_sent', actor: 'system',
-          note: `Proposta standard generata e inviata automaticamente: ${result.draft.roomName}, ${offerStr}`,
-        })
-        await createNotification(sb, {
-          orgId: property.orgId, propertyId, type: 'proposal_auto_sent',
-          title: `Proposta inviata · ${offerStr}`,
-          body: `Inviata automaticamente all'ospite (${result.draft.roomName}).`,
-          bookingRequestId: leadId, conversationId,
-        })
+        // Standard → preventivo auto-inviabile: il canale lo consegnerà (o no).
+        proposalGenerated = true
       } else {
+        // NON standard → bozza per lo staff: il lead resta 'received', niente auto-invio.
+        const offerStr = (result.draft.quote.offerTotalCents / 100).toFixed(2) + '€'
         await createNotification(sb, {
           orgId: property.orgId, propertyId, type: 'proposal_draft',
           title: `Richiesta preventivo da gestire · ${offerStr}`,
@@ -341,5 +328,6 @@ export async function processConversationTurn(opts: {
   return {
     reply: result.text, intent: result.intent, confidence: result.confidence,
     stage: result.stage, status: result.status, source: result.source, escalated: result.escalated,
+    proposalGenerated, leadId: returnLeadId,
   }
 }
