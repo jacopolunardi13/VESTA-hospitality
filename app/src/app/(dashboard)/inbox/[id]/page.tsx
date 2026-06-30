@@ -100,14 +100,19 @@ export default async function BookingRequestPage({
   const hasUndeliveredDraft = status === 'received' && !!lastOut?.content && deliveryStatus !== 'sent'
   const missingDates = status === 'received' && (!request.check_in || !request.check_out)
   const noRooms = status === 'received' && !!request.check_in && !!request.check_out && (!rooms || rooms.length === 0)
+  // Flusso normale = Vesta genera SEMPRE una bozza (→ "Approva e invia"). Un received SENZA bozza
+  // è un caso eccezionale: lead inserito a mano (source 'manual') oppure errore tecnico/AI.
+  const isManualLead = request.source === 'manual'
+  const noDraftAnomaly = status === 'received' && !hasUndeliveredDraft && !missingDates && !noRooms && !isManualLead
 
   // ── PIANO D'AZIONE: l'UNICO prossimo intervento umano richiesto (il centro della pagina). ──
   type Tone = 'do' | 'wait' | 'warn' | 'done'
   let plan: { tone: Tone; title: string; body: string }
-  if (status === 'received' && missingDates) plan = { tone: 'warn', title: 'Completa la richiesta', body: 'Mancano le date del soggiorno: aggiungile prima di poter proporre.' }
+  if (status === 'received' && hasUndeliveredDraft) plan = { tone: 'do', title: 'Rivedi e invia la risposta', body: 'Vesta ha preparato una risposta ma NON è ancora stata consegnata. Rivedila e inviala all’ospite: solo allora la pratica avanza. (La scelta della camera la fa l’ospite, non tu.)' }
+  else if (status === 'received' && missingDates) plan = { tone: 'warn', title: 'Completa la richiesta', body: 'Mancano le date del soggiorno: aggiungile prima di poter proporre.' }
   else if (status === 'received' && noRooms) plan = { tone: 'warn', title: 'Nessuna camera configurata', body: 'Crea almeno una camera in Camere prima di inviare una proposta.' }
-  else if (status === 'received' && hasUndeliveredDraft) plan = { tone: 'do', title: 'Rivedi e invia la proposta', body: 'Vesta ha preparato una risposta ma NON è ancora stata consegnata. Rivedila e inviala all’ospite: solo allora la pratica passa a "Preventivo inviato".' }
-  else if (status === 'received') plan = { tone: 'do', title: 'Invia una proposta', body: 'Scegli la camera: il prezzo è calcolato dal calendario tariffe. Poi invia all’ospite.' }
+  else if (status === 'received' && isManualLead) plan = { tone: 'do', title: 'Lead manuale — componi la proposta', body: 'Lead inserito a mano, senza una risposta generata da Vesta: componi e invia tu la proposta. (Caso eccezionale, fuori dal flusso email standard.)' }
+  else if (status === 'received') plan = { tone: 'warn', title: 'Vesta non ha prodotto una risposta', body: 'Caso eccezionale (nessuna bozza generata, possibile errore tecnico): apri la conversazione e gestiscila a mano.' }
   else if (status === 'proposal_sent') plan = { tone: 'wait', title: 'In attesa dell’ospite', body: 'L’ospite sta valutando le camere proposte. Nessun intervento richiesto ora.' }
   else if (status === 'interested') plan = { tone: 'do', title: 'Verifica la disponibilità nel PMS', body: 'Controlla QuoVai. Se la camera è libera: bloccala e invia il preventivo con l’IBAN. Altrimenti proponi le alternative.' }
   else if (status === 'availability_blocked') plan = { tone: 'do', title: 'Richiedi il pagamento', body: 'Camera riservata: invia all’ospite le istruzioni di pagamento.' }
@@ -189,8 +194,9 @@ export default async function BookingRequestPage({
               <button type="submit" className={btnPrimary}>✅ Approva e invia proposta</button>
             </form>
           )}
-          {/* received · senza bozza → form proposta (camera + prezzo) */}
-          {status === 'received' && !hasUndeliveredDraft && !missingDates && !noRooms && rooms && rooms.length > 0 && (
+          {/* received · LEAD MANUALE senza bozza → composer manuale (camera + prezzo). CASO ECCEZIONALE,
+              fuori dal flusso email standard: nel flusso normale Vesta genera sempre una bozza → "Approva e invia". */}
+          {status === 'received' && !hasUndeliveredDraft && !missingDates && !noRooms && isManualLead && rooms && rooms.length > 0 && (
             <form action={sendProposal} className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
               <input type="hidden" name="request_id" value={id} />
               <div className="flex flex-col gap-1">
@@ -212,6 +218,9 @@ export default async function BookingRequestPage({
           )}
           {status === 'received' && noRooms && (
             <Link href="/rooms" className={btnGhost}>Vai a Camere →</Link>
+          )}
+          {noDraftAnomaly && request.conversation_id && (
+            <Link href={`/conversations/${request.conversation_id}`} className={btnGhost}>Apri la conversazione →</Link>
           )}
 
           {/* interested → verifica disponibilità */}

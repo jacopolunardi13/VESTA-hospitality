@@ -463,15 +463,21 @@ export async function markUnavailable(formData: FormData) {
       })))
     }
   }
+  // REGOLA: le alternative vanno CONSEGNATE davvero (Tier 2, bypassa il kill-switch), non solo persistite.
+  let delivered = false
   if (req.conversation_id) {
-    dbThrow((await supabase.from('messages').insert({
-      org_id: orgId, property_id: propertyId, conversation_id: req.conversation_id,
-      direction: 'out', sender: 'staff', content: reply,
-    })).error, 'inbox.markUnavailable.message')
+    const property = await loadPropertyContext(supabase, propertyId)
+    let html: string | undefined
+    try { html = renderEmailHtml(getDocumentConfig(property), reply) } catch { /* solo testo */ }
+    const res = await deliverToGuest(supabase, property, req.conversation_id, { text: reply, html })
+    delivered = res.sent || res.channel === 'website_chat'
   }
   await createNotification(supabase, {
-    orgId, propertyId, type: 'escalation', title: 'Camera non disponibile — alternative inviate',
-    body: 'La camera scelta non era disponibile: Vesta ha proposto le alternative all\'ospite.',
+    orgId, propertyId, type: 'escalation',
+    title: delivered ? 'Camera non disponibile — alternative inviate' : 'Camera non disponibile — INVIO ALTERNATIVE FALLITO',
+    body: delivered
+      ? 'La camera scelta non era disponibile: alternative consegnate all\'ospite.'
+      : 'La camera scelta non era disponibile: invio delle alternative all\'ospite FALLITO. Invia tu manualmente.',
     bookingRequestId: requestId, conversationId: req.conversation_id,
   })
 
