@@ -30,18 +30,23 @@ export async function deliverToGuest(
   sb: SupabaseClient<Database>,
   property: PropertyContext,
   conversationId: string,
-  content: OutboundContent
+  content: OutboundContent,
+  /** persist:false → invia SENZA creare un nuovo messaggio (per consegnare una bozza già esistente). */
+  opts?: { persist?: boolean }
 ): Promise<DeliveryResult> {
+  const persist = opts?.persist ?? true
   const { data: conv } = await sb.from('conversations').select('source, guest_contact').eq('id', conversationId).single()
   const source = conv?.source ?? 'website_chat'
   const to = conv?.guest_contact ?? ''
 
-  // Persisti sempre il messaggio outbound (visibile in dashboard).
-  dbThrow((await sb.from('messages').insert({
-    org_id: property.orgId, property_id: property.id, conversation_id: conversationId,
-    direction: 'out', sender: 'staff', content: content.text,
-    metadata: { channel: source, tier2: true } as Json,
-  })).error, 'deliverToGuest.message')
+  // Persisti il messaggio outbound (visibile in dashboard), salvo persist:false.
+  if (persist) {
+    dbThrow((await sb.from('messages').insert({
+      org_id: property.orgId, property_id: property.id, conversation_id: conversationId,
+      direction: 'out', sender: 'staff', content: content.text,
+      metadata: { channel: source, tier2: true } as Json,
+    })).error, 'deliverToGuest.message')
+  }
 
   if (source === 'email') {
     if (!process.env.GMAIL_REFRESH_TOKEN || !to) return { channel: 'email', sent: false, note: 'gmail non configurato o destinatario mancante' }

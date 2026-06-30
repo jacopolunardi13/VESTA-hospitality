@@ -7,8 +7,10 @@ import { computeQuote } from '@/lib/quote/priceEngine'
 import { selectAllQuotes } from '@/lib/quote/draftProposal'
 import { childrenNeedingBed } from '@/lib/ai/pipeline'
 import { createNotification } from '@/lib/notifications'
-import { paymentInstructions, alternativesText, noAvailabilityText, normLang, confirmationText, expiryText } from '@/lib/ai/messages'
+import { paymentInstructions, alternativesText, noAvailabilityText, normLang, confirmationText, expiryText, proposalAllText } from '@/lib/ai/messages'
 import { deliverToGuest } from '@/lib/delivery/deliverToGuest'
+import { recordDelivery } from '@/lib/delivery/recordDelivery'
+import { sendDraftProposal } from '@/lib/delivery/sendDraft'
 import { markPendingSent } from '@/lib/delivery/pendingActions'
 import { resolveTaskForBooking } from '@/lib/tasks/operationalTasks'
 import { generateDocument, getDocumentConfig } from '@/lib/documents'
@@ -114,7 +116,7 @@ export async function sendProposal(formData: FormData) {
 
   const { data: req } = await supabase
     .from('booking_requests')
-    .select('id, check_in, check_out, adults, status, property_id, org_id')
+    .select('id, check_in, check_out, adults, status, property_id, org_id, conversation_id, language')
     .eq('id', requestId)
     .eq('org_id', orgId)
     .single()
@@ -168,11 +170,34 @@ export async function sendProposal(formData: FormData) {
     if (itemsError) redirect(`/inbox/${requestId}?error=items_failed`)
   }
 
+  // REGOLA: proposal_sent solo dopo una consegna reale.
+  if (req.conversation_id) {
+    // Canale presente → componi e CONSEGNA davvero il preventivo; proposal_sent solo se riuscito.
+    const property = await loadPropertyContext(supabase, propertyId)
+    const lang = normLang(req.language)
+    const { data: room } = await supabase.from('rooms').select('name').eq('id', roomId).single()
+    const text = proposalAllText(lang, [{ roomId, name: room?.name ?? 'Camera', amountEur: Math.round(quote.offerTotalCents / 100) }])
+    // Persisti i campi prezzo sul lead (la transizione avverrà solo alla consegna).
+    dbThrow((await supabase.from('booking_requests').update({
+      gross_total_cents: quote.grossTotalCents, discount_pct: quote.discountPct,
+      offer_total_cents: quote.offerTotalCents, city_tax_cents: quote.cityTaxCents,
+      price_source: quote.priceSource, data_reliability: quote.dataReliability,
+    }).eq('id', requestId).eq('org_id', orgId)).error, 'sendProposal.priceFields')
+    let html: string | undefined
+    try { html = renderEmailHtml(getDocumentConfig(property), text) } catch { /* solo testo */ }
+    const res = await deliverToGuest(supabase, property, req.conversation_id, { text, html })
+    const delivered = res.sent || res.channel === 'website_chat'
+    await recordDelivery(supabase, { property, conversationId: req.conversation_id, leadId: requestId, proposalGenerated: true, outcome: delivered ? 'sent' : 'failed' })
+    if (!delivered) redirect(`/inbox/${requestId}?error=delivery_failed`)
+    redirect(`/inbox/${requestId}?saved=proposal_sent`)
+  }
+
+  // Lead MANUALE senza canale Vesta: la comunicazione la gestisce lo staff FUORI dal sistema.
+  // 'proposal_sent' è qui un'asserzione manuale ("l'ho inviata io"); nessun delivery_status perché
+  // non esiste un messaggio Vesta (quindi niente sezione bozza/consegna → nessuna contraddizione).
   const result = await executeTransition(supabase, {
-    requestId,
-    orgId,
-    toStatus: 'proposal_sent',
-    actor: 'staff',
+    requestId, orgId, toStatus: 'proposal_sent', actor: 'staff',
+    note: 'Proposta inviata manualmente dallo staff (lead senza canale Vesta)',
     grossTotalCents: quote.grossTotalCents,
     discountPct: quote.discountPct,
     offerTotalCents: quote.offerTotalCents,
@@ -182,35 +207,21 @@ export async function sendProposal(formData: FormData) {
   })
 
   if (!result.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
-  redirect(`/inbox/${requestId}?saved=proposal_sent`)
+  redirect(`/inbox/${requestId}?saved=proposal_sent_manual`)
 }
 
 export async function approveProposalDraft(formData: FormData) {
   const requestId = ((formData.get('request_id') as string | null) ?? '').trim()
   if (!requestId) redirect('/inbox?error=missing_fields')
 
-  const { supabase, orgId } = await resolveProperty()
+  const { supabase, propertyId } = await resolveProperty()
+  const property = await loadPropertyContext(supabase, propertyId)
 
-  // La bozza è una richiesta in 'received' con preventivo già calcolato dall'AI.
-  const { data: req } = await supabase
-    .from('booking_requests')
-    .select('id, status, gross_total_cents')
-    .eq('id', requestId)
-    .eq('org_id', orgId)
-    .single()
-
-  if (!req) redirect('/inbox?error=not_found')
-  if (req.status !== 'received' || req.gross_total_cents == null) {
-    redirect(`/inbox/${requestId}?error=no_draft`)
-  }
-
-  // Approvazione staff = invio proposta (received → proposal_sent).
-  // I valori prezzo restano quelli della bozza (COALESCE nella RPC).
-  const result = await executeTransition(supabase, {
-    requestId, orgId, toStatus: 'proposal_sent', actor: 'staff',
-    note: 'Bozza preventivo approvata e inviata dallo staff',
-  })
-  if (!result.ok) redirect(`/inbox/${requestId}?error=transition_failed`)
+  // REGOLA: consegna davvero la bozza all'ospite; SOLO dopo consegna riuscita → proposal_sent.
+  // Se la consegna fallisce, la pratica RESTA 'received' e il pulsante "Approva e invia" resta visibile.
+  const res = await sendDraftProposal(supabase, property, requestId)
+  if (!res.ok) redirect(`/inbox/${requestId}?error=${res.reason}`)
+  if (!res.delivered) redirect(`/inbox/${requestId}?error=delivery_failed`)
   redirect(`/inbox/${requestId}?saved=proposal_sent`)
 }
 

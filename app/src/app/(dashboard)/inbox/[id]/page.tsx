@@ -95,7 +95,9 @@ export default async function BookingRequestPage({
   const propSettings = (settings ?? {}) as Record<string, unknown>
   const defaultDiscount = Number(propSettings['direct_discount_pct'] ?? 10)
   const hasProposal = request.gross_total_cents != null
-  const isDraft = status === 'received' && hasProposal
+  // Bozza non ancora consegnata: c'è una risposta AI outbound il cui stato di consegna NON è 'sent'.
+  // Copre anche il preventivo multi-camera (senza gross) e resta vero se la consegna è fallita.
+  const hasUndeliveredDraft = status === 'received' && !!lastOut?.content && deliveryStatus !== 'sent'
   const missingDates = status === 'received' && (!request.check_in || !request.check_out)
   const noRooms = status === 'received' && !!request.check_in && !!request.check_out && (!rooms || rooms.length === 0)
 
@@ -104,7 +106,7 @@ export default async function BookingRequestPage({
   let plan: { tone: Tone; title: string; body: string }
   if (status === 'received' && missingDates) plan = { tone: 'warn', title: 'Completa la richiesta', body: 'Mancano le date del soggiorno: aggiungile prima di poter proporre.' }
   else if (status === 'received' && noRooms) plan = { tone: 'warn', title: 'Nessuna camera configurata', body: 'Crea almeno una camera in Camere prima di inviare una proposta.' }
-  else if (status === 'received' && isDraft) plan = { tone: 'do', title: 'Rivedi e invia la proposta', body: 'Vesta ha preparato un preventivo. Rivedilo (puoi modificare il prezzo nei dettagli) e invialo all’ospite.' }
+  else if (status === 'received' && hasUndeliveredDraft) plan = { tone: 'do', title: 'Rivedi e invia la proposta', body: 'Vesta ha preparato una risposta ma NON è ancora stata consegnata. Rivedila e inviala all’ospite: solo allora la pratica passa a "Preventivo inviato".' }
   else if (status === 'received') plan = { tone: 'do', title: 'Invia una proposta', body: 'Scegli la camera: il prezzo è calcolato dal calendario tariffe. Poi invia all’ospite.' }
   else if (status === 'proposal_sent') plan = { tone: 'wait', title: 'In attesa dell’ospite', body: 'L’ospite sta valutando le camere proposte. Nessun intervento richiesto ora.' }
   else if (status === 'interested') plan = { tone: 'do', title: 'Verifica la disponibilità nel PMS', body: 'Controlla QuoVai. Se la camera è libera: bloccala e invia il preventivo con l’IBAN. Altrimenti proponi le alternative.' }
@@ -145,10 +147,19 @@ export default async function BookingRequestPage({
           {saved === 'booking_confirmed' && '✓ Prenotazione confermata: conferma + PDF inviati all\'ospite.'}
           {saved === 'payment_not_received' && '✓ Comunicazione di scadenza inviata. Libera la camera manualmente nel PMS.'}
           {saved === 'marked_unavailable' && '✓ Alternative proposte all\'ospite.'}
+          {saved === 'proposal_sent_manual' && '✓ Proposta registrata come inviata manualmente (lead senza canale Vesta).'}
         </div>
       )}
       {errorKey && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">✗ {errorKey === 'transition_failed' ? 'Transizione non valida.' : errorKey === 'missing_dates' ? 'Imposta le date prima di proporre.' : `Errore: ${errorKey}`}</div>
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">✗ {
+          errorKey === 'transition_failed' ? 'Transizione non valida.'
+          : errorKey === 'missing_dates' ? 'Imposta le date prima di proporre.'
+          : errorKey === 'delivery_failed' ? 'Invio all\'ospite FALLITO: la pratica resta in bozza, riprova.'
+          : errorKey === 'no_channel' ? 'Lead senza canale: nessuna bozza da inviare.'
+          : errorKey === 'no_draft' ? 'Nessuna bozza da inviare (o già consegnata).'
+          : errorKey === 'invalid_state' ? 'Stato non valido per questa azione.'
+          : `Errore: ${errorKey}`
+        }</div>
       )}
 
       {/* 1 · RIGA DECISIONE — stato pratica + stato consegna, a colpo d'occhio */}
@@ -171,15 +182,15 @@ export default async function BookingRequestPage({
         <p className="mt-1 text-sm text-slate-600">{plan.body}</p>
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {/* received · bozza pronta → approva e invia */}
-          {status === 'received' && isDraft && (
+          {/* received · bozza non consegnata → approva e invia (consegna reale → proposal_sent) */}
+          {status === 'received' && hasUndeliveredDraft && (
             <form action={approveProposalDraft}>
               <input type="hidden" name="request_id" value={id} />
               <button type="submit" className={btnPrimary}>✅ Approva e invia proposta</button>
             </form>
           )}
           {/* received · senza bozza → form proposta (camera + prezzo) */}
-          {status === 'received' && !isDraft && !missingDates && !noRooms && rooms && rooms.length > 0 && (
+          {status === 'received' && !hasUndeliveredDraft && !missingDates && !noRooms && rooms && rooms.length > 0 && (
             <form action={sendProposal} className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
               <input type="hidden" name="request_id" value={id} />
               <div className="flex flex-col gap-1">

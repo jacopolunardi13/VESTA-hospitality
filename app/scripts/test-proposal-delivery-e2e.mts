@@ -9,6 +9,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/supabase/database.types'
 import { loadEmailProperty, ingestEmail } from '@/lib/email/ingest'
 import { recordDelivery } from '@/lib/delivery/recordDelivery'
+import { sendDraftProposal } from '@/lib/delivery/sendDraft'
 import { emailAutosendEnabled } from '@/lib/email/flags'
 import type { InboundEmail } from '@/lib/email/gmail'
 
@@ -27,12 +28,12 @@ console.log(`Property: ${property.name} | autosend = ${emailAutosendEnabled(prop
 const convs: string[] = []
 const leads: string[] = []
 
-async function seedDraft(guest: string): Promise<{ leadId: string; conversationId: string }> {
-  const { data: conv } = await sb.from('conversations').insert({ org_id: property.orgId, property_id: property.id, source: 'email', guest_name: guest, guest_contact: 'e2e-delivery@example.test' }).select('id').single()
+async function seedDraft(guest: string, source: 'email' | 'website_chat' = 'email', contact = 'e2e-delivery@example.test'): Promise<{ leadId: string; conversationId: string }> {
+  const { data: conv } = await sb.from('conversations').insert({ org_id: property.orgId, property_id: property.id, source, guest_name: guest, guest_contact: contact }).select('id').single()
   convs.push(conv!.id)
-  const { data: lead } = await sb.from('booking_requests').insert({ org_id: property.orgId, property_id: property.id, source: 'email', guest_name: guest, conversation_id: conv!.id, status: 'received' }).select('id').single()
+  const { data: lead } = await sb.from('booking_requests').insert({ org_id: property.orgId, property_id: property.id, source, guest_name: guest, conversation_id: conv!.id, status: 'received' }).select('id').single()
   leads.push(lead!.id)
-  await sb.from('messages').insert({ org_id: property.orgId, property_id: property.id, conversation_id: conv!.id, direction: 'out', sender: 'ai', content: '[bozza preventivo E2E]', delivery_status: 'draft' })
+  await sb.from('messages').insert({ org_id: property.orgId, property_id: property.id, conversation_id: conv!.id, direction: 'out', sender: 'ai', content: '[bozza preventivo E2E]', delivery_status: 'autosend_off' })
   return { leadId: lead!.id, conversationId: conv!.id }
 }
 async function statusOf(id: string) { const { data } = await sb.from('booking_requests').select('status').eq('id', id).single(); return data?.status }
@@ -83,6 +84,24 @@ try {
   } else {
     console.log('  (nota: nessun lead generato dall\'email — pipeline non ha prodotto un preventivo; invariante "no email / no proposal_sent" comunque rispettata)')
   }
+
+  // [5] APPROVA BOZZA → consegna REALE (web chat) → proposal_sent
+  console.log('\n[5] approva bozza → consegna reale → proposal_sent')
+  const d = await seedDraft('Gialli delivery', 'website_chat')
+  const r5 = await sendDraftProposal(sb, property, d.leadId)
+  check('consegna riuscita (delivered=true)', r5.ok === true && r5.delivered === true)
+  check('SOLO ora la pratica → proposal_sent', (await statusOf(d.leadId)) === 'proposal_sent', String(await statusOf(d.leadId)))
+  check('bozza marcata sent', (await lastDelivery(d.conversationId)) === 'sent')
+  check('nessun messaggio duplicato (resta 1 outbound)', (await outCount(d.conversationId)) === 1)
+
+  // [6] APPROVA BOZZA ma consegna FALLISCE (email senza destinatario) → resta received
+  console.log('\n[6] approva bozza → consegna FALLITA → NON proposal_sent')
+  const e = await seedDraft('Neri delivery', 'email', '')
+  const r6 = await sendDraftProposal(sb, property, e.leadId)
+  check('consegna fallita (delivered=false)', r6.ok === true && r6.delivered === false)
+  check('pratica RESTA received (NON proposal_sent)', (await statusOf(e.leadId)) === 'received', String(await statusOf(e.leadId)))
+  check('bozza marcata failed', (await lastDelivery(e.conversationId)) === 'failed')
+  check('pulsante "Approva e invia" resta visibile (received + bozza ≠ sent)', (await statusOf(e.leadId)) === 'received' && (await lastDelivery(e.conversationId)) !== 'sent')
 } finally {
   console.log('\n[cleanup]')
   for (const lid of leads) {
