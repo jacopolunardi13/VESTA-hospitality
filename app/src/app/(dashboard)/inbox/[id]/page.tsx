@@ -5,7 +5,7 @@ import { actorLabels, bookingStatusLabels } from '@/lib/labels'
 import { formatDate, formatDateRange, formatDateTime, formatEuro, formatGuests } from '@/lib/format'
 import { DeliveryBadge, ReliabilityChip, ScoreBadge, SourceChip, StatusBadge } from '@/components/badges'
 import RequestActions from '@/components/request-actions'
-import { sendProposal, overridePrice, approveProposalDraft, confirmAvailability, markUnavailable, confirmBooking, markPaymentNotReceived, transitionRequest } from '../actions'
+import { sendProposal, overridePrice, approveProposalDraft, confirmAvailability, markUnavailable, confirmBooking, markPaymentNotReceived } from '../actions'
 import { getOpenTaskForBooking } from '@/lib/tasks/operationalTasks'
 import { presentTask, type TaskActionKind } from '@/lib/tasks/catalog'
 import type { BookingStatus } from '@/lib/quote/types'
@@ -115,7 +115,7 @@ export default async function BookingRequestPage({
   else if (status === 'received') plan = { tone: 'warn', title: 'Vesta non ha prodotto una risposta', body: 'Caso eccezionale (nessuna bozza generata, possibile errore tecnico): apri la conversazione e gestiscila a mano.' }
   else if (status === 'proposal_sent') plan = { tone: 'wait', title: 'In attesa dell’ospite', body: 'L’ospite sta valutando le camere proposte. Nessun intervento richiesto ora.' }
   else if (status === 'interested') plan = { tone: 'do', title: 'Verifica la disponibilità nel PMS', body: 'Controlla QuoVai. Se la camera è libera: bloccala e invia il preventivo con l’IBAN. Altrimenti proponi le alternative.' }
-  else if (status === 'availability_blocked') plan = { tone: 'do', title: 'Richiedi il pagamento', body: 'Camera riservata: invia all’ospite le istruzioni di pagamento.' }
+  else if (status === 'availability_blocked') plan = { tone: 'warn', title: 'Stato intermedio inatteso', body: 'La camera risulta riservata ma il passaggio ad "attesa pagamento" non si è completato (caso raro). Verifica la pratica nel PMS e la conversazione.' }
   else if (status === 'awaiting_payment' && taskCard) plan = { tone: 'do', title: taskCard.title, body: taskCard.description }
   else if (status === 'awaiting_payment') plan = { tone: 'do', title: 'Verifica il pagamento', body: 'Controlla se il bonifico è arrivato, poi conferma la prenotazione.' }
   else if (status === 'confirmed') plan = { tone: 'done', title: 'Prenotazione confermata', body: 'Nessuna azione richiesta.' }
@@ -230,11 +230,6 @@ export default async function BookingRequestPage({
               <form action={markUnavailable}><input type="hidden" name="request_id" value={id} /><button type="submit" className={btnGhost}>↩︎ Non disponibile → proponi alternative</button></form>
               <a href={`/api/documents/preview?lead=${id}&type=preventivo`} target="_blank" rel="noopener noreferrer" className="self-center text-sm text-slate-600 underline hover:text-slate-900">📄 Anteprima PDF</a>
             </>
-          )}
-
-          {/* availability_blocked → richiedi pagamento */}
-          {status === 'availability_blocked' && (
-            <form action={transitionRequest}><input type="hidden" name="request_id" value={id} /><input type="hidden" name="to_status" value="awaiting_payment" /><button type="submit" className={btnPrimary}>💰 Richiedi pagamento</button></form>
           )}
 
           {/* awaiting_payment + task scadenza → due sole azioni (Task Catalog) */}
