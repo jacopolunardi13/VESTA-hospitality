@@ -1,8 +1,8 @@
 # SECURITY
 
 Fonte ufficiale per: isolamento multi-tenant, controllo delle azioni (Tier 1/Tier 2), kill-switch,
-guardrail anti-abuso, protezione dei deploy, gestione dei segreti e **segreti da ruotare prima del
-go-live**.
+guardrail anti-abuso, protezione dei deploy, gestione dei segreti, **segreti da ruotare prima del
+go-live** e il **Go-Live Security Assessment** (gate P0, [DECISIONS.md](DECISIONS.md) ADR-0019).
 
 > **Legenda** (PROJECT_RULES §2): ✅ verificata · ◐ dedotta · ○ ipotizzata.
 
@@ -14,6 +14,7 @@ go-live**.
 - ✅ Ogni tabella applicativa ha `org_id` + policy `using (public.user_in_org(org_id))` (vedi
   [DATABASE.md](DATABASE.md)). L'AI/le query di una struttura non vedono i dati di un'altra.
 - ✅ Il **service-role** (server) bypassa RLS; l'**anon** (browser/azioni) è soggetto a RLS.
+- ✅ **Verificato live (30/06/2026):** con la sola chiave anon (non autenticato) la lettura di tutte le tabelle core in produzione restituisce **0 righe** → RLS realmente attivo. **⚠️ Eccezione:** le RPC `SECURITY DEFINER` **bypassano** l'RLS — vedi Go-Live Security Assessment (P0).
 
 ### Controllo delle azioni — Human-in-the-Loop
 - ✅ **Tier 1** (automatico): concierge/FAQ/preventivo informativo.
@@ -58,9 +59,50 @@ go-live**.
 
 ### ⚠️ Segreti da ruotare PRIMA del go-live pubblico
 - ✅ `SUPABASE_SERVICE_ROLE_KEY` e `ANTHROPIC_API_KEY` — esposti in chat in sessioni precedenti.
-- ✅ `CRON_SECRET` — usato in comandi durante il debug (comparso nei log di sessione) → impostare un
-  valore definitivo e allinearlo tra Vercel e il job `pg_cron` (0009).
+- ✅ `GMAIL_CLIENT_SECRET` + `GMAIL_REFRESH_TOKEN` (accesso lettura/invio alla casella del pilot) e
+  `VERCEL_AUTOMATION_BYPASS_SECRET` (bypass della Deployment Protection) — presenti in `app/.env.local`.
+- ✅ `CRON_SECRET` — ancora **placeholder** in locale → impostare un valore forte definitivo e allinearlo
+  tra Vercel e il job `pg_cron` (0009).
 - ◐ Pubblicare l'app OAuth Google (evitare scadenza refresh token a 7 giorni in stato "testing").
+
+---
+
+## Go-Live Security Assessment (30/06/2026)
+
+> **Assessment completo dell'intera superficie** (architettura, RLS, API, AI pipeline, upload, Gmail,
+> segreti, frontend/backend, logging, multi-tenant), con verifica reale del codice + prova live dell'RLS.
+> Decisione e gate: [DECISIONS.md](DECISIONS.md) **ADR-0019**. Questa tabella è lo **stato vivo dei
+> controlli** (aggiornarla man mano che i P0/P1 si chiudono).
+
+**Verdetto: 🟠 NO-GO per esposizione pubblica non ristretta finché i P0 non sono chiusi.** Il pilot email
+LunArt controllato (single-tenant, autosend OFF) prosegue.
+
+### P0 — bloccanti prima del go-live pubblico
+| ID | Vulnerabilità | Dove | Stato |
+|---|---|---|---|
+| **P0-1** | Segreti di produzione esposti (service_role, Anthropic, Gmail, Vercel bypass) + `CRON_SECRET` placeholder → **ruotare tutti** | `app/.env.local` | 🔴 aperto |
+| **P0-2** | RPC `SECURITY DEFINER` che si fidano di parametri del chiamante / concesse a `authenticated` → cross-tenant write e **possibile takeover di tenant** (aggravato da signup aperto) | `enroll_user_in_org` (0002), `transition_booking_request` (0008), `process_*_deadlines` (0014) | 🔴 aperto |
+| **P0-3** | Chat pubblica: `X-Forwarded-For` spoofabile → bypass rate-limit/IP-block; nessun cap globale conversazioni → DoS/cost-abuse | `lib/ai/guardrail.ts:15`, `api/chat/route.ts` | 🔴 aperto |
+| **P0-4** | Nessun security header (CSP/X-Frame-Options/HSTS) né `middleware.ts` → clickjacking sul widget pubblico | `next.config.ts` | 🔴 aperto |
+| **P0-5** | Dirottamento destinatario email: `guest_contact` estratto dall'LLM sovrascrive il destinatario di consegna → IBAN/PDF a indirizzo iniettato (bypassa il kill-switch via Tier-2) | `orchestrate.ts:249`, `deliverToGuest.ts:38` | 🔴 aperto |
+
+### P1 — da correggere a breve
+- Nessun cap di lunghezza sul corpo email pre-LLM (`ingest.ts`) → cost-abuse.
+- Messaggi d'errore grezzi nelle risposte API (poll/diag/ical/preview) → info disclosure (dietro auth).
+- Macchina a stati pilotabile dall'ospite ("303"/"ho pagato") crea `pending_action` pre-caricate (`orchestrate.ts:75-143`).
+- Prompt injection su KB/cronologia non delimitata (danno contenuto: IBAN/prezzi fuori contesto).
+- Upload PDF senza check magic-byte `%PDF-` + manca `nosniff` sulla route file.
+- Nessun `middleware.ts` di backstop auth (oggi ogni pagina autentica).
+- **Osservabilità di sicurezza assente** (nessun audit-log strutturato oltre `guardrail_events`).
+
+### P2 — miglioramenti successivi
+- SSRF via URL feed iCal (`ical/sync.ts`) — non sfruttabile oggi (nessuna UI lo scrive), Medium al self-service feed.
+- Confronto `CRON_SECRET` non timing-safe. `/api/email/diag` rivela la casella. IBAN hardcoded in script di test. `postcss` build-time moderate (non forzare il fix).
+
+### Già solido (verificato, non regredire)
+RLS live-verificato · l'AI non ha tool con effetti e non riceve segreti/prezzi nel contesto · kill-switch
+robusto (bypass Tier-2 solo staff autenticato) · zero `dangerouslySetInnerHTML` + email template escapato ·
+webhook WhatsApp HMAC timing-safe · storage privato con authz RLS · logging senza segreti · `npm audit` 0 High/Critical.
 
 ---
 

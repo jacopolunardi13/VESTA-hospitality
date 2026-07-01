@@ -1,13 +1,22 @@
 # OPEN DECISIONS — decisioni aperte e ADR candidate
 
 > **SOLO ciò che NON è ancora deciso.** Appena una decisione è presa → diventa una **ADR in [DECISIONS.md](../DECISIONS.md)** ed è **rimossa da qui** (migrazione one-way). Le decisioni già prese **non** vivono qui.
-> **Aggiornato:** 2026-06-29.
+> **Aggiornato:** 2026-06-30.
 
 ## Decisioni aperte
 
-### OD-1 — Quando attivare autosend email + cron `vesta-email-poll`
-- **Contesto:** il go-live operativo dell'email dipende dalla milestone Operational Queue completata + E2E approvato.
-- **Opzioni:** (a) attivare subito dopo l'E2E della milestone; (b) attivare solo dopo il **Router Training Sprint #1** (hardening falsi positivi `guest`).
+### OD-2 — Signup Supabase aperto o chiuso per il go-live pubblico
+- **Contesto:** se il signup è aperto (default), qualunque utente Internet ottiene un JWT `authenticated`; combinato con le RPC `SECURITY DEFINER` concesse ad `authenticated` (KI-7), diventa vettore di takeover di tenant.
+- **Opzioni:** (a) **disabilitare il signup** finché non esiste un onboarding self-service controllato; (b) tenerlo aperto ma **solo dopo** aver chiuso P0-2 (hardening RPC).
+- **Raccomandazione:** **(a)** nel breve — disabilitare finché non serve l'onboarding di una 2ª struttura. Da decidere nel Security Sprint P0. → [SECURITY](../SECURITY.md) P0-2, [KNOWN_ISSUES](KNOWN_ISSUES.md) KI-7.
+
+### OD-3 — Confine multi-tenant per il go-live pubblico
+- **Contesto:** oggi il pilot è single-tenant (LunArt). Le vulnerabilità cross-tenant (KI-7) sono latenti finché esiste un solo tenant, ma diventano reali con la 2ª struttura.
+- **Decisione da prendere:** quali garanzie di sicurezza sono prerequisito **prima** di onboardare un 2° tenant (almeno: P0-2 chiuso + verifica GRANT/signup). → [DECISIONS](../DECISIONS.md) ADR-0019.
+
+### OD-1 — Quando attivare l'autosend email
+- **Contesto:** il cron `vesta-email-poll` è **attivo** (validato al Giorno Zero) e la milestone Operational Queue è **completata**; resta aperta solo la tempistica dell'**autosend ON** (oggi OFF per tutta la R0.1).
+- **Opzioni:** (a) attivare a breve; (b) attivare solo dopo il **Router Training Sprint #1** (hardening falsi positivi `guest`) **e** la chiusura dei P0 di sicurezza.
 - **Pro/contro:** (a) più veloce, ma rischio di auto-rispondere a non-ospiti (Tonico/Amazon/Poste); (b) più sicuro per gli ospiti reali, più lento.
 - **Raccomandazione:** **(b)** — autosend ON solo dopo l'hardening del Router L0 (vedi [KNOWN_ISSUES](KNOWN_ISSUES.md) KI-1).
 

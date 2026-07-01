@@ -309,6 +309,18 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 - **Documenti:** [context/](context/), [../PROJECT_RULES.md](../PROJECT_RULES.md) §1 e §13, [README.md](README.md).
 - **Sostituisce:** —
 
+## ADR-0019 — Postura di sicurezza pre-go-live (gate P0)
+- **Data:** 30/06/2026 · **Stato:** Approvata · **Categoria:** Security
+- **Contesto:** prima dell'esposizione pubblica di Vesta su Internet è stato eseguito un **Go-Live Security Assessment** (ruolo Senior Security Engineer) sull'intero progetto: architettura, repository, Next.js, Supabase, autenticazione/autorizzazioni, RLS, API, AI pipeline, prompt, upload documenti, Gmail, gestione segreti, frontend/backend, logging, error handling, multi-tenant. Verifica reale del codice + **prova live dell'RLS** (chiave anon → 0 righe su tutte le tabelle core).
+- **Problema:** stabilire se e con quali condizioni Vesta può essere esposta pubblicamente, e fissare le invarianti di sicurezza vincolanti.
+- **Alternative:** (a) go-live pubblico immediato; (b) rimandare ogni esposizione; (c) **gate su un set minimo di correzioni bloccanti (P0)** mantenendo il pilot interno controllato.
+- **Decisione:** **(c).** **NO-GO per esposizione pubblica non ristretta** finché non è chiuso il **Security Sprint P0**. Il **pilot email LunArt controllato** (single-tenant, autosend OFF) **prosegue**. Invarianti di sicurezza codificate come **vincolanti**: isolamento multi-tenant via **RLS `user_in_org`**; **least-privilege sulle RPC `SECURITY DEFINER`** (nessuna funzione privilegiata deve fidarsi di parametri del chiamante per l'autorizzazione, né essere concessa a `authenticated`/`public` senza controllo esplicito); l'**AI non ha strumenti con effetti** e non riceve segreti/IBAN/prezzi nel contesto; **kill-switch autosend OFF** di default; **Human-in-the-Loop per l'irreversibile** ([ADR-0011]); **segreti fuori da codice e chat** + rotazione obbligatoria di ciò che è stato esposto; **nessun dato estratto dall'LLM promosso a parametro di sicurezza** (destinatario di consegna ancorato all'identità di trasporto del canale).
+- **Motivazioni:** architettura sana con difese profonde reali (RLS live-verificato, no-tool-AI, kill-switch), ma **controlli di bordo per l'Internet aperto incompleti** (header, anti-abuso chat pubblica, hardening RPC). Il rischio è **concentrato e chiudibile** in uno sprint.
+- **Conseguenze positive:** gate chiaro e verificabile; postura di sicurezza versionata e diff-abile; il Security Sprint P0 ha ambito definito.
+- **Trade-off:** l'esposizione pubblica slitta di ~1 sprint; alcune correzioni P0 (hardening RPC) richiedono migrazioni DB e passano dalla DoD.
+- **Documenti:** [SECURITY.md](SECURITY.md) (Go-Live Security Assessment + tabella P0/P1/P2), [context/KNOWN_ISSUES.md](context/KNOWN_ISSUES.md), [context/NEXT_TASK.md](context/NEXT_TASK.md).
+- **Sostituisce:** —
+
 ---
 
 ## Related Documents

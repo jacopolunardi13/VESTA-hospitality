@@ -1,43 +1,45 @@
 # PROJECT SYNC REPORT — Vesta Hospitality
 
-> **Report vivo e compilato.** Copia/incolla questo file in una nuova chat (ChatGPT o Claude) per riallineare l'assistente in pochi minuti. Generato dai 4 file di stato in `docs/context/`.
-> **Aggiornato:** 2026-06-29 · branch `document-center` · HEAD `49eb3fc`.
+> **Report vivo e compilato.** Copia/incolla questo file in una nuova chat (ChatGPT o Claude) per riallineare l'assistente in pochi minuti. Generato dai file di stato in `docs/context/`.
+> **Aggiornato:** 2026-06-30 · branch `main` · HEAD `19df477`.
 
 ## 1. Identità progetto
-**Vesta Hospitality** — SaaS multi-tenant: "dipendente virtuale" per piccole strutture ricettive (front office + back office). Repo GitHub `jacopolunardi13/VESTA-hospitality`. Pilota: **LunArt B&B** (Firenze). **La fonte di verità è il repo, non le chat.**
+**Vesta Hospitality** — SaaS multi-tenant: "dipendente virtuale" per piccole strutture ricettive (front office + back office). Repo GitHub `jacopolunardi13/VESTA-hospitality`. Pilota: **LunArt B&B** (Firenze), **Giorno Zero 30/06/2026**. **La fonte di verità è il repo, non le chat.**
 
 ## 2. Stack minimo
 TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres + Auth OAuth + Storage + RLS, pg_cron) · **Anthropic Claude** (Haiku + Sonnet) · pdfkit · Gmail API · hosting **Vercel** (prod = `main`).
 
 ## 3. Stato attuale
-- **Branch/HEAD:** `document-center` a `49eb3fc`. `main` fermo a `efe5e03`; `document-center` è **avanti di commit doc-only** non ancora in `main` (Context Layer `e304b45` · PRODUCT.md `49eb3fc`).
-- **In `main` (`efe5e03`):** Front Office (concierge + booking/preventivi Tier-1/Tier-2), Document Center MVP (codice), Fail-Fast DB, doc v1.0 + architettura a strati.
-- **Solo su `document-center` (doc-only, oltre `main`):** Context Layer `docs/context/` (`e304b45`); Foundations `docs/foundations/PRODUCT.md` (`49eb3fc`).
-- **Working tree NON committato (milestone corrente):** Operational Queue (`operational_tasks`) + scadenza pagamento 24h — migrazione `0014` **non applicata**, codice scritto, `tsc`/`eslint` puliti, E2E pronto.
-- **Flag:** autosend **OFF** · `vesta-email-poll` **sospeso** · `vesta-followups` attivo.
+- **Branch/HEAD:** `main` a **`19df477`** (= `origin/main`). `document-center` **mergiato** in `main`; nessuna divergenza aperta.
+- **In `main`:** Front Office (concierge + booking/preventivi Tier-1/Tier-2); **Operational Queue** + scadenza pagamento 24h (`0014` applicata+verificata, E2E reale); **separazione stato-pratica/stato-consegna** + Variante B; **coerenza state machine** (proposal_sent solo dopo consegna reale, un solo flusso Tier-1, markUnavailable consegna, availability_blocked collassato); Document Center MVP; Fail-Fast; doc v1.0 + Foundations + Context Layer.
+- **Pilot reale — Giorno Zero (30/06):** DB operativo **azzerato** (~59.991 record di test). Base ufficiale conservata (KB, prezzi, camere, impostazioni, Gmail, cron, IBAN). Da ora ogni richiesta in Inbox = dato reale.
+- **Sicurezza:** eseguito **Go-Live Security Assessment** → **🟠 NO-GO per esposizione pubblica non ristretta** finché non sono chiusi i **P0** (ADR-0019). Il pilot email controllato prosegue.
+- **Flag:** autosend **OFF** (R0.1) · `vesta-email-poll` **attivo** · `vesta-followups` attivo.
 
 ## 3-bis. Foundations (Costituzione del prodotto)
-- **`docs/foundations/PRODUCT.md`** — ✅ **creato** ed è ora parte delle **Foundations** (commit **`49eb3fc`**). Sintesi delle 3 fonti approvate, con tre registri separati (Fondamenta confermate / Direzioni creative / Open Questions) + preambolo "fonte di verità", confini SSOT verso BRAND/WORKFLOW/ENGINEERING ed *Evolution Rules*.
-- **`docs/foundations/WORKFLOW.md`** — ✅ **creato**: workflow ufficiale (commerciale + pagamento) fino al PMS, ancorato ad **ADR-0011**. Il workflow è stato **verificato allineato al codice** (audit per-clausola, **zero discrepanze**; migrazione 0014 + E2E già superati).
-- **Stato documentazione Foundations:** **in corso.** PRODUCT.md + WORKFLOW.md = **completati**; **`BRAND.md` · `ENGINEERING.md` = non ancora creati**.
-- **Prossimo passo consigliato (Foundations):** **`BRAND.md`** (identità di marca), da avviare **solo su decisione esplicita**. La **priorità operativa** resta il primo utilizzo reale su LunArt (merge milestone → produzione → attivazione sorvegliata).
+- **`docs/foundations/PRODUCT.md`** + **`docs/foundations/WORKFLOW.md`** = **completati** (workflow verificato allineato al codice). **`BRAND.md` · `ENGINEERING.md` = non ancora creati** (solo su decisione esplicita).
 
 ## 4. Prossimo task
-**Completare Operational Queue / scadenza pagamento 24h.** Prerequisito bloccante: **apply `0014` nel SQL Editor** (DDL = solo titolare), poi verifica `to_regclass` + E2E `scripts/test-payment-expiry-e2e.mts` sui 6 obiettivi. Solo dopo (con approvazione): attivare autosend + cron email.
+**Security Sprint P0** (in **chat dedicata**) — 5 vulnerabilità bloccanti pre-go-live pubblico. **Sviluppo skill/agenti sospeso** fino a chiusura. Ordine: P0-1 rotazione segreti → P0-2 hardening RPC `SECURITY DEFINER` (migrazione) → P0-4 security header → P0-3 anti-abuso chat → P0-5 dirottamento destinatario email. Dettaglio: [SECURITY](../SECURITY.md) + [NEXT_TASK](NEXT_TASK.md).
 
 ## 5. Decisioni aperte
-- **OD-1:** attivare autosend email solo **dopo** l'hardening Router L0 (raccomandato), non subito.
-- ADR candidate: `details.title`/`created_by` su `operational_tasks` alla creazione manuale di task; vista cross-type quando arriva un 2° tipo non-booking.
+- **OD-1:** tempistica autosend ON (raccomandato: dopo hardening Router L0 + P0 sicurezza).
+- **OD-2:** signup Supabase aperto o chiuso per il go-live (raccomandato: **chiuso** finché non serve onboarding self-service).
+- **OD-3:** garanzie prerequisito prima di onboardare un 2° tenant (almeno P0-2 chiuso).
 
-## 6. Problemi noti P0/P1
-- **P0** Router L0 falsi positivi `guest` → autosend OFF finché non rafforzato.
-- **P0** Segreti esposti in chat → ruotare prima del go-live pubblico.
-- **P1** Migrazione `0014` non applicata → blocca la milestone.
-- **P1** Hold 24h non propagato a `rate_calendar` → rischio doppia prenotazione in finestra (ok per pilota a bassa concorrenza).
+## 6. Problemi noti P0/P1 (SSOT: [SECURITY](../SECURITY.md) + [KNOWN_ISSUES](KNOWN_ISSUES.md))
+- **P0** Segreti esposti → ruotare (service_role, Anthropic, Gmail, Vercel bypass, CRON_SECRET). *(KI-2)*
+- **P0** RPC `SECURITY DEFINER` privilegiate → cross-tenant / takeover; bypassano RLS. *(KI-7)*
+- **P0** Chat pubblica abusabile (XFF spoof, no cap conversazioni) → DoS/cost-abuse. *(KI-8)*
+- **P0** Nessun security header → clickjacking widget. *(KI-9)*
+- **P0** Dirottamento destinatario email via `guest_contact` LLM. *(KI-10)*
+- **P0** Router L0 falsi positivi `guest` → autosend OFF finché non rafforzato. *(KI-1)*
+- **P1** Hold 24h non propagato a `rate_calendar` → rischio doppia prenotazione in finestra. *(KI-5)*
 
 ## 7. Regole non negoziabili
 - **DoD:** codice in `main` + migrazione verificata (`to_regclass`) + E2E reale + **context layer aggiornato**.
 - **Human-in-the-Loop fino a PMS (ADR-0011):** Vesta non blocca/libera camere, non invia IBAN, non conferma pagamenti, non tocca tariffe/PMS in autonomia.
+- **Postura di sicurezza (ADR-0019):** RLS `user_in_org`; least-privilege sulle RPC `SECURITY DEFINER`; l'AI non ha tool con effetti né segreti nel contesto; segreti fuori da codice/chat; nessun dato LLM promosso a parametro di sicurezza.
 - **Pilota sicuro:** autosend OFF, cron sospendibile, nessun contatto a ospiti reali senza verifica.
 - **Migrazioni:** manuali nel SQL Editor, una alla volta, sempre verificate.
 

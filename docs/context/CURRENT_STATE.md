@@ -1,36 +1,32 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-06-29 · branch `document-center` · HEAD `3c27677` · ✅ verificato con git
+> **Aggiornato:** 2026-06-30 · branch `main` · HEAD `19df477` · ✅ verificato con git
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato)
-- Branch corrente: **`document-center`** (HEAD `297a9d6`).
-- `main` fermo a **`efe5e03`**; `document-center` è **avanti di 3 commit doc-only** non ancora in `main` (`git rev-list --left-right --count main...document-center` → `0 3`): `e304b45` (Context Layer), `49eb3fc` (Foundations/PRODUCT.md), `297a9d6` (aggiornamento report).
+- Branch corrente: **`main`** (HEAD `19df477`) · `origin/main` allineato.
+- `document-center` è stato **mergiato in `main`** (fast-forward). Nessuna divergenza doc/branch aperta.
 
-## In `main` (= efe5e03)
+## In `main` (= 19df477)
 - **Front Office** — AI Concierge + motore prenotazioni/preventivi (flusso Tier-1/Tier-2). In produzione.
-- **Document Center MVP (Booking)** — codice in `main` (commit `1548c89`/`85c72f8`/`94b1381`). ⚠️ "in main" ≠ "completato per DoD" (vedi sotto).
-- **Fail-Fast** su tutte le scritture Supabase (`d15b87a`).
-- **Documentazione v1.0** + architettura "Operating System" a strati + ADR-0011 rafforzata.
+- **Operational Queue** (`operational_tasks`) + sotto-flusso **scadenza pagamento 24h** — migrazione `0014` **applicata e verificata**, E2E reale superato, mergiata (`50e9929`).
+- **Separazione stato-pratica / stato-consegna** + risposta AI completa + pagina richiesta decision-first (Variante B) — `3cb97d6`.
+- **Coerenza state machine** (fix pilot): `proposal_sent` solo dopo consegna reale; un solo flusso Tier-1 (room-picker solo per lead manuali); `markUnavailable` consegna davvero; `availability_blocked` collassato — `6282d60`→`d5753a3`→`19df477`. E2E consegna 22/22.
+- **Document Center MVP (Booking)** — codice in `main`. ⚠️ chiusura DoD (fattura Booking reale) da confermare.
+- **Fail-Fast** su tutte le scritture Supabase. **Documentazione v1.0** + Foundations (`PRODUCT.md`, `WORKFLOW.md`) + Context Layer (ADR-0018).
 
-## Documentazione — solo su `document-center` (doc-only, oltre `main`)
-- **Context Layer** `docs/context/` (`e304b45`, ADR-0018): CURRENT_STATE, NEXT_TASK, OPEN_DECISIONS, KNOWN_ISSUES, PROJECT_SYNC_REPORT (+ TEMPLATE).
-- **Foundations** `docs/foundations/`: **`PRODUCT.md`** (Costituzione) + **`WORKFLOW.md`** (workflow ufficiale Tier-1/Tier-2 + scadenza 24h fino al PMS, ancorato ad ADR-0011). Stato Foundations: **in corso** (`BRAND.md` / `ENGINEERING.md` non ancora creati).
-- Il **workflow ufficiale** è stato **verificato allineato al codice** (audit per-clausola, nessuna discrepanza) e codificato in `WORKFLOW.md`.
-
-## Solo nel working tree (NON committato) — milestone corrente
-**Operational Queue** (`operational_tasks`) + sotto-flusso **scadenza pagamento 24h**:
-- migrazione `supabase/migrations/0014_operational_tasks.sql` — ⛔ **NON applicata al DB**;
-- `app/src/lib/tasks/` (Task Catalog + helper) + modifiche a `inbox/actions.ts`, `messages.ts`, `request-actions.tsx`, `inbox/[id]/page.tsx`;
-- E2E `app/scripts/test-payment-expiry-e2e.mts`.
-- Stato: codice scritto · `tsc` 0 errori · `eslint` 0 warning · **bloccato** sull'apply SQL (DDL = solo titolare).
+## Pilot reale — Giorno Zero (30/06/2026)
+- **Giorno Zero del Pilot LunArt B&B** dichiarato ufficialmente. **DB operativo azzerato** (~59.991 record di test eliminati: richieste, conversazioni, messaggi, notifiche, log AI/guardrail, archivio OTA). Inbox vuota.
+- Conservata integralmente la **base ufficiale**: Knowledge Base (24 asset), `rate_calendar` (837), 5 camere LunArt, ical_feeds, impostazioni/IBAN, config Gmail, cron, org/owner. `email_routing_log` (53) mantenuto (anti re-import).
+- Property "Struttura Demo B" + "Camera Demo 1" → **soft-delete**. Da ora ogni richiesta in Inbox è **dato reale**.
 
 ## Ultima milestone completata (per DoD)
-- ◐ L'ultimo commit in `main` è documentale (`efe5e03`). L'ultima feature con codice è il **Document Center MVP**, la cui chiusura DoD (migrazione `0013` applicata + E2E reale con fattura Booking) **non è verificata** in questa fase → trattare come "implementata, non completata" finché non confermato.
+- **Operational Queue / scadenza 24h** (codice in `main` + `0014` verificata + E2E reale) e i **fix di coerenza state machine** (`19df477`, validati dal titolare in produzione). Poi **Giorno Zero** + pulizia DB.
 
 ## Milestone corrente
-- **Operational Queue + scadenza pagamento 24h** — comportamento **definitivo R0.x** fino a integrazione PMS. 6 obiettivi → vedi [NEXT_TASK](NEXT_TASK.md). Vincoli: autosend OFF, `vesta-email-poll` sospeso, nessuna azione PMS ([ADR-0011](../DECISIONS.md)).
+- **Security Sprint P0** (pre-go-live pubblico) — vedi [NEXT_TASK](NEXT_TASK.md). **Sviluppo skill/agenti sospeso** finché i P0 non sono chiusi. Gate e invarianti: [SECURITY](../SECURITY.md) (Go-Live Security Assessment) + [DECISIONS](../DECISIONS.md) **ADR-0019**.
+- **Verdetto assessment:** 🟠 **NO-GO** per esposizione pubblica non ristretta finché i P0 non sono chiusi; il **pilot email controllato prosegue**.
 
 ## Flag operativi
-- `email_autosend_enabled` = **OFF** · cron `vesta-email-poll` = **SOSPESO** · cron `vesta-followups` = attivo (esteso al dispatcher scadenze **dopo** l'apply di 0014).
+- `email_autosend_enabled` = **OFF** (per tutta la R0.1) · cron `vesta-email-poll` = **attivo** (validato al Giorno Zero) · cron `vesta-followups` = attivo (dispatcher scadenze dopo apply 0014).
