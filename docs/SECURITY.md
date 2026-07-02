@@ -14,7 +14,7 @@ go-live** e il **Go-Live Security Assessment** (gate P0, [DECISIONS.md](DECISION
 - ✅ Ogni tabella applicativa ha `org_id` + policy `using (public.user_in_org(org_id))` (vedi
   [DATABASE.md](DATABASE.md)). L'AI/le query di una struttura non vedono i dati di un'altra.
 - ✅ Il **service-role** (server) bypassa RLS; l'**anon** (browser/azioni) è soggetto a RLS.
-- ✅ **Verificato live (30/06/2026):** con la sola chiave anon (non autenticato) la lettura di tutte le tabelle core in produzione restituisce **0 righe** → RLS realmente attivo. **⚠️ Eccezione:** le RPC `SECURITY DEFINER` **bypassano** l'RLS — vedi Go-Live Security Assessment (P0).
+- ✅ **Verificato live (30/06/2026):** con la sola chiave anon (non autenticato) la lettura di tutte le tabelle core in produzione restituisce **0 righe** → RLS realmente attivo. **⚠️ Eccezione (mitigata da P0-2):** le RPC `SECURITY DEFINER` **bypassano** l'RLS, ma dopo la migrazione `0015` non sono più invocabili da `anon`/`authenticated` senza controllo (`enroll`/`transition` hanno guard `auth.uid()`; `process_*` solo `service_role`) — vedi Go-Live Security Assessment (P0-2 chiuso) + Evidence of verification.
 
 ### Controllo delle azioni — Human-in-the-Loop
 - ✅ **Tier 1** (automatico): concierge/FAQ/preventivo informativo.
@@ -81,10 +81,26 @@ LunArt controllato (single-tenant, autosend OFF) prosegue.
 | ID | Vulnerabilità | Dove | Stato |
 |---|---|---|---|
 | **P0-1** | Segreti di produzione esposti (service_role, Anthropic, Gmail, Vercel bypass) + `CRON_SECRET` placeholder → **ruotare tutti** | `app/.env.local` | 🔴 aperto |
-| **P0-2** | RPC `SECURITY DEFINER` che si fidano di parametri del chiamante / concesse a `authenticated` → cross-tenant write e **possibile takeover di tenant** (aggravato da signup aperto) | `enroll_user_in_org` (0002), `transition_booking_request` (0008), `process_*_deadlines` (0014) | 🔴 aperto |
+| **P0-2** | RPC `SECURITY DEFINER` che si fidano di parametri del chiamante / concesse a `authenticated` → cross-tenant write e **possibile takeover di tenant** (aggravato da signup aperto) | `enroll_user_in_org` (0002), `transition_booking_request` (0008), `process_*_deadlines` (0014) | ✅ **chiuso** (0015 · 02/07/2026 · signup chiuso) |
 | **P0-3** | Chat pubblica: `X-Forwarded-For` spoofabile → bypass rate-limit/IP-block; nessun cap globale conversazioni → DoS/cost-abuse | `lib/ai/guardrail.ts:15`, `api/chat/route.ts` | 🔴 aperto |
 | **P0-4** | Nessun security header (CSP/X-Frame-Options/HSTS) né `middleware.ts` → clickjacking sul widget pubblico | `next.config.ts` | 🔴 aperto |
 | **P0-5** | Dirottamento destinatario email: `guest_contact` estratto dall'LLM sovrascrive il destinatario di consegna → IBAN/PDF a indirizzo iniettato (bypassa il kill-switch via Tier-2) | `orchestrate.ts:249`, `deliverToGuest.ts:38` | 🔴 aperto |
+
+### Evidence of verification — P0-2 (chiuso, 02/07/2026)
+Traccia permanente delle prove reali che hanno chiuso P0-2 (migrazione `0015_p0_2_rpc_hardening.sql`).
+Tooling: `app/scripts/probe-rpc-authz.mts`, `app/scripts/p0-2-authz-tests.sql`, `app/scripts/p0-2-guest-e2e.mts`.
+
+- ✅ **Migrazione `0015` applicata** nel SQL Editor (existence-guarded, idempotente). Mitigazione interim: **self-signup disabilitato** in Supabase Auth.
+- ✅ **`to_regprocedure`**: `enroll_user_in_org`, `transition_booking_request`, `process_payment_expiry`, `process_operational_deadlines` presenti dopo l'apply.
+- ✅ **ACL (`proacl`)**: `anon` **assente** su tutte; `process_*` solo `service_role`; `enroll`/`transition` = `authenticated`+`service_role`.
+- ✅ **Probe anon**: `enroll_user_in_org` e `transition_booking_request` → `42501 permission denied` (prima: eseguivano).
+- ✅ **Test authenticated**: self-enroll su propria org → OK; enroll self su org popolata (**takeover**) → `42501 already has members`; `transition` su org altrui (**cross-tenant**) → `42501 not a member`.
+- ✅ **Test service_role**: `transition` → `not_found` (guard saltato, pipeline backend intatta).
+- ✅ **Test staff reale**: `transition` authenticated-**membro** sulla propria org → `not_found` (guard superato), zero mutazioni sui dati reali.
+- ✅ **Test guest E2E** (pipeline `service_role`, stessa `processConversationTurn` della chat): risposta AI corretta, **nessun errore di autorizzazione**, conversazione di test rimossa con cleanup verificato (conversation/messages/ai_calls = 0; booking_requests/notifications create = 0).
+
+**Rinviato:** test comportamentale della whitelist ruoli `enroll` (già applicata via guard funzione + `CHECK` DB) → hardening finale.
+**Issue separata (fuori scope P0-2):** `process_due_followups()` assente nel DB reale (0006 non applicata) → possibile fallimento del cron `vesta-followups` — vedi [KNOWN_ISSUES](context/KNOWN_ISSUES.md) KI-11.
 
 ### P1 — da correggere a breve
 - Nessun cap di lunghezza sul corpo email pre-LLM (`ingest.ts`) → cost-abuse.
