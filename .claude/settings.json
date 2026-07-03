@@ -1,0 +1,55 @@
+{
+  "$comment": "Vesta Autonomous Engineering — policy di permessi versionata (F1). Autonomy Boundary: docs/foundations/ENGINEERING.md. Le override locali NON versionate vanno in settings.local.json.",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git stash:*)",
+      "Bash(git show:*)",
+      "Bash(node:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vercel logs:*)",
+      "Bash(npx vercel ls:*)",
+      "Bash(npx vercel inspect:*)",
+      "Bash(npx vercel env ls:*)",
+      "Bash(npx vercel projects:*)",
+      "Read(./**)",
+      "Edit(./**)",
+      "Write(./**)",
+      "Grep(./**)",
+      "Glob(./**)"
+    ],
+    "deny": [
+      "Read(./app/.env.local)",
+      "Read(./app/.env.production)",
+      "Read(./app/.env.local.bak)",
+      "Read(./app/.env)",
+      "Read(./**/.env.*)",
+      "Bash(git push:*)",
+      "Bash(vercel --prod:*)",
+      "Bash(npx vercel --prod:*)",
+      "Bash(vercel promote:*)",
+      "Bash(vercel deploy:*)",
+      "Bash(printenv:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-secrets.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}
