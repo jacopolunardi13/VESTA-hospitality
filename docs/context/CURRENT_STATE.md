@@ -28,5 +28,13 @@
 - **Security Sprint P0** (pre-go-live pubblico) — vedi [NEXT_TASK](NEXT_TASK.md). **Sviluppo skill/agenti sospeso** finché i P0 non sono chiusi. Gate e invarianti: [SECURITY](../SECURITY.md) (Go-Live Security Assessment) + [DECISIONS](../DECISIONS.md) **ADR-0019**.
 - **Verdetto assessment:** 🟠 **NO-GO** per esposizione pubblica non ristretta finché i P0 non sono chiusi; il **pilot email controllato prosegue**.
 
+## Autonomous Engineering (branch `chore/autonomous-engineering`)
+- Milestone **F1–F3 completata** (non ancora merge): modalità Autonomous Engineering formalizzata.
+  - **F1** governance & guardrail — [ENGINEERING.md](../foundations/ENGINEERING.md), Autonomy Boundary 🟢/🔴, `.claude/settings.json` + hook `guard-secrets` (test 14/14).
+  - **F2** skill core — `vesta-verify`, `vesta-migrate`, `vesta-secret-rotate`, `vesta-context-sync` + agente `incident-responder`.
+  - **F3** Go-Live Automation — `app/scripts/go-live-check.mts` + [go-live.md](../RUNBOOKS/go-live.md) (matrice GO/NO-GO reale).
+- Primo go-live-check reale: RLS live ✅, P0-2 anon-negato ✅ (in prod), **P0-4 header mancanti ❌**, email **stale ~33h** (incidente Gmail).
+- **P0-1/P0-2** vivono sulla branch `security/p0-2-rpc-hardening` (milestone separate). **F4** (dogfood incidente Gmail + chiusura P0) attende i dati Google Cloud del PO.
+
 ## Flag operativi
 - `email_autosend_enabled` = **OFF** (per tutta la R0.1) · cron `vesta-email-poll` = **attivo** (validato al Giorno Zero) · cron `vesta-followups` = attivo (dispatcher scadenze dopo apply 0014).
