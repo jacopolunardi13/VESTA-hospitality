@@ -1,7 +1,7 @@
 # PROJECT SYNC REPORT — Vesta Hospitality
 
 > **Report vivo e compilato.** Copia/incolla questo file in una nuova chat (ChatGPT o Claude) per riallineare l'assistente in pochi minuti. Generato dai file di stato in `docs/context/`.
-> **Aggiornato:** 2026-07-12 · branch `chore/autonomous-engineering` · HEAD `eb6f3e0`.
+> **Aggiornato:** 2026-07-12 (sera) · branch `chore/autonomous-engineering` (+15 su `main`).
 
 ## 1. Identità progetto
 **Vesta Hospitality** — SaaS multi-tenant: "dipendente virtuale" per piccole strutture ricettive (front + back office). Repo GitHub `jacopolunardi13/VESTA-hospitality`. Pilota: **LunArt B&B** (Firenze), Giorno Zero 30/06/2026. **Confine strategico VINCOLANTE:** Vesta = **AI Operations Layer hospitality**, non chatbot/wrapper generico (gate 8 punti — PRODUCT.md §18). **La fonte di verità è il repo, non le chat.**
@@ -10,7 +10,7 @@
 TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres + Auth OAuth + Storage + RLS, pg_cron) · **Anthropic Claude** (Haiku + Sonnet) · pdfkit · Gmail API · hosting **Vercel** (prod = `main`).
 
 ## 3. Stato attuale — ⚠️ divergenza a 3 vie (nessun merge in `main`)
-- **Branch attivo:** `chore/autonomous-engineering` @ **`eb6f3e0`** (+8 su `main`). `main` @ `d239698`. `security/p0-2-rpc-hardening` @ `5f0d4a1` = **P0-2 / migrazione `0015` applicata al DB prod, NON mergiata**. Storici: `document-center`, `fase-b`.
+- **Branch attivo:** `chore/autonomous-engineering` (+15 su `main`; include lo **sprint Operating Agent v0**: Coda operativa `/tasks`, fix coerenza inbox, fail-fast visibile, polish Document Center, runbook staff). `main` @ `d239698`. `security/p0-2-rpc-hardening` @ `5f0d4a1` = **P0-2 / migrazione `0015` applicata al DB prod, NON mergiata**. Storici: `document-center`, `fase-b`.
 - **⚠️ DB prod avanti al repo:** `0015` è in produzione ma vive solo sul branch security → **riconciliazione branch aperta**.
 - **In prod / DB:** Front Office (Tier-1/Tier-2), **Operational Queue** (`0014` applicata+verificata), Document Center MVP; **P0-2 live** (`anon` negato ✅, RLS attivo); **canale email prod ripristinato** (Google Cloud progetto ufficiale **542106** / casella `lunartfirenze`).
 - **Multi-agente / WorkspaceOS:** PROJECT_REGISTRY creato, **Vesta registrata**; **Codex = review-only**; **Claude Code = unico writer**; **Jacopo** approva solo 🔴 RED.

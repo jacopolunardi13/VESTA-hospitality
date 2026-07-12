@@ -1,17 +1,18 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-07-12 · branch `chore/autonomous-engineering` · HEAD `eb6f3e0` · ✅ verificato con git
+> **Aggiornato:** 2026-07-12 (sera, sprint Operating Agent v0) · branch `chore/autonomous-engineering` · ✅ verificato con git
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato) — ⚠️ divergenza a 3 vie, nessun merge in `main`
-- **Attivo:** `chore/autonomous-engineering` (HEAD `eb6f3e0`), **+8 commit** su `main`.
+- **Attivo:** `chore/autonomous-engineering` (**+15 commit** su `main`, sprint Operating Agent v0 incluso).
 - `main` @ `d239698` (baseline; prod = deploy da `main`).
 - `security/p0-2-rpc-hardening` @ `5f0d4a1` — **P0-2** (migrazione `0015`) **applicata al DB prod** ma **NON mergiata**.
 - Branch storici: `document-center` @ `19df477`, `fase-b` @ `954fa15`.
 - **⚠️ DB prod avanti al repo:** `0015` è applicata in produzione ma vive solo sul branch security → **riconciliazione branch = check aperto**.
 
 ## Lavoro recente sul branch attivo
+- **Sprint "LunArt Operating Agent v0"** (12/07 sera, 7 commit `61bcef4…76af020`): **Coda operativa `/tasks`** (prima le `operational_tasks` non avevano UI) + chip "24h scadute" in Inbox + card task con importo/scadenza; fix coerenza staff (`to_verify` non più vicolo cieco, label `confirmAvailability` unificata); **fail-fast visibile** (errore pipeline → notifica escalation staff); arrotondamento override allineato al priceEngine; polish Document Center (categorie IT, nota invio manuale, nav mobile); **runbook** `docs/RUNBOOKS/lunart-operating-agent-v0.md`; lint 4 errori→0. Verifica: `tsc` ✅ · `next build` ✅ · router 29/29 ✅ · combinazioni 10/10 ✅. **NON in prod finché non si merge in `main`.**
 - `eb6f3e0` / `48d6830` **fix(db)** — migrazione **`0016`** (fix **KI-11**): cron `vesta-followups` reso resiliente (guard `to_regprocedure` + chiamata `process_due_followups()` opzionale in sotto-blocco `EXCEPTION`; `process_operational_deadlines()` sempre eseguito). **Applicata manualmente** in SQL Editor e **verificata** (run `succeeded`, vedi Check residui).
 - `8066431` **chore(agents)** — hardening setup **Codex reviewer** (AGENTS.md ruoli; guard rafforzato: Preview deploy non più GREEN silenzioso; `.gitignore` fix eccezione `.env.example`).
 - `8781cbd` **docs(product)** — **Strategic Product Boundary** (gate 8 punti, VINCOLANTE): PROJECT_RULES "Product First" + PRODUCT.md §18 + rubric `product-guardian`.
