@@ -1,25 +1,32 @@
 # NEXT TASK — prossimo passo eseguibile
 
 > Espansione operativa di **ROADMAP[0]** ([ROADMAP](../ROADMAP.md) resta la SSOT dell'elenco ordinato).
-> **Aggiornato:** 2026-06-30 · branch `main`.
+> **Aggiornato:** 2026-07-12 (sera) · branch `chore/autonomous-engineering`.
+
+## Contesto (chiuso di recente)
+- ✅ **Sprint "LunArt Operating Agent v0"** completato e **Codex-reviewed** (7 commit: Coda operativa `/tasks`, coerenza inbox, fail-fast visibile, polish Document Center, runbook staff).
+- ✅ **KI-11 risolto** (migrazione `0016` applicata, cron `vesta-followups` → run `succeeded`).
+- ✅ **Anthropic in produzione OK** (verifica sintetica approvata; resta invalida solo la chiave in `.env.local`).
 
 ## Task
-**Security Sprint P0** — chiudere le 5 vulnerabilità bloccanti prima di qualsiasi esposizione pubblica di Vesta su Internet. **Da eseguire in una chat dedicata.** Sviluppo skill/agenti **sospeso** fino a chiusura.
+**Riconciliazione branch → piano di merge in `main`** — il DB prod è avanti al repo (`0015` vive solo su `security/p0-2-rpc-hardening`) e tutto lo sprint Operating Agent v0 vive su `chore/autonomous-engineering`: **nulla di ciò è in produzione** finché non arriva in `main` (deploy solo da `main`).
 
-Gate e dettaglio: [SECURITY](../SECURITY.md) (Go-Live Security Assessment) + [DECISIONS](../DECISIONS.md) **ADR-0019**. Elenco completo con severità e file: [KNOWN_ISSUES](KNOWN_ISSUES.md) (KI-2, KI-7…KI-10).
+## Obiettivo
+Un piano di merge ordinato e verificabile dei branch `security/p0-2-rpc-hardening` (P0-2/`0015`) e `chore/autonomous-engineering` (governance + `0016` + sprint v0) in `main`, con conflitti risolti, check verdi e deploy finale approvato dal PO.
 
-## Ordine consigliato (rischio prima)
-1. **P0-1 · Rotazione segreti** — ruotare `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `GMAIL_CLIENT_SECRET`+`GMAIL_REFRESH_TOKEN`, `VERCEL_AUTOMATION_BYPASS_SECRET`; impostare un `CRON_SECRET` reale (Vercel + `pg_cron` 0009). *(Config, nessun codice.)* → [RUNBOOKS/rotate-secrets](../RUNBOOKS/rotate-secrets.md).
-2. **P0-2 · Hardening RPC `SECURITY DEFINER`** — verificare i GRANT live + il setting signup; `REVOKE` da public/authenticated; derivare l'org da `auth.uid()` (non da parametro). Richiede **migrazione** → DoD (apply + `to_regprocedure` + test).
-3. **P0-4 · Security header** — `headers()` in `next.config.ts` (CSP `frame-ancestors`, `X-Frame-Options`, HSTS, `nosniff`).
-4. **P0-3 · Anti-abuso chat pubblica** — IP dalla piattaforma (non da `X-Forwarded-For`); cap globale per-property/IP su richieste e creazione conversazioni.
-5. **P0-5 · Dirottamento destinatario email** — ancorare `to` all'identità di trasporto in `deliverToGuest`; non sovrascrivere `guest_contact` di canale con valore LLM.
+## Perché conta
+Chiude la divergenza a 3 vie (rischio maggiore attuale), riallinea repo↔DB e rende lo sprint utilizzabile dallo staff LunArt (Coda operativa, runbook, fix inbox).
 
-## Criteri di completamento (DoD §1 + §13)
-1. ogni correzione P0 in **`main`** (le migrazioni RPC **applicate e verificate** con `to_regprocedure`/`to_regclass`);
-2. **ri-test degli attacchi**: spoof `X-Forwarded-For`, chiamata RPC cross-tenant, iframe del widget, email injection del destinatario;
-3. **context layer aggiornato** + tabella controlli in [SECURITY](../SECURITY.md) con P0 → "chiuso";
-4. **rivalutazione GO/NO-GO** dell'esposizione pubblica.
+## Preparazione consentita (🟢 GREEN / 🟡 YELLOW)
+- Analisi divergenza (`git log`/`diff` fra i 3 branch), individuazione conflitti attesi.
+- Merge/rebase **locali su branch di lavoro** (mai su `main`), risoluzione conflitti, `tsc` + `next build` + test offline.
+- Aggiornamento doc/context correlati e proposta di sequenza di merge per il PO.
 
-## Dopo (NON in questo sprint)
-P1 subito dopo il go-live; P2 in normale iterazione. Ripresa sviluppo skill/agenti. Attivazione `email_autosend_enabled` resta subordinata all'hardening Router L0 ([KNOWN_ISSUES](KNOWN_ISSUES.md) KI-1) e a decisione titolare.
+## 🔴 RED — richiede approvazione esplicita di Jacopo
+merge in `main` · deploy in produzione · `git push` · migrazioni (apply) · env/segreti · autosend ON · contatto reale con ospiti · PMS/tariffe/camere/pagamenti.
+
+## Dopo (NON in questo task)
+Reset `ANTHROPIC_API_KEY` locale (PO) · decisione su `0006` (`process_due_followups`) · P0 residui: P0-1 rotazione segreti → P0-4 header → P0-3 anti-abuso chat → P0-5 destinatario email ([SECURITY](../SECURITY.md), ADR-0019).
+
+## Prompt consigliato per avviare il task
+> «Prepara il piano di riconciliazione branch: analizza la divergenza fra `main`, `security/p0-2-rpc-hardening` e `chore/autonomous-engineering`, proponi ordine di merge e verifica su un branch locale di integrazione. Nessun merge in `main`, nessun push: fermati al piano verificato e chiedimi l'approvazione RED.»

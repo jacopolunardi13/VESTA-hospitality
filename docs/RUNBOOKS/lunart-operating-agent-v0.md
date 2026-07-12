@@ -9,7 +9,7 @@
 
 | Area | Cosa fa Vesta | Cosa resta a te |
 |---|---|---|
-| **Email in arrivo** | Legge la casella `lunartfirenze@gmail.com` (~ogni 5 min), separa ospiti / OTA / fornitori / newsletter | Nulla: la smistatura è automatica |
+| **Email in arrivo** | Legge la casella `lunartfirenze@gmail.com` periodicamente via cron (attualmente ~ogni 2 min), separa ospiti / OTA / fornitori / newsletter | Nulla: la smistatura è automatica |
 | **Richieste ospiti** | Classifica la richiesta, calcola il preventivo (prezzi SOLO dal Calendario tariffe) e **prepara una bozza di risposta** | **Rivedere e approvare** ogni invio (autosend OFF) |
 | **Preventivi** | Propone tutte le camere adatte con prezzi, sconto diretto, tassa di soggiorno separata | Verificare la disponibilità reale nel PMS/QuoVai prima di riservare |
 | **Scadenze pagamento** | Rileva da solo (ogni 5 min) le riserve con 24h scadute senza pagamento e apre una task in **Coda operativa** + notifica | Verificare il bonifico e premere "Pagamento ricevuto" o "Non ricevuto" |
