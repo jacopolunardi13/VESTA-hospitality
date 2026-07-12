@@ -96,6 +96,7 @@ Il tono deve essere: semplice, autorevole, elegante, concreto, umano, rassicuran
 - **Tier-1 automatico**; **Tier-2 con approvazione staff**; **Human in the Loop**.
 - Milestone verificabili; nessuna feature completa senza codice, migrazioni verificate ed E2E.
 - L'architettura **evolve da casi d'uso reali**.
+- **Strategic Product Boundary**: Vesta è un **AI Operations Layer hospitality**, non un chatbot/wrapper generico. Ogni feature supera il **gate degli 8 punti** — giudizio operativo · workflow reale · fonte attendibile · responsabile · approvazione umana · follow-through · riduce caos · regge vs AI generica — o è riformulata come workflow / rifiutata (dettaglio operativo del gate: PROJECT_RULES "Product First"; applicato da `product-guardian`).
 
 *(Il dettaglio ingegneristico degli ultimi due punti appartiene a `ENGINEERING.md` — vedi Nota di confine.)*
 

@@ -31,6 +31,7 @@ verifica con `git` (branch, `git log --oneline`) prima di affermare qualcosa sul
 - **Classifica ogni affermazione**: ✅ verificata / ◐ dedotta / ○ ipotizzata. Mai spacciare ipotesi per fatti.
 - **Single Source of Truth**: l'info completa si aggiorna solo nel documento ufficiale; gli altri rimandano.
 - **Human-in-the-Loop**: niente azioni Tier-2 / che modifichino lo stato operativo (camere, IBAN, conferme, tariffe, PMS) senza approvazione staff. Vincolo fino a integrazione PMS (ADR-0011).
+- **Strategic Product Boundary** (VINCOLANTE): Vesta = **AI Operations Layer hospitality**, non chatbot/wrapper generico. Ogni feature deve superare il **gate degli 8 punti** (workflow operativo reale · fonte attendibile · responsabile del next step · approvazione umana · follow-through · riduce caos · regge vs AI generica) **prima** di essere trattata come core; altrimenti riformulala come workflow o rifiutala. SSOT: [PROJECT_RULES.md](PROJECT_RULES.md) (Product First) + [PRODUCT.md](docs/foundations/PRODUCT.md) §18; gate = agente `product-guardian`.
 - **Fail-Fast**: nessun errore Supabase/DB ignorato. **Pilota sicuro**: autosend OFF di default, kill-switch sempre disponibile.
 - **Una migrazione funzionale per volta**, sempre verificata. **Segreti mai in chat né nel repo.**
 

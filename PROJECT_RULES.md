@@ -16,6 +16,17 @@ evoluzione**. L'architettura segue le esigenze del prodotto, mai il contrario. Q
 trasversale e prevale nel dubbio: a parità di risultato per il prodotto, si sceglie la soluzione più
 semplice.
 
+**Strategic Product Boundary (VINCOLANTE).** Vesta è un **AI Operations Layer per l'hospitality**, non un
+chatbot/concierge/wrapper generico su ChatGPT o connettori. Ogni feature, **prima** di essere trattata come
+core, deve superare il **gate degli 8 punti**: (1) codifica giudizio operativo hospitality; (2) appartiene a
+un workflow operativo reale (non una chat); (3) definisce la fonte dati attendibile; (4) definisce chi è
+responsabile del next step; (5) definisce quando serve l'approvazione umana; (6) crea follow-through
+(task/reminder/audit log/transizione di stato/escalation); (7) riduce caos/errori/opportunità perse/lavoro
+manuale; (8) resta utile anche se gli assistenti AI generici diventano molto più potenti. Feature generiche
+(FAQ, riassunti email, ricerca documenti, risposte chatbot, drafting) sono ammesse **solo** se incorporate in
+un vero processo operativo. Se una proposta non supera il gate → **non** implementarla come core: riformulala
+come workflow operativo o rifiutala. Fondamenta di prodotto: [docs/foundations/PRODUCT.md](docs/foundations/PRODUCT.md) §18; il gate è applicato a monte dall'agente `product-guardian`.
+
 ---
 
 ## 1. Definition of Done

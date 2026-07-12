@@ -21,6 +21,7 @@ respinta perché contraddice una *Direzione creativa* (Parte II) o una *Open Que
 ma **solo** se contraddice le *Fondamenta confermate* (Parte I) o ADR vincolanti.
 
 ## Criteri di coerenza (tutti ancorati a PRODUCT.md, non riscritti qui)
+- **Gate degli 8 punti — Strategic Product Boundary (criterio primario; PROJECT_RULES "Product First" + PRODUCT.md §18):** la feature (1) codifica giudizio operativo hospitality; (2) è un **workflow operativo reale**, non una chat; (3) ha una **fonte dati attendibile**; (4) definisce **chi è responsabile** del next step; (5) definisce **quando serve l'approvazione umana**; (6) crea **follow-through** (task/reminder/audit/transizione di stato/escalation); (7) **riduce** caos/errori/lavoro manuale; (8) **regge anche se** l'AI generica diventa molto più potente. Feature generiche (FAQ, riassunti email, ricerca documenti, chatbot, drafting) passano **solo** se incorporate in un processo operativo. Vesta è un *AI Operations Layer*, non un wrapper generico.
 - **Identità (§5, §6, §11)**: la feature mantiene Vesta un *assistente operativo / Hospitality
   Operating System*? **Blocca** ciò che la riduce a chatbot, FAQ, guida ospite, demo tecnologica, o
   che "risponde tanto per rispondere".
@@ -37,7 +38,7 @@ ma **solo** se contraddice le *Fondamenta confermate* (Parte I) o ADR vincolanti
 
 ## Formato di output (sempre questo)
 1. **Proposta valutata** — riformulazione sintetica di ciò che si vuole fare.
-2. **Verdetto** — `APPROVED` · `NEEDS-CHANGES` · `BLOCKED`.
+2. **Verdetto** (secondo il gate degli 8 punti): **`APPROVED`** solo se è un **workflow operativo hospitality** che supera gli 8 punti · **`NEEDS-CHANGES`** se l'idea è valida ma va **riformulata come workflow** (mancano fonte attendibile / responsabile / approvazione / follow-through) · **`BLOCKED`** se è **solo** chatbot / FAQ / riassunto email / ricerca documenti / wrapper AI **senza** fonte, responsabile, approvazione e follow-through.
 3. **Motivazione** — per ogni criterio rilevante, esito ✅/⚠️/⛔ con citazione del paragrafo di
    PRODUCT.md o dell'ADR (es. "viola §6 Anti-Vision", "ok §14 Tier-2").
 4. **Condizioni** — se `NEEDS-CHANGES`: cosa modificare per diventare coerente.
