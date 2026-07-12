@@ -13,8 +13,9 @@
 // RED bloccati:
 //   - stampa/lettura di segreti: cat/less/head/tail/printenv/env su file .env*, echo di *_KEY/_SECRET/_TOKEN
 //   - git push            (bypass: ALLOW_PUSH=1 nel comando, solo dopo ok del PO)
-//   - deploy in produzione: vercel --prod / vercel deploy … / vercel promote / vercel alias
-//                          (bypass: ALLOW_PROD_DEPLOY=1)
+//   - deploy PRODUZIONE: vercel --prod / promote / alias / rollback  (bypass: ALLOW_PROD_DEPLOY=1)
+//   - deploy PREVIEW: vercel deploy / vercel (bare) → richiede ALLOW_PREVIEW_DEPLOY=1 (non è GREEN silenzioso)
+//     read-only vercel (ls/inspect/logs/env/whoami/…) = sempre GREEN
 //   - distruttivi: rm -rf /  ·  git reset --hard su origin/main  ·  git push --force
 // ============================================================================
 
@@ -60,9 +61,24 @@ process.stdin.on('end', () => {
   if (/\bgit\s+push\b.*(--force|--force-with-lease|-f\b)/.test(scan))
     block('git push --force non consentito su questo progetto.')
 
-  // 3) Deploy in produzione → RED.
-  if (/\bvercel\b/.test(scan) && /(--prod\b|\bpromote\b|\balias\b|\bdeploy\b)/.test(scan) && !/\bALLOW_PROD_DEPLOY=1\b/.test(cmd))
-    block('deploy/promote Vercel è RED. Richiede approvazione PO → "ALLOW_PROD_DEPLOY=1 …".')
+  // 3) Deploy Vercel. Read-only (ls/inspect/logs/env/…) = GREEN anche con `--prod` come filtro.
+  //    PRODUZIONE (--prod/--production/promote/alias/rollback/redeploy) = RED → ALLOW_PROD_DEPLOY=1.
+  //    PREVIEW (`vercel deploy` / `vercel` bare) NON è GREEN silenzioso → richiede ALLOW_PREVIEW_DEPLOY=1.
+  {
+    const usesVercel = /\bvercel\b/.test(scan)
+    const roVercel   = /\bvercel\s+(ls|list|inspect|logs?|env|whoami|projects?|pull|link|teams|certs|domains|dns|git|help|--version|-v)\b/.test(scan)
+    const prodMarker = /\bvercel\b[^|;&]*(--prod\b|--production\b)/.test(scan) || /\bvercel\b[^|;&]*\b(promote|alias|rollback|redeploy)\b/.test(scan)
+    const deployVerb = /\bvercel\s+deploy\b/.test(scan)
+    const bareVercel = /(?:^|[|;&]\s*)(?:npx\s+)?vercel(?:\s+--[\w-]+)*\s*(?:$|[|;&])/.test(scan)
+    const allowProd    = /\bALLOW_PROD_DEPLOY=1\b/.test(cmd)
+    const allowPreview = /\bALLOW_PREVIEW_DEPLOY=1\b/.test(cmd)
+    if (usesVercel && !roVercel) {
+      if (prodMarker && !allowProd)
+        block('deploy/promote in PRODUZIONE via Vercel è RED. Con ok PO: "ALLOW_PROD_DEPLOY=1 …".')
+      else if ((deployVerb || bareVercel) && !prodMarker && !allowPreview && !allowProd)
+        block('deploy Vercel (anche Preview) richiede approvazione esplicita → "ALLOW_PREVIEW_DEPLOY=1 …" (o ALLOW_PROD_DEPLOY=1 per prod). ls/inspect/logs restano ok.')
+    }
+  }
 
   // 4) Distruttivi.
   if (/\brm\s+-rf?\s+(\/(\s|$)|\/\*|~\/?\s*$)/.test(scan))
