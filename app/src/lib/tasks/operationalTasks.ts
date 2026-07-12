@@ -20,6 +20,44 @@ export interface OpenTask {
   createdAt: string
 }
 
+export interface QueueTask extends OpenTask {
+  status: 'open' | 'resolved' | 'cancelled'
+  resolution: string | null
+}
+
+/**
+ * Coda operativa della struttura: task 'open' + risolte di recente (visibilità/audit).
+ * Le aperte per prime (più vecchia in cima: è la più urgente), poi le risolte recenti.
+ */
+export async function listTasksForProperty(
+  sb: SupabaseClient<Database>,
+  propertyId: string,
+  opts: { resolvedSinceDays?: number } = {},
+): Promise<{ open: QueueTask[]; recentlyResolved: QueueTask[] }> {
+  const sinceDays = opts.resolvedSinceDays ?? 7
+  const sinceIso = new Date(Date.now() - sinceDays * 86_400_000).toISOString()
+  const { data, error } = await db(sb)
+    .from('operational_tasks')
+    .select('id, type, status, subject_type, subject_id, resolution, created_at')
+    .eq('property_id', propertyId)
+    .or(`status.eq.open,and(status.eq.resolved,created_at.gte.${sinceIso})`)
+    .order('created_at', { ascending: true })
+  dbThrow(error, 'listTasksForProperty')
+  const rows = (Array.isArray(data) ? data : []) as Array<{
+    id: string; type: string; status: 'open' | 'resolved' | 'cancelled'
+    subject_type: string | null; subject_id: string | null
+    resolution: string | null; created_at: string
+  }>
+  const toTask = (r: (typeof rows)[number]): QueueTask => ({
+    id: r.id, type: r.type, status: r.status, subjectType: r.subject_type,
+    subjectId: r.subject_id, resolution: r.resolution, createdAt: r.created_at,
+  })
+  return {
+    open: rows.filter((r) => r.status === 'open').map(toTask),
+    recentlyResolved: rows.filter((r) => r.status === 'resolved').map(toTask).reverse(),
+  }
+}
+
 /** Task operativa 'open' di una prenotazione (per la UI inbox). null se assente. */
 export async function getOpenTaskForBooking(
   sb: SupabaseClient<Database>,

@@ -28,6 +28,12 @@ export interface TaskSubjectContext {
   roomName?: string | null
 }
 
+/** Etichette staff degli esiti (resolution). I codici sono contratti stabili. */
+export const taskResolutionLabels: Record<string, string> = {
+  paid: '✅ Pagamento confermato',
+  not_paid: '✖ Non pagato — ospite avvisato, camera da liberare nel PMS',
+}
+
 /** Presenta una task per lo staff. null per type sconosciuti (difensivo). */
 export function presentTask(type: string, ctx: TaskSubjectContext = {}): TaskPresentation | null {
   switch (type) {

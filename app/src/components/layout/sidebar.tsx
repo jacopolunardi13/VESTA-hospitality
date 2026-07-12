@@ -9,7 +9,8 @@ type NavItem = {
 };
 
 const mainNav: NavItem[] = [
-  { label: "Inbox",         href: "/inbox" },
+  { label: "Inbox",          href: "/inbox" },
+  { label: "Coda operativa", href: "/tasks" },
   { label: "Conversazioni", href: "/conversations" },
   { label: "Calendario",    href: "/calendar" },
   { label: "Camere",        href: "/rooms" },
