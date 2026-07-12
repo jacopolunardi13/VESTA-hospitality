@@ -78,7 +78,7 @@ export default function RequestActions({
               type="submit"
               className="rounded-md bg-slate-900 w-full px-3 py-2.5 text-center text-sm font-medium sm:w-auto text-white transition-colors hover:bg-slate-700"
             >
-              ✅ Disponibile → riserva e richiedi pagamento
+              ✅ Disponibile → riserva 24h e richiedi pagamento (IBAN)
             </button>
           </form>
           <form action={markUnavailable}>
