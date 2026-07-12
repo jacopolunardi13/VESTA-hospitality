@@ -12,8 +12,9 @@ const tabs = [
 ];
 
 const moreLinks = [
-  { label: "Camere",         href: "/rooms",             icon: "🛏" },
-  { label: "Knowledge base", href: "/knowledge",         icon: "📚" },
+  { label: "Camere",          href: "/rooms",             icon: "🛏" },
+  { label: "Document Center", href: "/documents",         icon: "📂" },
+  { label: "Knowledge base",  href: "/knowledge",         icon: "📚" },
   { label: "Router email",   href: "/email-router",      icon: "🧭" },
   { label: "Impostazioni",   href: "/settings/property", icon: "⚙️" },
 ];
