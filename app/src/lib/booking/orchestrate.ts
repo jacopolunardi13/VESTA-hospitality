@@ -172,13 +172,25 @@ export async function processConversationTurn(opts: {
       sb, property, history, userMessage, aiEnabled: !budget.safeMode,
       todayIso: new Date().toISOString().slice(0, 10),
     })
-  } catch {
+  } catch (err) {
+    // Fail-fast VISIBILE: l'ospite riceve una scusa generica, ma lo staff DEVE sapere che la
+    // pipeline è fallita davvero — altrimenti un guasto tecnico è indistinguibile da una
+    // richiesta gestita. La notifica è best-effort: non deve impedire il fallback all'ospite.
+    const reason = err instanceof Error ? err.message : String(err)
+    try {
+      await createNotification(sb, {
+        orgId: property.orgId, propertyId, type: 'escalation',
+        title: 'Errore tecnico: risposta AI non generata',
+        body: `La pipeline non ha prodotto una risposta (all'ospite è andato un messaggio di cortesia). Apri la conversazione e gestiscila a mano. Dettaglio: ${reason.slice(0, 200)}`,
+        conversationId,
+      })
+    } catch { /* best-effort */ }
     const fallback = 'Mi spiace, ho avuto un problema tecnico. Riprova tra poco o lascia un recapito allo staff.'
     dbThrow((await sb.from('messages').insert({
       org_id: property.orgId, property_id: propertyId, conversation_id: conversationId,
       direction: 'out', sender: 'ai', content: fallback, delivery_status: 'draft',
     })).error, 'orchestrate.fallbackMessage')
-    return { reply: fallback, intent: 'unclassified', confidence: 0, stage: 'new', status: 'open', source: 'template', escalated: false }
+    return { reply: fallback, intent: 'unclassified', confidence: 0, stage: 'new', status: 'open', source: 'template', escalated: true }
   }
 
   // Persisti la risposta (se presente — lo spam non risponde).

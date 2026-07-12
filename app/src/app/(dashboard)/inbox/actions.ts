@@ -146,7 +146,8 @@ export async function sendProposal(formData: FormData) {
         ...quote,
         grossTotalCents: overrideGross,
         discountPct: validDisc,
-        offerTotalCents: Math.round(overrideGross * (1 - validDisc / 100)),
+        // stessa regola del priceEngine: sconto arrotondato per difetto all'euro intero
+        offerTotalCents: Math.floor((overrideGross * (1 - validDisc / 100)) / 100) * 100,
       }
     }
   }
@@ -496,7 +497,8 @@ export async function overridePrice(formData: FormData) {
 
   const discountPct = parseFloat(discountRaw)
   const validDisc = isNaN(discountPct) ? 0 : discountPct
-  const offerCents = Math.round(grossCents * (1 - validDisc / 100))
+  // stessa regola del priceEngine: sconto arrotondato per difetto all'euro intero
+  const offerCents = Math.floor((grossCents * (1 - validDisc / 100)) / 100) * 100
 
   const { supabase, orgId } = await resolveProperty()
 
