@@ -27,7 +27,7 @@ const SUFFIXES = ['amento','azione','azioni','zione','zioni','aggio','aggi','men
   'are','ere','ire','ato','ati','ata','ate','ito','iti','ita','ite','oso','osa','osi','ose','i','o','a','e']
 
 function stem(word: string): string {
-  let w = word
+  const w = word
   for (const suf of SUFFIXES) {
     if (w.length - suf.length >= 4 && w.endsWith(suf)) return w.slice(0, -suf.length)
   }

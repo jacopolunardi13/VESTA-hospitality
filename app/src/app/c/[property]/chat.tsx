@@ -17,12 +17,12 @@ export default function Chat({ propertyId, propertyName }: { propertyId: string;
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
+  // lazy init: letto da localStorage al mount (solo client); non influenza il DOM → nessun
+  // mismatch di hydration. Evita il setState sincrono in effect (react-hooks/set-state-in-effect).
+  const [conversationId, setConversationId] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : localStorage.getItem(storageKey)
+  )
   const scrollRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    setConversationId(localStorage.getItem(storageKey))
-  }, [storageKey])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })

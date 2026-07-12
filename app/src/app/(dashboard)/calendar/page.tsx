@@ -81,6 +81,15 @@ export default async function CalendarPage({
   const roomMap = new Map((rooms ?? []).map((r) => [r.id, r.name]))
   const hasRooms = rooms && rooms.length > 0
 
+  // freschezza sync iCal calcolata a data-prep (fuori dal JSX)
+  const nowMs = new Date().getTime()
+  const feedFreshness = new Map(
+    (feeds ?? []).map((f) => [
+      f.room_id,
+      !!f.last_sync_at && nowMs - new Date(f.last_sync_at).getTime() <= 24 * 3600 * 1000,
+    ])
+  )
+
   const inputCls =
     'w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none'
   const labelCls = 'mb-1 block text-sm font-medium text-slate-700'
@@ -111,8 +120,7 @@ export default async function CalendarPage({
           </h2>
           <ul className="flex flex-col gap-1.5 text-sm">
             {feeds.map((f) => {
-              const fresh =
-                !!f.last_sync_at && Date.now() - new Date(f.last_sync_at).getTime() <= 24 * 3600 * 1000
+              const fresh = feedFreshness.get(f.room_id) === true
               return (
                 <li key={f.room_id} className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-slate-700">{roomMap.get(f.room_id) ?? f.room_id}</span>

@@ -28,7 +28,7 @@ const anon = createClient(URL, ANON)
 // --- 1. RLS live: con anon, le tabelle core devono restituire 0 righe --------
 const CORE = ['properties', 'booking_requests', 'conversations', 'org_members', 'messages', 'notifications']
 try {
-  let leaked: string[] = []
+  const leaked: string[] = []
   for (const t of CORE) {
     const { count, error } = await anon.from(t).select('id', { count: 'exact', head: true })
     if (!error && (count ?? 0) > 0) leaked.push(`${t}=${count}`)

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { senderLabels, bookingStatusLabels } from '@/lib/labels'
+import { senderLabels } from '@/lib/labels'
 import { formatDateTime } from '@/lib/format'
 import { ConversationStatusBadge, DeliveryBadge, SourceChip, StatusBadge } from '@/components/badges'
 import StaffReplyBox from '@/components/staff-reply-box'
