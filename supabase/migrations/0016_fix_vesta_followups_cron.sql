@@ -13,7 +13,7 @@
 -- Cosa fa: ri-schedula `vesta-followups` con un command **existence-guarded** che:
 --   • esegue `process_due_followups()` SOLO se la funzione esiste (to_regprocedure);
 --   • esegue SEMPRE `process_operational_deadlines()`;
---   • NON fallisce se `process_due_followups()` manca.
+--   • NON fallisce se `process_due_followups()` manca né se lancia (catturato come warning, best-effort).
 -- NON cambia : logica dei detector, dati, funzioni. Solo la definizione del job cron.
 -- Idempotente: rieseguibile (unschedule-if-exists + cron.schedule sovrascrive per nome).
 -- Owner      : applicare nel SQL Editor (cambio cron = azione manuale del titolare).
@@ -36,11 +36,17 @@ SELECT cron.schedule(
   $cron$
     DO $guard$
     BEGIN
-      -- follow-up email: solo SE la funzione esiste (oggi assente → saltata, nessun errore).
+      -- follow-up email: opzionale e BEST-EFFORT. Eseguito SOLO se la funzione esiste;
+      -- se esiste e LANCIA, l'errore è catturato in un sotto-blocco (sub-transaction:
+      -- il fallito viene rollbackato fino al savepoint) e NON blocca il detector.
       IF to_regprocedure('public.process_due_followups()') IS NOT NULL THEN
-        PERFORM public.process_due_followups();
+        BEGIN
+          PERFORM public.process_due_followups();
+        EXCEPTION WHEN OTHERS THEN
+          RAISE WARNING 'vesta-followups: process_due_followups() ha lanciato, ignorato: %', SQLERRM;
+        END;
       END IF;
-      -- detector scadenza-pagamento 24h: SEMPRE eseguito.
+      -- detector scadenza-pagamento 24h: SEMPRE raggiunto ed eseguito (fuori dal sotto-blocco).
       PERFORM public.process_operational_deadlines();
     END
     $guard$;
@@ -48,7 +54,7 @@ SELECT cron.schedule(
 );
 
 -- ============================================================================
--- VERIFICA OGGETTIVA (dopo l'apply — read-only tranne (e), che è idempotente):
+-- VERIFICA OGGETTIVA (dopo l'apply — read-only tranne (d), che è idempotente):
 --   -- (a) job esiste, è attivo, e il command cita il guard + process_operational_deadlines:
 --   SELECT jobname, schedule, active, command FROM cron.job WHERE jobname = 'vesta-followups';
 --   -- (b) funzioni: detector presente, followups (atteso) assente:
