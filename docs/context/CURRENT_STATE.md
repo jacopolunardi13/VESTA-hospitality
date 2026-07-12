@@ -1,11 +1,11 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-06-30 · branch `main` · HEAD `19df477` · ✅ verificato con git
+> **Aggiornato:** 2026-07-02 · branch `main` · HEAD `d239698` · ✅ verificato con git · P0-2 su branch `security/p0-2-rpc-hardening`
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato)
-- Branch corrente: **`main`** (HEAD `19df477`) · `origin/main` allineato.
+- Branch corrente: **`main`** (HEAD `d239698`) · `origin/main` allineato. P0-2 committato su `security/p0-2-rpc-hardening` (non ancora merge).
 - `document-center` è stato **mergiato in `main`** (fast-forward). Nessuna divergenza doc/branch aperta.
 
 ## In `main` (= 19df477)
@@ -27,6 +27,8 @@
 ## Milestone corrente
 - **Security Sprint P0** (pre-go-live pubblico) — vedi [NEXT_TASK](NEXT_TASK.md). **Sviluppo skill/agenti sospeso** finché i P0 non sono chiusi. Gate e invarianti: [SECURITY](../SECURITY.md) (Go-Live Security Assessment) + [DECISIONS](../DECISIONS.md) **ADR-0019**.
 - **Verdetto assessment:** 🟠 **NO-GO** per esposizione pubblica non ristretta finché i P0 non sono chiusi; il **pilot email controllato prosegue**.
+- **✅ P0-2 CHIUSO** (hardening RPC `SECURITY DEFINER`, migrazione `0015`): commit su branch `security/p0-2-rpc-hardening`, migrazione **applicata in produzione**, test reali superati ([SECURITY](../SECURITY.md) "Evidence of verification"). **Self-signup disabilitato** (mitigazione interim). Prossimo: **P0-1**.
 
 ## Flag operativi
-- `email_autosend_enabled` = **OFF** (per tutta la R0.1) · cron `vesta-email-poll` = **attivo** (validato al Giorno Zero) · cron `vesta-followups` = attivo (dispatcher scadenze dopo apply 0014).
+- `email_autosend_enabled` = **OFF** (per tutta la R0.1) · cron `vesta-email-poll` = **attivo** (validato al Giorno Zero) · cron `vesta-followups` = schedulato ma **⚠️ da verificare** (invoca `process_due_followups()` che è **assente** nel DB reale → possibile fallimento: KI-11).
+- **Signup Supabase Auth** = **CHIUSO** (`disable_signup: true`, mitigazione P0-2).
