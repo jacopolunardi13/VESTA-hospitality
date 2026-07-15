@@ -22,3 +22,11 @@ build/
 # Editor
 .idea/
 *.swp
+
+# Claude Code — config locale/personale (gli agenti e le skill in .claude/ restano versionati)
+.claude/settings.local.json
+
+# Codex — config hook locale/non portabile (path assoluti) → NON versionare.
+# Governance committata: .codex/agents/. Guard canonico: .claude/hooks/guard-secrets.mjs.
+.codex/hooks.json
+.codex/hooks/

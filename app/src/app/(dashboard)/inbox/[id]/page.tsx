@@ -115,7 +115,8 @@ export default async function BookingRequestPage({
   else if (status === 'received') plan = { tone: 'warn', title: 'Vesta non ha prodotto una risposta', body: 'Caso eccezionale (nessuna bozza generata, possibile errore tecnico): apri la conversazione e gestiscila a mano.' }
   else if (status === 'proposal_sent') plan = { tone: 'wait', title: 'In attesa dell’ospite', body: 'L’ospite sta valutando le camere proposte. Nessun intervento richiesto ora.' }
   else if (status === 'interested') plan = { tone: 'do', title: 'Verifica la disponibilità nel PMS', body: 'Controlla QuoVai. Se la camera è libera: bloccala e invia il preventivo con l’IBAN. Altrimenti proponi le alternative.' }
-  else if (status === 'availability_blocked') plan = { tone: 'warn', title: 'Stato intermedio inatteso', body: 'La camera risulta riservata ma il passaggio ad "attesa pagamento" non si è completato (caso raro). Verifica la pratica nel PMS e la conversazione.' }
+  else if (status === 'availability_blocked') plan = { tone: 'warn', title: 'Stato intermedio inatteso', body: 'La camera risulta riservata ma il passaggio ad "attesa pagamento" non si è completato (caso raro). Verifica la pratica nel PMS e la conversazione; se è tutto in ordine, prosegui con "Richiedi pagamento" in Altre azioni.' }
+  else if (status === 'to_verify') plan = { tone: 'warn', title: 'Stato "Da verificare" (fuori dal flusso attuale)', body: 'Questa pratica è in uno stato non gestito dal flusso corrente: controlla la conversazione e il PMS, poi segnala il caso a chi amministra Vesta. Nessuna azione automatica disponibile.' }
   else if (status === 'awaiting_payment' && taskCard) plan = { tone: 'do', title: taskCard.title, body: taskCard.description }
   else if (status === 'awaiting_payment') plan = { tone: 'do', title: 'Verifica il pagamento', body: 'Controlla se il bonifico è arrivato, poi conferma la prenotazione.' }
   else if (status === 'confirmed') plan = { tone: 'done', title: 'Prenotazione confermata', body: 'Nessuna azione richiesta.' }
@@ -185,6 +186,20 @@ export default async function BookingRequestPage({
         <p className={`text-xs font-bold uppercase tracking-wide ${toneKicker[plan.tone].cls}`}>{toneKicker[plan.tone].text}</p>
         <h2 className="mt-1 text-lg font-bold text-slate-900">{plan.title}</h2>
         <p className="mt-1 text-sm text-slate-600">{plan.body}</p>
+        {/* Task scadenza-24h: i numeri per decidere (importo atteso, scadenza) accanto all'azione */}
+        {status === 'awaiting_payment' && taskCard && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            {request.offer_total_cents != null && (
+              <span className="font-semibold text-slate-900">💶 Importo atteso: {formatEuro(request.offer_total_cents)}</span>
+            )}
+            {request.hold_expires_at && (
+              <span className="font-medium text-purple-700">⏱ riserva scaduta il {formatDateTime(request.hold_expires_at)}</span>
+            )}
+            {request.check_in && request.check_out && (
+              <span className="text-slate-600">📅 {formatDateRange(request.check_in, request.check_out)}</span>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {/* received · bozza non consegnata → approva e invia (consegna reale → proposal_sent) */}
@@ -226,7 +241,7 @@ export default async function BookingRequestPage({
           {/* interested → verifica disponibilità */}
           {status === 'interested' && (
             <>
-              <form action={confirmAvailability}><input type="hidden" name="request_id" value={id} /><button type="submit" className={btnPrimary}>✅ Disponibile → riserva e invia preventivo + IBAN</button></form>
+              <form action={confirmAvailability}><input type="hidden" name="request_id" value={id} /><button type="submit" className={btnPrimary}>✅ Disponibile → riserva 24h e richiedi pagamento (IBAN)</button></form>
               <form action={markUnavailable}><input type="hidden" name="request_id" value={id} /><button type="submit" className={btnGhost}>↩︎ Non disponibile → proponi alternative</button></form>
               <a href={`/api/documents/preview?lead=${id}&type=preventivo`} target="_blank" rel="noopener noreferrer" className="self-center text-sm text-slate-600 underline hover:text-slate-900">📄 Anteprima PDF</a>
             </>

@@ -26,6 +26,19 @@ const STATUS = {
 } as const
 const statusMeta = (s: string) => STATUS[s as keyof typeof STATUS] ?? { label: s, cls: 'bg-slate-100 text-slate-600' }
 
+// Etichette staff delle categorie (i codici restano contratti stabili nel DB).
+const CATEGORY_LABELS: Record<string, string> = {
+  invoice: 'Fattura',
+  contract: 'Contratto',
+  insurance: 'Assicurazione',
+  utility: 'Bolletta',
+  tax: 'Fiscale',
+  pec: 'PEC',
+  employee: 'Personale',
+  certificate: 'Certificato',
+  other: 'Altro',
+}
+
 const UPLOAD_ERRORS: Record<string, string> = {
   nofile: 'Nessun file selezionato.',
   notpdf: 'Il file deve essere un PDF.',
@@ -141,7 +154,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
                   <td className="whitespace-nowrap px-3 py-2 text-slate-500">{fmt(r.created_at)}</td>
                   <td className="px-3 py-2 text-slate-700">{r.supplier ?? '—'}</td>
                   <td className="max-w-[280px] truncate px-3 py-2 text-slate-600" title={r.heading ?? ''}>
-                    <span className="mr-1 rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">{r.category}</span>
+                    <span className="mr-1 rounded bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700">{CATEGORY_LABELS[r.category] ?? r.category}</span>
                     {r.heading ?? '—'}
                   </td>
                   <td className="px-3 py-2"><span className={`rounded px-2 py-0.5 text-xs font-medium ${sm.cls}`}>{sm.label}</span></td>
@@ -156,11 +169,16 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
           </tbody>
         </table>
         {filter === 'ready' && rows.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 bg-slate-50 px-3 py-3">
-            <input name="note" placeholder="Nota invio (facoltativa)" className="min-w-[200px] flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-            <button type="submit" className="rounded-md bg-brand-anthracite px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">
-              Segna come inviati al commercialista
-            </button>
+          <div className="border-t border-slate-200 bg-slate-50 px-3 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <input name="note" placeholder="Nota invio (facoltativa)" className="min-w-[200px] flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+              <button type="submit" className="rounded-md bg-brand-anthracite px-4 py-1.5 text-sm font-medium text-white hover:opacity-90">
+                Segna come inviati al commercialista
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Vesta non invia nulla al commercialista: scarica i PDF selezionati e inviali tu, poi registra qui l&apos;invio (resta nello storico).
+            </p>
           </div>
         )}
       </form>

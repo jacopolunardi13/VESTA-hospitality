@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { listTasksForProperty } from '@/lib/tasks/operationalTasks'
 import InboxFilters from './filters'
 
 async function resolveProperty() {
@@ -32,17 +33,26 @@ async function resolveProperty() {
 export default async function InboxPage() {
   const { supabase, propertyId } = await resolveProperty()
 
-  const { data: requests } = await supabase
-    .from('booking_requests')
-    .select('*')
-    .eq('property_id', propertyId)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+  const [{ data: requests }, { open: openTasks }] = await Promise.all([
+    supabase
+      .from('booking_requests')
+      .select('*')
+      .eq('property_id', propertyId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false }),
+    listTasksForProperty(supabase, propertyId),
+  ])
+
+  // Pratiche con una task operativa APERTA (es. 24h scadute): in lista vanno distinte
+  // da un normale "attesa pagamento" — l'urgenza deve vedersi senza aprire la riga.
+  const requestIdsWithOpenTask = openTasks
+    .filter((t) => t.subjectType === 'booking_request' && t.subjectId)
+    .map((t) => t.subjectId as string)
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold text-slate-900">Inbox richieste</h1>
-      <InboxFilters requests={requests ?? []} />
+      <InboxFilters requests={requests ?? []} requestIdsWithOpenTask={requestIdsWithOpenTask} />
       <div>
         <Link
           href="/inbox/new"

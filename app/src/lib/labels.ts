@@ -81,7 +81,7 @@ export const nextActionLabels: Record<BookingStatus, string | null> = {
   received: "Invia proposta",
   proposal_sent: null, // in attesa dell'ospite
   interested: "Verifica disponibilità",
-  to_verify: "Blocca camera",
+  to_verify: "Verifica manuale", // stato legacy fuori dal flusso attuale: nessuna azione automatica
   availability_blocked: "Richiedi pagamento",
   awaiting_payment: "Verifica pagamento",
   confirmed: null,

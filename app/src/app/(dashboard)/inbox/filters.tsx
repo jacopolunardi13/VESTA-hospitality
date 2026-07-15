@@ -33,7 +33,7 @@ function nightsBetween(checkIn: string | null, checkOut: string | null): number 
   return Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86_400_000)
 }
 
-function RequestRow({ r }: { r: BookingRow }) {
+function RequestRow({ r, hasOpenTask }: { r: BookingRow; hasOpenTask: boolean }) {
   const action = nextActionLabels[r.status as BookingStatus]
   const nights = nightsBetween(r.check_in, r.check_out)
   const children = (Array.isArray(r.children) ? r.children : []) as { age: number }[]
@@ -80,6 +80,11 @@ function RequestRow({ r }: { r: BookingRow }) {
               ⚡ {action}
             </span>
           )}
+          {hasOpenTask && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-[11px] font-bold tracking-wide text-red-700 uppercase">
+              ⏰ 24h scadute
+            </span>
+          )}
           {r.status === 'received' && r.offer_total_cents != null && (
             <span className="inline-flex items-center gap-1 rounded-md bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
               📝 Bozza pronta
@@ -112,10 +117,12 @@ function Section({
   title,
   items,
   tone,
+  openTaskIds,
 }: {
   title: string
   items: BookingRow[]
   tone: 'action' | 'waiting' | 'closed'
+  openTaskIds: Set<string>
 }) {
   if (items.length === 0) return null
   const toneStyles = {
@@ -129,13 +136,21 @@ function Section({
         {title} ({items.length})
       </h2>
       <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
-        {items.map(r => <RequestRow key={r.id} r={r} />)}
+        {items.map(r => <RequestRow key={r.id} r={r} hasOpenTask={openTaskIds.has(r.id)} />)}
       </ul>
     </section>
   )
 }
 
-export default function InboxFilters({ requests }: { requests: BookingRow[] }) {
+export default function InboxFilters({
+  requests,
+  requestIdsWithOpenTask = [],
+}: {
+  requests: BookingRow[]
+  /** id delle pratiche con una task operativa aperta (es. 24h scadute) */
+  requestIdsWithOpenTask?: string[]
+}) {
+  const openTaskIds = useMemo(() => new Set(requestIdsWithOpenTask), [requestIdsWithOpenTask])
   const [statusFilter, setStatusFilter] = useState<BookingStatus | 'all'>('all')
   const [sort, setSort] = useState<SortMode>('todo')
 
@@ -201,13 +216,13 @@ export default function InboxFilters({ requests }: { requests: BookingRow[] }) {
         </p>
       ) : sort === 'todo' ? (
         <>
-          <Section title="⚡ Da gestire"          items={todo}    tone="action" />
-          <Section title="In attesa dell'ospite"  items={waiting} tone="waiting" />
-          <Section title="Chiuse"                 items={closed}  tone="closed" />
+          <Section title="⚡ Da gestire"          items={todo}    tone="action"  openTaskIds={openTaskIds} />
+          <Section title="In attesa dell'ospite"  items={waiting} tone="waiting" openTaskIds={openTaskIds} />
+          <Section title="Chiuse"                 items={closed}  tone="closed"  openTaskIds={openTaskIds} />
         </>
       ) : (
         <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
-          {sorted.map(r => <RequestRow key={r.id} r={r} />)}
+          {sorted.map(r => <RequestRow key={r.id} r={r} hasOpenTask={openTaskIds.has(r.id)} />)}
         </ul>
       )}
     </>

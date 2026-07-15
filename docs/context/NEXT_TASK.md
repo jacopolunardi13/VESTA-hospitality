@@ -1,28 +1,35 @@
 # NEXT TASK — prossimo passo eseguibile
 
 > Espansione operativa di **ROADMAP[0]** ([ROADMAP](../ROADMAP.md) resta la SSOT dell'elenco ordinato).
-> **Aggiornato:** 2026-07-02 · branch `main`.
+> **Aggiornato:** 2026-07-12 (sera) · branch `integration/reconcile-20260712` (candidato `main`).
+
+## Contesto (chiuso di recente)
+- ✅ **Sprint "LunArt Operating Agent v0"** completato e **Codex-approved** (Coda operativa `/tasks`, coerenza inbox, fail-fast visibile, polish Document Center, runbook staff).
+- ✅ **KI-11 risolto** (migrazione `0016` applicata, cron `vesta-followups` → run `succeeded`).
+- ✅ **Anthropic in produzione OK** (verifica sintetica 12/07; resta invalida solo la chiave locale `.env.local`).
+- ✅ **Integrazione locale di riconciliazione PRONTA**: questo branch = `main` + `security/p0-2` (`0015`) + `chore/autonomous-engineering` (`0016` + sprint v0), conflitti risolti, check verdi.
 
 ## Task
-**Security Sprint P0** — chiudere le 5 vulnerabilità bloccanti prima di qualsiasi esposizione pubblica di Vesta su Internet. **Da eseguire in una chat dedicata.** Sviluppo skill/agenti **sospeso** fino a chiusura.
+**Eseguire il merge di riconciliazione in `main` e il deploy** — passi 🔴 RED che solo Jacopo può approvare. `0015` e `0016` sono già rappresentate su questo candidato-`main` e **già applicate e verificate in prod**: al merge non serve alcun nuovo apply, repo e DB tornano allineati.
 
-Gate e dettaglio: [SECURITY](../SECURITY.md) (Go-Live Security Assessment) + [DECISIONS](../DECISIONS.md) **ADR-0019**. Elenco completo con severità e file: [KNOWN_ISSUES](KNOWN_ISSUES.md).
+## Obiettivo
+`main` = questo branch di integrazione (fast-forward), push su `origin/main` (= deploy prod automatico Vercel), smoke post-deploy verde.
 
-## Stato sprint
-- ✅ **P0-2 · Hardening RPC `SECURITY DEFINER`** — **CHIUSO** (migrazione `0015` applicata; `REVOKE` da `anon`/`authenticated`, guard `auth.uid()`, default-privileges corretti; test reali superati). Mitigazione interim: **self-signup disabilitato**. Prove: [SECURITY](../SECURITY.md) "Evidence of verification".
-- 🔜 **Prossimo: P0-1** (vedi sotto).
+## Perché conta
+Chiude la divergenza (rischio maggiore attuale) e rende lo sprint Operating Agent v0 utilizzabile dallo staff LunArt.
 
-## Ordine rimanente (rischio prima)
-1. **P0-1 · Rotazione segreti** — ruotare `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `GMAIL_CLIENT_SECRET`+`GMAIL_REFRESH_TOKEN`, `VERCEL_AUTOMATION_BYPASS_SECRET`; impostare un `CRON_SECRET` reale (Vercel + `pg_cron` 0009). *(Config, nessun codice.)* Prep pronta: [RUNBOOKS/rotate-secrets-checklist](../RUNBOOKS/rotate-secrets-checklist.md) + `app/scripts/verify-rotation.mts`.
-2. **P0-4 · Security header** — `headers()` in `next.config.ts` (CSP `frame-ancestors`, `X-Frame-Options`, HSTS, `nosniff`).
-3. **P0-3 · Anti-abuso chat pubblica** — IP dalla piattaforma (non da `X-Forwarded-For`); cap globale per-property/IP su richieste e creazione conversazioni.
-4. **P0-5 · Dirottamento destinatario email** — ancorare `to` all'identità di trasporto in `deliverToGuest`; non sovrascrivere `guest_contact` di canale con valore LLM.
+## Sequenza 🔴 RED (dopo approvazione esplicita di Jacopo)
+1. Review Codex del branch di integrazione → verdetto APPROVED TO EXECUTE.
+2. `git checkout main && git merge --ff-only integration/reconcile-20260712`.
+3. `ALLOW_PUSH=1 git push origin main` — ⚠️ include anche `d239698` (docs, mai pushato) e **avvia il deploy prod**.
+4. Smoke post-deploy (read-only): login dashboard · `/tasks` · `/inbox` (chip 24h) · `/documents` · autosend ancora OFF · cron `vesta-email-poll` e `vesta-followups` `succeeded` (SQL Editor) · P0-2 ancora attivo (`go-live-check.mts`: anon negato) · nessun comportamento PMS/tariffe/pagamenti toccato.
+5. (Opzionale, RED, preferibilmente dopo stabilità post-deploy) push di backup dei branch di lavoro.
 
-## Criteri di completamento (DoD §1 + §13)
-1. ogni correzione P0 in **`main`** (le migrazioni RPC **applicate e verificate** con `to_regprocedure`/`to_regclass`);
-2. **ri-test degli attacchi**: spoof `X-Forwarded-For`, chiamata RPC cross-tenant, iframe del widget, email injection del destinatario;
-3. **context layer aggiornato** + tabella controlli in [SECURITY](../SECURITY.md) con P0 → "chiuso";
-4. **rivalutazione GO/NO-GO** dell'esposizione pubblica.
+## Gate 🔴 RED (immutati)
+merge in `main` · push · deploy prod · migrazioni (apply) · env/segreti · autosend ON · contatto reale con ospiti · PMS/tariffe/camere/pagamenti.
 
-## Dopo (NON in questo sprint)
-P1 subito dopo il go-live; P2 in normale iterazione. Ripresa sviluppo skill/agenti. Attivazione `email_autosend_enabled` resta subordinata all'hardening Router L0 ([KNOWN_ISSUES](KNOWN_ISSUES.md) KI-1) e a decisione titolare.
+## Rollback
+Prima del push: `git reset --hard d239698` su `main` (nulla è uscito). Dopo il deploy: Vercel "Promote previous deployment" oppure revert+push. Le migrazioni non sono coinvolte (già applicate da giorni).
+
+## Dopo (NON in questo task)
+Reset `ANTHROPIC_API_KEY` locale (PO) · decisione su `0006` (`process_due_followups`) · P0 residui: P0-1 rotazione segreti → P0-4 header → P0-3 anti-abuso chat → P0-5 destinatario email ([SECURITY](../SECURITY.md), ADR-0019).

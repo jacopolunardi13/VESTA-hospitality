@@ -6,13 +6,15 @@ import { useState } from "react";
 
 const tabs = [
   { label: "Inbox",      href: "/inbox",         icon: "📥" },
+  { label: "Da fare",    href: "/tasks",         icon: "⚡" },
   { label: "Chat",       href: "/conversations", icon: "💬" },
   { label: "Calendario", href: "/calendar",      icon: "📅" },
-  { label: "Camere",     href: "/rooms",         icon: "🛏" },
 ];
 
 const moreLinks = [
-  { label: "Knowledge base", href: "/knowledge",         icon: "📚" },
+  { label: "Camere",          href: "/rooms",             icon: "🛏" },
+  { label: "Document Center", href: "/documents",         icon: "📂" },
+  { label: "Knowledge base",  href: "/knowledge",         icon: "📚" },
   { label: "Router email",   href: "/email-router",      icon: "🧭" },
   { label: "Impostazioni",   href: "/settings/property", icon: "⚙️" },
 ];
