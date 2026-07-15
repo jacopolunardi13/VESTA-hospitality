@@ -100,7 +100,7 @@ Tooling: `app/scripts/probe-rpc-authz.mts`, `app/scripts/p0-2-authz-tests.sql`, 
 - ✅ **Test guest E2E** (pipeline `service_role`, stessa `processConversationTurn` della chat): risposta AI corretta, **nessun errore di autorizzazione**, conversazione di test rimossa con cleanup verificato (conversation/messages/ai_calls = 0; booking_requests/notifications create = 0).
 
 **Rinviato:** test comportamentale della whitelist ruoli `enroll` (già applicata via guard funzione + `CHECK` DB) → hardening finale.
-**Issue separata (fuori scope P0-2):** `process_due_followups()` assente nel DB reale (0006 non applicata) → possibile fallimento del cron `vesta-followups` — vedi [KNOWN_ISSUES](context/KNOWN_ISSUES.md) KI-11.
+**Issue separata (fuori scope P0-2):** `process_due_followups()` assente nel DB reale (0006 non applicata) → il cron `vesta-followups` falliva — **KI-11, risolto il 12/07** dalla migrazione `0016` (command existence-guarded, run `succeeded`); vedi [KNOWN_ISSUES](context/KNOWN_ISSUES.md).
 
 ### P1 — da correggere a breve
 - Nessun cap di lunghezza sul corpo email pre-LLM (`ingest.ts`) → cost-abuse.
