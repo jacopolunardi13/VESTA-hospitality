@@ -5,8 +5,14 @@
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!   // service_role: vede tutto lo schema esposto
 
+interface OpenApiSpec {
+  info?: { title?: string; version?: string }
+  paths?: Record<string, { post?: { parameters?: Array<{ name?: string; in?: string; schema?: { $ref?: string; properties?: Record<string, unknown> } }> } }>
+  definitions?: Record<string, { properties?: Record<string, unknown> }>
+}
+
 const r = await fetch(`${URL}/rest/v1/`, { headers: { apikey: KEY, authorization: `Bearer ${KEY}` } })
-const spec = await r.json() as any
+const spec = await r.json() as OpenApiSpec
 
 const paths = Object.keys(spec.paths ?? {})
 const rpcs = paths.filter(p => p.startsWith('/rpc/')).map(p => p.replace('/rpc/', '')).sort()
@@ -34,12 +40,12 @@ console.log('\n── FIRME reali (parametri dal body OpenAPI) ──')
 for (const f of ['enroll_user_in_org','transition_booking_request','process_payment_expiry','process_operational_deadlines']) {
   const post = spec.paths?.[`/rpc/${f}`]?.post
   // PostgREST: i parametri sono in post.parameters con schema, oppure referenziano definitions.
-  let names: string[] = []
+  const names: string[] = []
   for (const p of (post?.parameters ?? [])) {
     if (p.name && p.name !== 'args' && p.in !== 'header') names.push(p.name)
     if (p.schema?.$ref) {
       const key = p.schema.$ref.split('/').pop()
-      const def = spec.definitions?.[key]
+      const def = key ? spec.definitions?.[key] : undefined
       if (def?.properties) names.push(...Object.keys(def.properties))
     }
     if (p.schema?.properties) names.push(...Object.keys(p.schema.properties))

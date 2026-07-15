@@ -49,7 +49,7 @@ await sb.from('messages').insert({
 
 // 3. Turno reale + finalizzazione consegna (identico alla route)
 let authzError = false
-let turn: any = null
+let turn: Awaited<ReturnType<typeof processConversationTurn>> | null = null
 try {
   turn = await processConversationTurn({ sb, property, conversationId: convId, userMessage: QUESTION, leadSource: 'website_chat' })
   await recordDelivery(sb, { property, conversationId: convId, leadId: turn.leadId, proposalGenerated: turn.proposalGenerated, outcome: 'sent' })
