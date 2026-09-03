@@ -6,7 +6,7 @@
 
 | ID | Problema | Pri | Workaround | SSOT |
 |---|---|---|---|---|
-| KI-1 | **Router L0 — falsi positivi `guest`** (Tonico/Amazon/Poste): da rafforzare prima di abilitare l'autosend per ospiti reali ("Router Training Sprint #1"). | P0 | autosend **OFF** | [ROADMAP](../ROADMAP.md) · [CHANGELOG](../CHANGELOG.md) |
+| KI-1 | **Router L0 — falsi positivi `guest`**: Sprint #1 IMPLEMENTATO (04/09: supplier per classi + brand multi-TLD + localpart transazionali + corpus 47 casi con invariante zero over-blocking, `npm run test:router`). RESTA APERTO finché: validazione sul corpus reale (`email_routing_log`) + decisione autosend di Jacopo. | P0 | autosend **OFF** | [ROADMAP](../ROADMAP.md) · [CHANGELOG](../CHANGELOG.md) |
 | KI-2 | **Segreti esposti** (service_role, Anthropic, Gmail client secret + refresh token, Vercel bypass; `CRON_SECRET` placeholder): da **ruotare** prima del go-live pubblico. | P0 | pilota interno, accesso limitato | [SECURITY](../SECURITY.md) P0-1 · [RUNBOOKS/rotate-secrets](../RUNBOOKS/rotate-secrets.md) |
 | KI-8 | **Chat pubblica abusabile**: `X-Forwarded-For` spoofabile → bypass rate-limit/IP-block; nessun cap globale conversazioni → DoS/cost-abuse. | P0 | budget AI €5/g limita la spesa; chat non esposta a volume | [SECURITY](../SECURITY.md) P0-3 |
 | KI-9 | **Nessun security header** (CSP/X-Frame-Options/HSTS) né middleware → clickjacking sul widget pubblico. | P0 | widget non ancora pubblicizzato | [SECURITY](../SECURITY.md) P0-4 |

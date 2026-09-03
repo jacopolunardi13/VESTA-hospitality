@@ -26,10 +26,32 @@ const BASE_OTA: { source: OtaSource; domains: string[] }[] = [
   { source: 'quovai', domains: ['quovai.com', 'quovai.it'] },
   { source: 'qvi', domains: ['qvi.it', 'qvi.com'] },
 ]
-// Mittenti chiaramente NON-guest (notifiche/fornitori comuni): stessa forma di BASE_OTA, nessun nuovo
-// meccanismo. Risolve i falsi positivi del pilot (notifiche Amazon/Poste, fornitore Tonico) che non
-// portano marcatori automatici e cadevano in 'guest'. Estendibile per-property via settings.supplierDomains.
-const BASE_SUPPLIER: string[] = ['amazon.it', 'posteitaliane.it', 'tonicosrl.it']
+// Mittenti chiaramente NON-guest (notifiche/fornitori comuni). Router Training Sprint #1 (KI-1):
+// lista curata PER CLASSE (e-commerce/logistica, banche/pagamenti, utility/telecom,
+// istituzionale/PEC) — mittenti da cui un ospite non scrive mai. Sul dubbio la regola non scatta
+// e l'email resta 'guest' (fail-safe invariato). Estendibile per-property via settings.supplierDomains.
+const BASE_SUPPLIER: string[] = [
+  // pilot (falsi positivi osservati)
+  'tonicosrl.it',
+  // e-commerce / logistica / corrieri
+  'posteitaliane.it', 'poste.it', 'brt.it', 'dhl.com', 'dhl.it', 'gls-italy.com', 'sda.it',
+  'ups.com', 'fedex.com', 'nexive.it',
+  // banche / pagamenti
+  'intesasanpaolo.com', 'unicredit.it', 'nexi.it', 'stripe.com', 'satispay.com', 'sumup.com',
+  // utility / telecom
+  'enel.it', 'enelenergia.it', 'hera.it', 'a2a.it', 'tim.it', 'vodafone.it', 'vodafone.com',
+  'fastweb.it', 'windtre.it',
+  // istituzionale / PEC (in Italia la PEC è amministrativa: fatture, enti — mai richieste ospiti)
+  'agenziaentrate.gov.it', 'inps.it', 'pec.it', 'legalmail.it', 'arubapec.it',
+]
+// Brand multi-TLD: dominio registrabile `<brand>.<tld>` (es. amazon.it/.com/.de/.co.uk).
+// Il suffisso dopo il brand deve essere un TLD reale (ccTLD 2-3 lettere, o com/net/org/co
+// eventualmente seguiti da ccTLD) — così `amazon.finto.it` NON matcha (brand non registrabile).
+const BASE_SUPPLIER_BRANDS: string[] = ['amazon', 'paypal']
+const BRAND_RE = new RegExp(`(^|\\.)(${BASE_SUPPLIER_BRANDS.join('|')})\\.((com|net|org|co)(\\.[a-z]{2})?|[a-z]{2,3})$`)
+// Localpart transazionali/amministrativi: un fornitore scrive da fatture@/billing@…, un ospite mai.
+// Solo localpart ESATTI e inequivocabili (niente pattern sull'oggetto: troppo rischio over-block).
+const SUPPLIER_LOCALPART = /^(fatture?|fatturazione|billing|invoice|invoices|amministrazione|contabilita|ordini|orders?)@/
 const OTA_SUBJECT = /\b(prenotazione|reservation|booking)\b.*\b(nuov|new|confermat|confirmed|cancellat|cancel|modific|chang)/i
 const NEWSLETTER = /\bnewsletter\b|unsubscribe|disiscriv|cancella iscrizione/i
 const NOREPLY = /(no-?reply|do-?not-?reply|mailer-daemon|postmaster|notifications?@|automated@)/i
@@ -71,6 +93,10 @@ export function classifyEmailDeterministic(email: InboundEmail, rules: RoutingRu
     return { category: 'ota_pms', source: o.source, confidence: 0.97, method: 'deterministic' }
   for (const base of BASE_SUPPLIER) if (endsWithDomain(dom, base))
     return { category: 'supplier_admin', source: null, confidence: 0.95, method: 'deterministic' }
+  if (BRAND_RE.test(dom))
+    return { category: 'supplier_admin', source: null, confidence: 0.9, method: 'deterministic' }
+  if (SUPPLIER_LOCALPART.test((email.from ?? '').toLowerCase().replace(/^.*</, '').trim()))
+    return { category: 'supplier_admin', source: null, confidence: 0.75, method: 'deterministic' }
   for (const d of rules.otaDomains) if (endsWithDomain(dom, d.toLowerCase()))
     return { category: 'ota_pms', source: 'unknown', confidence: 0.9, method: 'deterministic' }
   for (const d of rules.supplierDomains) if (endsWithDomain(dom, d.toLowerCase()))

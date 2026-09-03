@@ -1,14 +1,14 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-08-28 (post-0017 in produzione) · branch `security/0017-least-privilege` (baseline codice testata = `ff42731`; HEAD = ultimo commit di riconciliazione docs — `git log -1`) · ✅ verificato con git
+> **Aggiornato:** 2026-09-04 (post-riconciliazione COMPLETATA) · branch `main` = `origin/main` = **`048dd4a`** (canonico) · ✅ verificato con git + ls-remote
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
-## Branch & git (✅ verificato, 28/08) — candidato unico: `security/0017-least-privilege`, merge/push = 🔴 RED
-- **`security/0017-least-privilege`** (questo branch, solo locale): **`integration/reconcile-20260712` (`c8b03cf`) + `ff42731`** — migrazione **`0017`** (baseline least-privilege) + verification pack — **+ commit di riconciliazione docs successivi** (HEAD corrente: `git log -1`). Superset lineare **provato** (ancestor-check) di `origin/main` (**0 dietro**; avanti dei 24 commit di contenuto fino a `ff42731` più i commit docs) e di `origin/chore/autonomous-engineering` (interamente contenuto). Albero pulito, nessun worktree secondario, nessun PR aperto.
-- **`0017` è stata APPLICATA IN PRODUZIONE il 28/08/2026** (WorkspaceOS provider-mutate, Phone RED, transazione atomica, receipt `ok:true`; artefatto byte-identico al file su questo branch). **`0015` e `0016` già applicate e verificate** (02/07 e 12/07). Al merge, repo e DB prod tornano allineati — **nessun nuovo apply necessario**. Evidence: [SECURITY](../SECURITY.md) "Evidence of verification — 0017".
-- **Baseline verde su `ff42731` (28/08)**: `npm ci` ✅ · `next lint` ✅ · `next build` (typecheck completo) ✅. Modelli Anthropic pinnati validi e correnti (`claude-haiku-4-5`, `claude-sonnet-4-6`), pricing table esatta, nessun parametro API deprecato.
-- 🔴 **Restano RED (Jacopo):** merge di questo branch in `main` (fast-forward) → push su `origin/main` (= deploy prod Vercel). Fino ad allora il remoto resta indietro dell'intera linea locale (conteggio esatto: `git rev-list --count origin/main..HEAD` — cresce con i commit di riconciliazione).
+## Branch & git (✅ verificato, 04/09) — RICONCILIAZIONE COMPLETATA: `main` canonico = `048dd4a`, deploy prod LIVE
+- **04/09/2026 — merge fast-forward + push ESEGUITI** (autorizzazione RED esplicita di Jacopo, SHA pinnati, fail-closed): `main` `19df477` → **`048dd4a`**, push verificato via `ls-remote`, **deploy Vercel prod LIVE** (~20s), smoke read-only VERDE (`/tasks` 307→login = nuovo build + gate intatti; `/login` 200; nessun 5xx). **La divergenza è CHIUSA**: repo, DB prod (`0015`+`0016`+`0017` applicate) e deploy allineati a `048dd4a`.
+- `security/0017-least-privilege` resta come branch locale storico (= `main`); nessun PR aperto; worktree pulito.
+- Baseline verde su `main` (04/09): `next lint` 0 errori · `next build` (typecheck completo) ✅.
+- ⏳ Unico pendente della riconciliazione: **verifica esterna 0017** con `app/scripts/0017-readonly-verification.sql` (solo SELECT) via capability read-only — richiede una nuova approvazione Phone RED (l'ultima è consumata/scaduta).
 
 ## Branch & git — storico riconciliazione 12/07 (superato da `security/0017-least-privilege`)
 - **`integration/reconcile-20260712`** (`c8b03cf`, ora contenuto nel candidato attuale): `main` + merge di `security/p0-2-rpc-hardening` (`5f0d4a1`, **`0015`**) + merge di `chore/autonomous-engineering` (`229f97c`, 17 commit: governance F1-F3, **`0016`**, sprint Operating Agent v0, fix doc Codex-approved).
