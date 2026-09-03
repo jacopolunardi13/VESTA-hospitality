@@ -10,8 +10,8 @@
 TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres + Auth OAuth + Storage + RLS, pg_cron) · **Anthropic Claude** (Haiku + Sonnet) · pdfkit · Gmail API · hosting **Vercel** (prod = `main`).
 
 ## 3. Stato attuale — riconciliazione COMPLETATA (04/09): `main` canonico `048dd4a`, prod allineata
-- **Branch:** `security/0017-least-privilege` (locale) = `integration/reconcile-20260712` (= `main` @ `d239698` + `security/p0-2-rpc-hardening` **`0015`** + `chore/autonomous-engineering`: governance F1-F3, **`0016`**, **sprint Operating Agent v0** — Coda operativa `/tasks`, fix coerenza inbox, fail-fast visibile, polish Document Center, runbook staff — Codex-approved) **+ migrazione `0017` (least-privilege) + verification pack + riconciliazione docs**. Superset lineare provato di `origin/main` (0 dietro). Storici: `document-center`, `fase-b`.
-- **`0015`, `0016` e `0017` sono rappresentate su questo candidato-`main` e TUTTE già applicate+verificate in prod** (`0017` il 28/08/2026 via WorkspaceOS Phone RED, transazione atomica, receipt ok, artefatto byte-identico al repo — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017"): al merge non serve alcun nuovo apply, repo e DB tornano allineati. Restano 🔴 RED: merge in `main` + push (`origin/main` = deploy prod automatico). Post-merge (GREEN): verifica esterna con `app/scripts/0017-readonly-verification.sql` (solo SELECT) via accesso read-only.
+- **Branch:** `main` (canonico remoto/prod = `048dd4a`, che CONTIENE tutta la linea di riconciliazione: 0015 + governance F1-F3 + 0016 + sprint Operating Agent v0 + 0017 + docs). `main` LOCALE è avanti col **Router Training Sprint #1** (in attesa di push 🔴 RED). Storici: `security/0017-least-privilege`, `document-center`, `fase-b`.
+- **`0015`, `0016` e `0017` sono rappresentate su questo candidato-`main` e TUTTE già applicate+verificate in prod** (`0017` il 28/08/2026 via WorkspaceOS Phone RED, transazione atomica, receipt ok, artefatto byte-identico al repo — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017"): repo e DB SONO allineati (merge+push+deploy completati il 04/09, smoke verde). Pendenti: verifica esterna con `app/scripts/0017-readonly-verification.sql` (solo SELECT, Phone RED read-only) e push del Router Sprint #1.
 - **In prod / DB:** Front Office (Tier-1/Tier-2), **Operational Queue** (`0014` applicata+verificata), Document Center MVP; **P0-2 live** (`anon` negato ✅, RLS attivo); **canale email prod ripristinato** (Google Cloud progetto ufficiale **542106** / casella `lunartfirenze`).
 - **Multi-agente / WorkspaceOS:** PROJECT_REGISTRY creato, **Vesta registrata**; **Codex = review-only**; **Claude Code = unico writer**; **Jacopo** approva solo 🔴 RED.
 - **Flag:** autosend **OFF** (R0.1) · `vesta-email-poll` attivo · `vesta-followups` **attivo/`succeeded`** (KI-11 risolto, `0016`) · signup Supabase **chiuso**.
@@ -20,14 +20,14 @@ TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres +
 - `docs/foundations/PRODUCT.md` (con **§18 Strategic Product Boundary**) · `WORKFLOW.md` · **`ENGINEERING.md` creato** (Autonomous Engineering, F1). `BRAND.md` = non ancora creato.
 
 ## 4. Prossimi passi — check per il pilot interno
-1. 🔴 **Merge riconciliazione in `main` + push** (= deploy prod Vercel; approvazione Jacopo). Poi smoke post-deploy (checklist in NEXT_TASK).
+1. ✅ ~~Merge riconciliazione + push + deploy~~ (04/09, smoke verde). Ora: 🔴 push Router Sprint #1 + 🔴 Phone RED read-only (corpus reale + verifica 0017) — vedi NEXT_TASK.
 2. Reset chiave Anthropic **locale** `.env.local` (PO; prod già ✅ verificata 12/07).
 3. Poi residui: rotazione segreti (P0-1 parziale) → P0-4 header → P0-3 anti-abuso chat → P0-5 destinatario email.
 
 *(✅ chiusi il 12/07: **KI-11** (`0016` applicata, run cron `succeeded`) · **Anthropic prod OK** (test sintetico) · **sprint Operating Agent v0** Codex-approved.)*
 
 ## 5. Decisioni aperte
-- **OD-1:** tempistica autosend ON (dopo hardening Router L0 + P0). · **OD-2:** signup (attualmente **chiuso**, mitigazione P0-2). · **OD-3:** prerequisiti 2° tenant (almeno P0-2). · **OD-4:** riconciliazione — **integrazione locale pronta**; resta la decisione RED di merge/push/deploy.
+- **OD-1:** tempistica autosend ON (dopo hardening Router L0 + P0). · **OD-2:** signup (attualmente **chiuso**, mitigazione P0-2). · **OD-3:** prerequisiti 2° tenant (almeno P0-2). · **OD-4:** ~~riconciliazione~~ CHIUSA il 04/09 (merge+push+deploy eseguiti).
 
 ## 6. Problemi noti P0/P1 (SSOT: [SECURITY](../SECURITY.md) + [KNOWN_ISSUES](KNOWN_ISSUES.md))
 - ✅ **P0-2 CHIUSO** — RPC `SECURITY DEFINER` hardenizzate (`0015`: REVOKE anon/authenticated, guard `auth.uid()`); anon negato live.

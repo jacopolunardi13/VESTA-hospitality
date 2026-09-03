@@ -27,7 +27,7 @@ KI-1 è il P0 che blocca l'autosend: ogni miglioramento qui riduce il triage man
 merge in `main` · push · deploy prod · migrazioni (apply) · env/segreti · autosend ON · contatto reale con ospiti · PMS/tariffe/camere/pagamenti.
 
 ## Rollback
-Prima del push: `git reset --hard d239698` su `main` (nulla è uscito). Dopo il deploy: Vercel "Promote previous deployment" oppure revert+push. Le migrazioni non sono coinvolte (già applicate da giorni).
+Prima del push dello Sprint: riportare `main` locale a `048dd4a` (il canonico remoto/prod resta intatto). Dopo un deploy: Vercel "Promote previous deployment" oppure revert+push. Le migrazioni non sono coinvolte (0015/0016/0017 già applicate).
 
 ## Dopo (NON in questo task)
 Reset `ANTHROPIC_API_KEY` locale (PO) · decisione su `0006` (`process_due_followups`) · P0 residui: P0-1 rotazione segreti → P0-4 header → P0-3 anti-abuso chat → P0-5 destinatario email ([SECURITY](../SECURITY.md), ADR-0019).
