@@ -1,12 +1,13 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-09-04 (post-riconciliazione COMPLETATA) · branch `main` = `origin/main` = **`048dd4a`** (canonico) · ✅ verificato con git + ls-remote
+> **Aggiornato:** 2026-09-04 · **canonico remoto/prod = `048dd4a`** (origin/main + deploy Vercel). `main` LOCALE = `048dd4a` + i commit del Router Training Sprint #1, in attesa di push (🔴 RED) — HEAD esatto: `git log -1`. · ✅ verificato con git + ls-remote
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato, 04/09) — RICONCILIAZIONE COMPLETATA: `main` canonico = `048dd4a`, deploy prod LIVE
 - **04/09/2026 — merge fast-forward + push ESEGUITI** (autorizzazione RED esplicita di Jacopo, SHA pinnati, fail-closed): `main` `19df477` → **`048dd4a`**, push verificato via `ls-remote`, **deploy Vercel prod LIVE** (~20s), smoke read-only VERDE (`/tasks` 307→login = nuovo build + gate intatti; `/login` 200; nessun 5xx). **La divergenza è CHIUSA**: repo, DB prod (`0015`+`0016`+`0017` applicate) e deploy allineati a `048dd4a`.
-- `security/0017-least-privilege` resta come branch locale storico (= `main`); nessun PR aperto; worktree pulito.
+- `security/0017-least-privilege` resta come branch locale storico (= `048dd4a`); nessun PR aperto; worktree pulito.
+- **04/09 (dopo la riconciliazione): Router Training Sprint #1 committato su `main` locale** (hardening L0 + corpus con invariante zero over-blocking; Codex-reviewed) — in attesa di push 🔴 RED.
 - Baseline verde su `main` (04/09): `next lint` 0 errori · `next build` (typecheck completo) ✅.
 - ⏳ Unico pendente della riconciliazione: **verifica esterna 0017** con `app/scripts/0017-readonly-verification.sql` (solo SELECT) via capability read-only — richiede una nuova approvazione Phone RED (l'ultima è consumata/scaduta).
 

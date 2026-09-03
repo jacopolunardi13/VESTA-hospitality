@@ -34,6 +34,11 @@ const CORPUS: Case[] = [
   { from: 'lucia@amazonia-viaggi.it', subject: 'Gruppo 6 persone', expect: 'guest', note: 'dominio contiene "amazon" ma NON è brand amazon.<tld> → guest' },
   { from: 'marco@paypalace.it', subject: 'Prenotazione anniversario', expect: 'guest', note: 'paypalace ≠ paypal.<tld> → guest' },
   { from: 'reception@amazon.finto.it', subject: 'Richiesta soggiorno', expect: 'guest', note: 'brand non in posizione registrabile → guest' },
+  { from: 'amministrazione@azienda.it', subject: 'Prenotazione 2 camere per trasferta dipendenti', expect: 'guest', note: 'REGRESSIONE CODEX: segreteria aziendale che prenota → DEVE restare guest (niente euristiche localpart)' },
+  { from: 'orders@personal-domain.com', subject: 'Room availability next weekend?', expect: 'guest', note: 'REGRESSIONE CODEX: localpart orders@ su dominio personale → guest' },
+  { from: 'mario.rossi@pec.it', subject: 'Richiesta disponibilità e preventivo', expect: 'guest', note: 'REGRESSIONE CODEX: PEC personale → guest (provider PEC generici NON in blocklist)' },
+  { from: 'anna.bruni@legalmail.it', subject: 'Prenotazione weekend', expect: 'guest', note: 'PEC personale legalmail → guest' },
+  { from: 'Mario Rossi <mario.rossi.display@gmail.com>', subject: 'Info camere', expect: 'guest', note: 'display-form "Nome <addr>" difensivo → guest' },
 
   // ===== SUPPLIER_ADMIN — pilot FP osservati =====
   { from: 'info@tonicosrl.it', subject: 'Fatture Insolute - Tonico srl', expect: 'supplier_admin' },
@@ -59,13 +64,12 @@ const CORPUS: Case[] = [
   { from: 'clienti@vodafone.it', subject: 'La tua offerta', expect: 'supplier_admin' },
   // ===== SUPPLIER_ADMIN — istituzionale/PEC =====
   { from: 'noreply@agenziaentrate.gov.it', subject: 'Comunicazione', expect: 'supplier_admin' },
-  { from: 'studio.commercialista@legalmail.it', subject: 'F24 in scadenza', expect: 'supplier_admin' },
-  { from: 'fornitore@arubapec.it', subject: 'Fattura elettronica', expect: 'supplier_admin' },
-  // ===== SUPPLIER_ADMIN — localpart transazionali su dominio sconosciuto =====
-  { from: 'fatture@studiorossi.it', subject: 'Fattura n. 133/2026', expect: 'supplier_admin' },
-  { from: 'billing@cloudservice.io', subject: 'Invoice #4421', expect: 'supplier_admin' },
-  { from: 'amministrazione@lavanderiablu.it', subject: 'Sollecito pagamento', expect: 'supplier_admin' },
-  { from: 'ordini@fornituremoderne.it', subject: 'Conferma ordine 8812', expect: 'supplier_admin' },
+
+  // ===== Localpart transazionali su dominio SCONOSCIUTO: L0 NON decide (rischio over-block:
+  // una segreteria può prenotare da amministrazione@) → restano guest al livello deterministico;
+  // il fornitore ricorrente specifico si aggiunge per-property via settings.supplierDomains =====
+  { from: 'fatture@studiorossi.it', subject: 'Fattura n. 133/2026', expect: 'guest', note: 'dominio ignoto: L0 non decide → guest (da gestire per-property o L1)' },
+  { from: 'amministrazione@lavanderiablu.it', subject: 'Sollecito pagamento', expect: 'guest', note: 'dominio ignoto: L0 non decide → guest' },
 
   // ===== OTA_PMS =====
   { from: 'no-reply@properties.booking.com', subject: 'Aggiornamento tariffe', expect: 'ota_pms' },
@@ -79,6 +83,11 @@ const CORPUS: Case[] = [
   { from: 'noreply@eventbrite.com', subject: 'Eventi vicino a te', expect: 'newsletter_spam', note: 'noreply@ non OTA/fornitore → newsletter (ignora)' },
   { from: 'updates@somesaas.com', subject: 'Product changelog', expect: 'newsletter_spam', headers: { listUnsubscribe: '<mailto:unsub@somesaas.com>' } },
 ]
+
+// Per-property supplierDomains: il canale giusto per i fornitori specifici (es. commercialista in PEC).
+const propertyRules = getRoutingRules({ email_routing: { otaDomains: [], supplierDomains: ['studiorossi.it'] } })
+const propertyCase = mk({ from: 'fatture@studiorossi.it', subject: 'Fattura n. 133/2026', expect: 'supplier_admin' })
+const propertyOk = classifyEmailDeterministic(propertyCase, propertyRules)?.category === 'supplier_admin'
 
 let pass = 0
 const failures: string[] = []
@@ -97,9 +106,11 @@ for (const c of CORPUS) {
 const auto = mk({ from: 'x@y.it', subject: 's', expect: 'guest', headers: { autoSubmitted: 'auto-generated' } })
 if (hasAutomatedMarkers(auto)) pass++
 else { failures.push('  ✗ hasAutomatedMarkers(auto-generated) deve essere true'); }
+if (propertyOk) pass++
+else { failures.push('  ✗ supplierDomains per-property (studiorossi.it) deve dare supplier_admin'); }
 
-const total = CORPUS.length + 1
-console.log(`Corpus router L0: ${pass}/${total} pass`)
+const total = CORPUS.length + 2  // corpus email + 1 assert marcatori automatici + 1 assert per-property
+console.log(`Corpus router L0: ${pass}/${total} pass (${CORPUS.length} email etichettate + 2 assert)`)
 if (failures.length) console.log(failures.join('\n'))
 if (guestViolations > 0) {
   console.log(`\n❌ INVARIANTE VIOLATA: ${guestViolations} caso/i GUEST classificati non-guest (over-blocking) — BLOCKER`)

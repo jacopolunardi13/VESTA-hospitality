@@ -1,7 +1,7 @@
 # PROJECT SYNC REPORT — Vesta Hospitality
 
 > **Report vivo e compilato.** Copia/incolla questo file in una nuova chat (ChatGPT o Claude) per riallineare l'assistente in pochi minuti. Generato dai file di stato in `docs/context/`.
-> **Aggiornato:** 2026-09-04 · branch `main` = `origin/main` = **`048dd4a`** (canonico). Riconciliazione COMPLETATA: merge ff + push + deploy prod LIVE il 04/09; `0015`/`0016`/`0017` applicate; smoke verde.
+> **Aggiornato:** 2026-09-04 · **canonico remoto/prod = `048dd4a`** (riconciliazione COMPLETATA il 04/09: merge ff + push + deploy LIVE; `0015`/`0016`/`0017` applicate; smoke verde). `main` LOCALE è avanti con il **Router Training Sprint #1** (KI-1), in attesa di push 🔴 RED.
 
 ## 1. Identità progetto
 **Vesta Hospitality** — SaaS multi-tenant: "dipendente virtuale" per piccole strutture ricettive (front + back office). Repo GitHub `jacopolunardi13/VESTA-hospitality`. Pilota: **LunArt B&B** (Firenze), Giorno Zero 30/06/2026. **Confine strategico VINCOLANTE:** Vesta = **AI Operations Layer hospitality**, non chatbot/wrapper generico (gate 8 punti — PRODUCT.md §18). **La fonte di verità è il repo, non le chat.**
