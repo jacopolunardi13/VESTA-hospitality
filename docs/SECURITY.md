@@ -102,6 +102,16 @@ Tooling: `app/scripts/probe-rpc-authz.mts`, `app/scripts/p0-2-authz-tests.sql`, 
 **Rinviato:** test comportamentale della whitelist ruoli `enroll` (già applicata via guard funzione + `CHECK` DB) → hardening finale.
 **Issue separata (fuori scope P0-2):** `process_due_followups()` assente nel DB reale (0006 non applicata) → il cron `vesta-followups` falliva — **KI-11, risolto il 12/07** dalla migrazione `0016` (command existence-guarded, run `succeeded`); vedi [KNOWN_ISSUES](context/KNOWN_ISSUES.md).
 
+### Evidence of verification — 0017 least-privilege (applicata in produzione, 28/08/2026)
+Traccia permanente dell'applicazione della migrazione `0017_security_least_privilege.sql` (baseline least-privilege post-0015/0016, esito del **Production DB Reality Gate** — verdetto B, Codex CONCUR).
+
+- ✅ **Design Codex-ACCEPTED** (adversarial, 6 iterazioni): revoca `CREATE` su `public` da `PUBLIC`/`anon`/`authenticated`; EXECUTE allowlist esplicita sulle 7 funzioni app (incl. chiusura del P0 `user_in_org` EXECUTE-to-PUBLIC); revoca `TRUNCATE`/`TRIGGER`/`REFERENCES`; sequences minimizzate; **default ACL default-deny** (grantor `postgres`) per routine/tabelle/sequences future; fix policy `ip_blocklist` (NULL-escape); `NOTIFY pgrst`. Rollback pack = generatori esatti da `audit.acl_snapshot_0017_*`.
+- ✅ **Applicata in produzione il 28/08/2026** via WorkspaceOS `provider-mutate` (approvazione **Phone RED** di Jacopo dalla Operator PWA, 23:43 UTC; auto-resume dell'executor; **una sola transazione atomica**: preflight → snapshot → 0017 → post-apply asserts in-transaction → receipt → COMMIT). Receipt durable `ok:true`; riga `audit.migration_receipt` parte della stessa transazione committata.
+- ✅ **Artefatto identico al repo**: il payload eseguito embeddava lo 0017 **byte-identico** al file su questo branch (sha256 `7e29628356defca234c7efcad77e5b87b1043052ada4724c6689a23bdc4b2652`, self-check pre-esecuzione).
+- ✅ **Credenziale write a ciclo chiuso**: token OAuth `database:write` ottenuto solo per la mutazione (bounded-refresh model, broker Codex-ACCEPTED), retention totale ~22 min, teardown verificato (revoke refresh HTTP 204 + access 401-REVOKED + refs Keychain eliminati). Nessuna credenziale write residua.
+- ⏳ **Verifica esterna pendente**: run del verification pack (`app/scripts/0017-least-privilege-verification.sql`, sha256 `9e57bc586434fb3b35d90bd08eed0f6a18423babc481cafe0079f482c5252482`) via capability read-only — da eseguire come conferma indipendente del post-state.
+- **Fuori scope documentato**: default ACL con grantor `supabase_admin` + 118 funzioni pgvector `supabase_admin`-owned (non alterabili come `postgres`; residuo bounded ai soli oggetti futuri `supabase_admin`-owned).
+
 ### P1 — da correggere a breve
 - Nessun cap di lunghezza sul corpo email pre-LLM (`ingest.ts`) → cost-abuse.
 - Messaggi d'errore grezzi nelle risposte API (poll/diag/ical/preview) → info disclosure (dietro auth).

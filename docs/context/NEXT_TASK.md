@@ -1,16 +1,18 @@
 # NEXT TASK — prossimo passo eseguibile
 
 > Espansione operativa di **ROADMAP[0]** ([ROADMAP](../ROADMAP.md) resta la SSOT dell'elenco ordinato).
-> **Aggiornato:** 2026-07-12 (sera) · branch `integration/reconcile-20260712` (candidato `main`).
+> **Aggiornato:** 2026-08-28 · branch `security/0017-least-privilege` @ `ff42731` (candidato `main` — supera `integration/reconcile-20260712`).
 
 ## Contesto (chiuso di recente)
+- ✅ **Migrazione `0017` (least-privilege) APPLICATA IN PRODUZIONE** (28/08, WorkspaceOS Phone RED, transazione atomica, receipt ok; artefatto byte-identico al repo) — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017". Il candidato-`main` è ora `security/0017-least-privilege` (= riconciliazione 12/07 + 0017).
+- ✅ **Baseline verde su `ff42731`** (28/08): `npm ci` · `next lint` · `next build` tutti ✅.
 - ✅ **Sprint "LunArt Operating Agent v0"** completato e **Codex-approved** (Coda operativa `/tasks`, coerenza inbox, fail-fast visibile, polish Document Center, runbook staff).
 - ✅ **KI-11 risolto** (migrazione `0016` applicata, cron `vesta-followups` → run `succeeded`).
 - ✅ **Anthropic in produzione OK** (verifica sintetica 12/07; resta invalida solo la chiave locale `.env.local`).
 - ✅ **Integrazione locale di riconciliazione PRONTA**: questo branch = `main` + `security/p0-2` (`0015`) + `chore/autonomous-engineering` (`0016` + sprint v0), conflitti risolti, check verdi.
 
 ## Task
-**Eseguire il merge di riconciliazione in `main` e il deploy** — passi 🔴 RED che solo Jacopo può approvare. `0015` e `0016` sono già rappresentate su questo candidato-`main` e **già applicate e verificate in prod**: al merge non serve alcun nuovo apply, repo e DB tornano allineati.
+**Eseguire il merge di riconciliazione in `main` e il deploy** — passi 🔴 RED che solo Jacopo può approvare. `0015`, `0016` **e `0017`** sono già rappresentate sul candidato-`main` (`security/0017-least-privilege`) e **già applicate e verificate in prod**: al merge non serve alcun nuovo apply, repo e DB tornano allineati. Post-merge (GREEN, separato): run del verification pack 0017 via capability read-only come conferma indipendente.
 
 ## Obiettivo
 `main` = questo branch di integrazione (fast-forward), push su `origin/main` (= deploy prod automatico Vercel), smoke post-deploy verde.
@@ -20,7 +22,7 @@ Chiude la divergenza (rischio maggiore attuale) e rende lo sprint Operating Agen
 
 ## Sequenza 🔴 RED (dopo approvazione esplicita di Jacopo)
 1. Review Codex del branch di integrazione → verdetto APPROVED TO EXECUTE.
-2. `git checkout main && git merge --ff-only integration/reconcile-20260712`.
+2. `git checkout main && git merge --ff-only security/0017-least-privilege`.
 3. `ALLOW_PUSH=1 git push origin main` — ⚠️ include anche `d239698` (docs, mai pushato) e **avvia il deploy prod**.
 4. Smoke post-deploy (read-only): login dashboard · `/tasks` · `/inbox` (chip 24h) · `/documents` · autosend ancora OFF · cron `vesta-email-poll` e `vesta-followups` `succeeded` (SQL Editor) · P0-2 ancora attivo (`go-live-check.mts`: anon negato) · nessun comportamento PMS/tariffe/pagamenti toccato.
 5. (Opzionale, RED, preferibilmente dopo stabilità post-deploy) push di backup dei branch di lavoro.

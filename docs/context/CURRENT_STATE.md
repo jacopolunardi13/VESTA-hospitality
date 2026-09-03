@@ -1,10 +1,16 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-07-12 (sera, integrazione riconciliazione) · branch `integration/reconcile-20260712` (candidato `main`) · ✅ verificato con git
+> **Aggiornato:** 2026-08-28 (post-0017 in produzione) · branch `security/0017-least-privilege` @ `ff42731` (candidato `main`) · ✅ verificato con git
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
-## Branch & git (✅ verificato) — riconciliazione: integrazione locale PRONTA, merge in `main` = 🔴 RED
+## Branch & git (✅ verificato, 28/08) — candidato unico: `security/0017-least-privilege`, merge/push = 🔴 RED
+- **`security/0017-least-privilege`** @ `ff42731` (HEAD, questo branch, solo locale): **`integration/reconcile-20260712` (`c8b03cf`) + 1 commit** — migrazione **`0017`** (baseline least-privilege) + verification pack. Superset lineare **provato** (ancestor-check) di `origin/main` (24 commit avanti, 0 dietro) e di `origin/chore/autonomous-engineering` (interamente contenuto). Albero pulito, nessun worktree secondario, nessun PR aperto.
+- **`0017` è stata APPLICATA IN PRODUZIONE il 28/08/2026** (WorkspaceOS provider-mutate, Phone RED, transazione atomica, receipt `ok:true`; artefatto byte-identico al file su questo branch). **`0015` e `0016` già applicate e verificate** (02/07 e 12/07). Al merge, repo e DB prod tornano allineati — **nessun nuovo apply necessario**. Evidence: [SECURITY](../SECURITY.md) "Evidence of verification — 0017".
+- **Baseline verde su `ff42731` (28/08)**: `npm ci` ✅ · `next lint` ✅ · `next build` (typecheck completo) ✅. Modelli Anthropic pinnati validi e correnti (`claude-haiku-4-5`, `claude-sonnet-4-6`), pricing table esatta, nessun parametro API deprecato.
+- 🔴 **Restano RED (Jacopo):** merge di questo branch in `main` (fast-forward) → push su `origin/main` (= deploy prod Vercel). I context doc remoti sono stale di 24 commit fino ad allora.
+
+## Branch & git — storico riconciliazione 12/07 (superato da `security/0017-least-privilege`)
 - **`integration/reconcile-20260712`** (questo branch, solo locale): `main` + merge di `security/p0-2-rpc-hardening` (`5f0d4a1`, **`0015`**) + merge di `chore/autonomous-engineering` (`229f97c`, 17 commit: governance F1-F3, **`0016`**, sprint Operating Agent v0, fix doc Codex-approved).
 - **Le migrazioni `0015` e `0016` sono rappresentate su questo candidato-`main`**: al merge, repo e DB prod tornano allineati (entrambe già applicate e verificate in prod — **nessun nuovo apply necessario**).
 - `main` @ `d239698` = `origin/main` (`19df477`) **+1 commit docs mai pushato** (lineare, sicuro da includere; freshness remoto verificata con `ls-remote` il 12/07).
