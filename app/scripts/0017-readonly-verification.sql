@@ -1,80 +1,12 @@
 -- ============================================================================
--- ⚠️ QUESTO È IL PACK COMPLETO USATO AL MOMENTO DELL'APPLY: le sezioni P4 (snapshot
--- rollback) creano/sostituiscono tabelle in `audit` → NON eseguibile con capability
--- read-only. Per la verifica esterna indipendente del post-state usare
--- `0017-readonly-verification.sql` (solo SELECT, stesse assertions A0-…).
--- 0017 VERIFICATION / REGRESSION PACK  (read-only assertions unless noted)
--- ----------------------------------------------------------------------------
--- PUBLIC coverage note (Codex iter2 blocker fix): `public` is NOT a role, so
---   has_function_privilege('public',...) ERRORS. PUBLIC is instead proven via
---   INHERITANCE: every role implicitly holds PUBLIC, so
---     has_*_privilege('anon', obj, priv) = FALSE  ⟹  PUBLIC does NOT grant priv
---   (else anon would inherit it and return TRUE). Thus asserting anon (and
---   authenticated) effective = FALSE proves the absence of any PUBLIC-granted
---   privilege as well. No pseudo-role call is used anywhere below.
--- Every assertion returns ONLY failure rows (empty result = pass).
+-- 0017 READ-ONLY VERIFICATION — external, independent post-state check
 -- ============================================================================
-
--- ============================ PREFLIGHT (read-only, BEFORE apply) ============================
--- P1. Ownership: the 7 app fns AND every affected relation/sequence are postgres-owned. Offenders:
-SELECT p.oid::regprocedure AS obj, p.proowner::regrole AS owner
-  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
- WHERE n.nspname='public'
-   AND p.proname IN ('user_in_org','enroll_user_in_org','transition_booking_request',
-       'process_payment_expiry','process_operational_deadlines','search_knowledge','set_updated_at')
-   AND p.proowner::regrole <> 'postgres'::regrole;                         -- expect 0 rows
-SELECT c.relname, c.relkind, c.relowner::regrole AS owner FROM pg_class c
- WHERE c.relnamespace='public'::regnamespace AND c.relkind IN ('r','p','v','m','f','S')
-   AND c.relowner::regrole <> 'postgres'::regrole;                         -- expect 0 rows
-   -- (REVOKE ... ON ALL TABLES also affects views/matviews/foreign tables → any non-postgres owner would abort the txn)
-
--- P2. Definer safety: every SECURITY DEFINER fn in public pins search_path. Offenders:
-SELECT p.oid::regprocedure AS definer_fn, p.proconfig
-  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
- WHERE n.nspname='public' AND p.prosecdef
-   AND (p.proconfig IS NULL OR NOT EXISTS (
-        SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%'));  -- expect 0 rows
-
--- P3. Relation-kind census as an ASSERTION: NO views/matviews/foreign tables in public (RLS-bypass surface). Offenders:
-SELECT relname, relkind FROM pg_class
- WHERE relnamespace='public'::regnamespace AND relkind IN ('v','m','f');   -- expect 0 rows
-
--- P4. ROLLBACK snapshot → PERSIST (durable, survives sessions). Scope = EXACTLY the objects 0017 modifies:
---     the 7 postgres-owned app fns; postgres-owned public tables/sequences; schema public; postgres-grantor
---     defaults; ip_blocklist policy. (The 118 supabase_admin-owned fns are NOT touched by 0017 → excluded, so
---     rollback never emits a REVOKE postgres cannot run.) DROP-then-create guarantees a FRESH, non-stale capture.
-CREATE SCHEMA IF NOT EXISTS audit;
-DROP TABLE IF EXISTS audit.acl_snapshot_0017_fn, audit.acl_snapshot_0017_rel, audit.acl_snapshot_0017_nsp,
-                     audit.acl_snapshot_0017_defacl, audit.acl_snapshot_0017_pol;
-CREATE TABLE audit.acl_snapshot_0017_fn AS
-  SELECT oid, oid::regprocedure AS sig, proacl FROM pg_proc
-   WHERE oid IN (to_regprocedure('public.user_in_org(uuid)'),
-                 to_regprocedure('public.enroll_user_in_org(uuid,uuid,text)'),
-                 to_regprocedure('public.transition_booking_request(uuid,uuid,text,text,text,integer,numeric,integer,integer,text,text)'),
-                 to_regprocedure('public.process_payment_expiry()'),
-                 to_regprocedure('public.process_operational_deadlines()'),
-                 to_regprocedure('public.search_knowledge(uuid,text,integer)'),
-                 to_regprocedure('public.set_updated_at()'));
-CREATE TABLE audit.acl_snapshot_0017_rel AS
-  SELECT c.oid, c.relname, c.relkind, c.relacl FROM pg_class c
-   WHERE c.relnamespace='public'::regnamespace AND c.relkind IN ('r','p','S')
-     AND c.relowner::regrole='postgres'::regrole;         -- P3 asserts no v/m/f; postgres-owned only
-CREATE TABLE audit.acl_snapshot_0017_nsp AS SELECT nspname, nspacl FROM pg_namespace WHERE nspname='public';
-CREATE TABLE audit.acl_snapshot_0017_defacl AS
-  SELECT defaclobjtype, pg_get_userbyid(defaclrole) AS grantor, defaclacl
-    FROM pg_default_acl d JOIN pg_namespace n ON n.oid=d.defaclnamespace
-   WHERE n.nspname='public' AND pg_get_userbyid(defaclrole)='postgres';
-CREATE TABLE audit.acl_snapshot_0017_pol AS
-  SELECT polname, polpermissive, polroles, polcmd,
-         pg_get_expr(polqual,polrelid) AS using_expr, pg_get_expr(polwithcheck,polrelid) AS check_expr
-    FROM pg_policy WHERE polrelid='public.ip_blocklist'::regclass
-     AND polname='tenant_access_ip_blocklist';   -- ONLY the policy 0017 replaces (other policies untouched)
-
--- P5. supabase_admin AUTHORITY (drives out-of-scope decision — READ, do not assume):
-SELECT pg_has_role(current_user,'supabase_admin','MEMBER') AS is_member,
-       (SELECT rolsuper FROM pg_roles WHERE rolname=current_user) AS is_super;
---   both false → supabase_admin defaults/ACLs NOT alterable here → KEEP OUT OF SCOPE. Else: separate authorized step.
-
+-- SOLO SELECT: eseguibile con una capability/ruolo READ-ONLY (nessun DDL, nessuna
+-- scrittura). È l'estratto delle POST-APPLY ASSERTIONS del pack completo
+-- (0017-least-privilege-verification.sql, che contiene anche preflight e snapshot
+-- MUTANTI ed è riservato al momento dell'apply). Ogni query indica il risultato
+-- atteso; qualunque riga restituita da una query "expect 0 rows" è un FINDING.
+-- ============================================================================
 -- ============================ POST-APPLY ASSERTIONS (read-only) ============================
 -- A0. schema CREATE hardening: anon/authenticated (hence PUBLIC) cannot CREATE in public. Failures:
 SELECT r AS role_with_create FROM (VALUES ('anon'),('authenticated')) x(r)

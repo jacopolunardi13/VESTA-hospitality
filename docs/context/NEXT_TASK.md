@@ -12,7 +12,7 @@
 - ✅ **Integrazione locale di riconciliazione PRONTA**: questo branch = `main` + `security/p0-2` (`0015`) + `chore/autonomous-engineering` (`0016` + sprint v0), conflitti risolti, check verdi.
 
 ## Task
-**Eseguire il merge di riconciliazione in `main` e il deploy** — passi 🔴 RED che solo Jacopo può approvare. `0015`, `0016` **e `0017`** sono già rappresentate sul candidato-`main` (`security/0017-least-privilege`) e **già applicate e verificate in prod**: al merge non serve alcun nuovo apply, repo e DB tornano allineati. Post-merge (GREEN, separato): run del verification pack 0017 via capability read-only come conferma indipendente.
+**Eseguire il merge di riconciliazione in `main` e il deploy** — passi 🔴 RED che solo Jacopo può approvare. `0015`, `0016` **e `0017`** sono già rappresentate sul candidato-`main` (`security/0017-least-privilege`) e **già applicate e verificate in prod**: al merge non serve alcun nuovo apply, repo e DB tornano allineati. Post-merge (GREEN, separato): run di `app/scripts/0017-readonly-verification.sql` (solo SELECT) via capability read-only come conferma indipendente.
 
 ## Obiettivo
 `main` = questo branch di integrazione (fast-forward), push su `origin/main` (= deploy prod automatico Vercel), smoke post-deploy verde.

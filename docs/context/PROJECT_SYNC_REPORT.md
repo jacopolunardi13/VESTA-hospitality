@@ -1,7 +1,7 @@
 # PROJECT SYNC REPORT — Vesta Hospitality
 
 > **Report vivo e compilato.** Copia/incolla questo file in una nuova chat (ChatGPT o Claude) per riallineare l'assistente in pochi minuti. Generato dai file di stato in `docs/context/`.
-> **Aggiornato:** 2026-07-12 (sera) · branch `integration/reconcile-20260712` (candidato `main`).
+> **Aggiornato:** 2026-08-28 · branch `security/0017-least-privilege` (candidato `main` — baseline codice `ff42731` + riconciliazione docs; supera `integration/reconcile-20260712`).
 
 ## 1. Identità progetto
 **Vesta Hospitality** — SaaS multi-tenant: "dipendente virtuale" per piccole strutture ricettive (front + back office). Repo GitHub `jacopolunardi13/VESTA-hospitality`. Pilota: **LunArt B&B** (Firenze), Giorno Zero 30/06/2026. **Confine strategico VINCOLANTE:** Vesta = **AI Operations Layer hospitality**, non chatbot/wrapper generico (gate 8 punti — PRODUCT.md §18). **La fonte di verità è il repo, non le chat.**
@@ -9,9 +9,9 @@
 ## 2. Stack minimo
 TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres + Auth OAuth + Storage + RLS, pg_cron) · **Anthropic Claude** (Haiku + Sonnet) · pdfkit · Gmail API · hosting **Vercel** (prod = `main`).
 
-## 3. Stato attuale — riconciliazione: integrazione locale PRONTA, merge in `main` = 🔴 RED
-- **Branch:** `integration/reconcile-20260712` (locale) = `main` (@ `d239698`) + `security/p0-2-rpc-hardening` (**`0015`**) + `chore/autonomous-engineering` (17 commit: governance F1-F3, **`0016`**, **sprint Operating Agent v0** — Coda operativa `/tasks`, fix coerenza inbox, fail-fast visibile, polish Document Center, runbook staff — Codex-approved). Storici: `document-center`, `fase-b`.
-- **`0015` e `0016` sono rappresentate su questo candidato-`main`**: al merge, repo e DB prod tornano allineati (entrambe già applicate+verificate in prod, **nessun apply necessario**). Restano 🔴 RED: merge in `main` + push (`origin/main` = deploy prod automatico).
+## 3. Stato attuale — candidato `security/0017-least-privilege` PRONTO, merge in `main` = 🔴 RED
+- **Branch:** `security/0017-least-privilege` (locale) = `integration/reconcile-20260712` (= `main` @ `d239698` + `security/p0-2-rpc-hardening` **`0015`** + `chore/autonomous-engineering`: governance F1-F3, **`0016`**, **sprint Operating Agent v0** — Coda operativa `/tasks`, fix coerenza inbox, fail-fast visibile, polish Document Center, runbook staff — Codex-approved) **+ migrazione `0017` (least-privilege) + verification pack + riconciliazione docs**. Superset lineare provato di `origin/main` (0 dietro). Storici: `document-center`, `fase-b`.
+- **`0015`, `0016` e `0017` sono rappresentate su questo candidato-`main` e TUTTE già applicate+verificate in prod** (`0017` il 28/08/2026 via WorkspaceOS Phone RED, transazione atomica, receipt ok, artefatto byte-identico al repo — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017"): al merge non serve alcun nuovo apply, repo e DB tornano allineati. Restano 🔴 RED: merge in `main` + push (`origin/main` = deploy prod automatico). Post-merge (GREEN): verifica esterna con `app/scripts/0017-readonly-verification.sql` (solo SELECT) via accesso read-only.
 - **In prod / DB:** Front Office (Tier-1/Tier-2), **Operational Queue** (`0014` applicata+verificata), Document Center MVP; **P0-2 live** (`anon` negato ✅, RLS attivo); **canale email prod ripristinato** (Google Cloud progetto ufficiale **542106** / casella `lunartfirenze`).
 - **Multi-agente / WorkspaceOS:** PROJECT_REGISTRY creato, **Vesta registrata**; **Codex = review-only**; **Claude Code = unico writer**; **Jacopo** approva solo 🔴 RED.
 - **Flag:** autosend **OFF** (R0.1) · `vesta-email-poll` attivo · `vesta-followups` **attivo/`succeeded`** (KI-11 risolto, `0016`) · signup Supabase **chiuso**.

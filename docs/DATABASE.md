@@ -34,14 +34,18 @@ scheduler, Storage) → [INFRASTRUCTURE.md](INFRASTRUCTURE.md). Regole di proces
 | `0003_booking_rpc` | RPC `transition_booking_request` (macchina a stati) | ✅ applicata (RPC esposta) |
 | `0004_ai_pipeline` | `guardrail_events`, `ip_blocklist`, RPC `search_knowledge` | ✅ applicata (tabelle + RPC esposte) |
 | `0005_notifications` | `notifications` | ✅ applicata (tabella esposta) |
-| `0006_followups` | Funzioni `materialize_followup_jobs`/`process_due_followups` + **cron `vesta-followups`** (`*/5`) | ◐ dedotta (funzioni presenti; job cron non verificato direttamente) |
+| `0006_followups` | Funzioni `materialize_followup_jobs`/`process_due_followups` + **cron `vesta-followups`** (`*/5`) | ❌ **NON applicata al DB reale**: `process_due_followups()` **assente** (verificato via Reality Gate + `to_regprocedure`); il cron `vesta-followups` esiste ed è `succeeded` grazie alla **`0016`** (guard existence-check). Decisione se applicarla = **KI-12** (P2) |
 | `0007_ical_cron` | **cron `vesta-ical-sync`** (`*/15`) → `/api/cron/ical-sync` | ◐ dedotta (estensione/migrazione presenti; job non verificato direttamente) |
 | `0008_transition_interested_to_proposal` | Ridefinizione RPC `transition_booking_request` | ✅ applicata (RPC esposta) |
-| `0009_email_poll_cron` | **cron `vesta-email-poll`** (`*/2`) → `/api/email/poll` | ✅ applicata (cadenza ~120s misurata) · ⚠️ **attualmente SOSPESO** (`active=false`, 27/06/2026) |
+| `0009_email_poll_cron` | **cron `vesta-email-poll`** (`*/2`) → `/api/email/poll` | ✅ applicata · **RIATTIVATO** (canale email prod ripristinato — progetto Google ufficiale; run verificati; la sospensione del 27/06 è storica) |
 | `0010_parsed_requests` | `booking_requests.parsed_requests` (multi-richiesta) | ◐ dedotta (colonna usata dal codice) |
 | `0011_email_router` | `email_routing_log`, `ota_inbox`, `reservations_staging` | ✅ applicata e verificata 27/06/2026 (`to_regclass` + PostgREST) |
 | `0012_pending_actions` | `pending_actions` (coda Tier 2) | ✅ applicata e verificata 27/06/2026 |
 | `0013_document_center` | `document_center`, `accountant_exports` | ✅ applicata e verificata 27/06/2026 |
+| `0014_operational_tasks` | `operational_tasks` + RPC `process_payment_expiry`/`process_operational_deadlines` (coda operativa) | ✅ applicata e verificata 30/06/2026 (KI-3 chiuso) |
+| `0015_p0_2_rpc_hardening` | Hardening RPC `SECURITY DEFINER` (REVOKE `anon`/`authenticated`, guard `auth.uid()`, default privileges) | ✅ applicata e verificata 02/07/2026 (**P0-2 chiuso** — evidence in [SECURITY](SECURITY.md)) |
+| `0016_fix_vesta_followups_cron` | Cron `vesta-followups` resiliente (guard `to_regprocedure` + sotto-blocco `EXCEPTION`; `process_operational_deadlines()` sempre eseguito) | ✅ applicata e verificata 12/07/2026 (**KI-11 chiuso** — run `succeeded`) |
+| `0017_security_least_privilege` | Baseline least-privilege: REVOKE `CREATE` su `public`, EXECUTE allowlist (7 fn app, incl. `user_in_org`), REVOKE `TRUNCATE`/`TRIGGER`/`REFERENCES`, sequences minimizzate, default ACL default-deny (grantor `postgres`), fix policy `ip_blocklist`, `NOTIFY pgrst` | ✅ **applicata in produzione 28/08/2026** (WorkspaceOS Phone RED, transazione atomica, receipt ok, artefatto byte-identico — evidence in [SECURITY](SECURITY.md); verifica esterna read-only pendente: `app/scripts/0017-readonly-verification.sql`) |
 
 > ✅ **29 tabelle** esposte via PostgREST al 27/06/2026 (verificato via OpenAPI). Storia dell'incidente
 > "migrazioni 0011–0013 mai applicate" e relativo fix → [CHANGELOG.md](CHANGELOG.md), [DECISIONS.md](DECISIONS.md).
