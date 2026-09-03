@@ -1,7 +1,7 @@
 # NEXT TASK — prossimo passo eseguibile
 
 > Espansione operativa di **ROADMAP[0]** ([ROADMAP](../ROADMAP.md) resta la SSOT dell'elenco ordinato).
-> **Aggiornato:** 2026-08-28 · branch `security/0017-least-privilege` @ `ff42731` (candidato `main` — supera `integration/reconcile-20260712`).
+> **Aggiornato:** 2026-08-28 · branch `security/0017-least-privilege` (candidato `main` — supera `integration/reconcile-20260712`). Baseline codice testata = `ff42731`; HEAD corrente = quello più i commit di riconciliazione docs (`git log -1`).
 
 ## Contesto (chiuso di recente)
 - ✅ **Migrazione `0017` (least-privilege) APPLICATA IN PRODUZIONE** (28/08, WorkspaceOS Phone RED, transazione atomica, receipt ok; artefatto byte-identico al repo) — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017". Il candidato-`main` è ora `security/0017-least-privilege` (= riconciliazione 12/07 + 0017).
