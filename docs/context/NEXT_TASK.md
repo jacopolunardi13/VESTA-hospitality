@@ -12,16 +12,16 @@
 - ✅ **Riconciliazione ESEGUITA (04/09)**: merge ff + push + deploy prod completati (0015+0016+sprint v0+0017 tutti su `origin/main` = `048dd4a`); smoke verde.
 
 ## Task
-**Router Training Sprint #1 — chiusura del ciclo (KI-1).** Il codice è pronto su `main` locale (hardening L0 con soli domini espliciti + corpus 47 email con invariante hard zero over-blocking, `npm run test:router` tutto verde, Codex-reviewed). Passi rimanenti:
-1. 🔴 **RED (Jacopo): push di `main` su `origin/main`** (= deploy prod Vercel del router indurito).
-2. 🔴 **RED (Jacopo): Phone RED read-only** per estrarre il corpus reale da `email_routing_log` → validazione del router sui dati del pilota (stessa capability della verifica esterna 0017 — un'unica approvazione copre entrambe).
-3. GREEN (post-validazione): tuning dai dati reali; poi **decisione autosend** (resta di Jacopo, KI-1 si chiude solo lì).
+**SHIP del Router Training Sprint #1 (KI-1) — sviluppo CHIUSO il 04/09.** Fatto: hardening L0 (soli domini espliciti), corpus 47 email con invariante zero over-blocking, `npm run test:router` verde, **Codex ACCEPT (5 round)**; ✅ Phone RED read-only eseguita: **0017 verificata in prod (10/10 assertions)** + corpus reale estratto; ✅ **shadow analysis su 687 record reali**: 660 replayable, **solo 4 cambi (tutti spiegati: 2× Tonico = i FP documentati di KI-1, 2× amazon innocui), 0 unblocks, 39/41 guest invariati** — zero difetti emersi. Credenziali read+write a ciclo chiuso. Residui → backlog in [KNOWN_ISSUES](KNOWN_ISSUES.md).
+Passo rimanente:
+1. 🔴 **RED (Jacopo): push di `main` locale su `origin/main`** (= deploy prod Vercel del router indurito). Smoke post-deploy: `npm run test:router` già verde in build; verifica route come da runbook.
+2. Poi **decisione autosend** (tua; KI-1 si chiude lì — la shadow analysis è READY FOR HUMAN LABEL REVIEW, set minimo: conferma dei 2 record Tonico 28/06).
 
-## Obiettivo
-Routing affidabile provato sul corpus reale del pilota → gate autosend superabile in sicurezza.
+## Prossimo workflow hospitality (dopo lo ship)
+**Validazione E2E canale email** (ROADMAP #1) — sbloccata dal deploy del 04/09 (fail-fast visibile ora in prod); runbook `docs/RUNBOOKS/email-e2e-test.md`.
 
 ## Perché conta
-KI-1 è il P0 che blocca l'autosend: ogni miglioramento qui riduce il triage manuale quotidiano e avvicina il moltiplicatore operativo del pilota.
+KI-1 è il P0 che gate l'autosend: il router indurito in prod riduce subito il triage manuale e rende il gate superabile in sicurezza.
 
 ## Gate 🔴 RED (immutati)
 merge in `main` · push · deploy prod · migrazioni (apply) · env/segreti · autosend ON · contatto reale con ospiti · PMS/tariffe/camere/pagamenti.
