@@ -27,6 +27,20 @@ manuale; (8) resta utile anche se gli assistenti AI generici diventano molto pi�
 un vero processo operativo. Se una proposta non supera il gate → **non** implementarla come core: riformulala
 come workflow operativo o rifiutala. Fondamenta di prodotto: [docs/foundations/PRODUCT.md](docs/foundations/PRODUCT.md) §18; il gate è applicato a monte dall'agente `product-guardian`.
 
+**Product Execution Rule (VINCOLANTE — vale per i WORKSTREAM, non solo per le feature).**
+Ogni workstream Vesta deve chiudere un **problema operativo hospitality concreto**; tooling, security e
+infrastruttura sono **mezzi, non prodotto**. All'apertura, ogni workstream dichiara: problema hospitality ·
+outcome operativo · fonte di verità · chi agisce · confine di approvazione umana · follow-up/escalation ·
+lavoro manuale/rischio rimosso · Definition of Done (= gli 8 punti del gate qui sopra + §1, senza duplicarli).
+**STOP RULE:** se il lavoro tecnico apre sottoproblemi che non avvicinano all'outcome, chiudere il minimo
+necessario e tornare al prodotto. **CLOSURE RULE:** quando l'outcome è raggiunto e i residui sono non
+bloccanti, chiudere il workstream e spostare i residui nel backlog ([KNOWN_ISSUES](docs/context/KNOWN_ISSUES.md));
+niente estensioni per edge case non bloccanti, tooling-polish, nuove capability o review senza finding
+materiale. Sequenza preferita: **CLOSE → SHIP → VERIFY → NEXT hospitality workflow** (mai
+analyze → harden → analyze-again → expand-infrastructure). **Confine di piattaforma:** WorkspaceOS resta il
+control plane (orchestrazione, autorità, credenziali); **Vesta resta owner della logica hospitality** — la
+logica di dominio non migra mai nel control plane.
+
 ---
 
 ## 1. Definition of Done
