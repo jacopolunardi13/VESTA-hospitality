@@ -12,7 +12,7 @@
 - ⏳ Unico pendente della riconciliazione: **verifica esterna 0017** con `app/scripts/0017-readonly-verification.sql` (solo SELECT) via capability read-only — richiede una nuova approvazione Phone RED (l'ultima è consumata/scaduta).
 
 ## Branch & git — storico riconciliazione 12/07 (superato da `security/0017-least-privilege`)
-- **`integration/reconcile-20260712`** (`c8b03cf`, ora contenuto nel candidato attuale): `main` + merge di `security/p0-2-rpc-hardening` (`5f0d4a1`, **`0015`**) + merge di `chore/autonomous-engineering` (`229f97c`, 17 commit: governance F1-F3, **`0016`**, sprint Operating Agent v0, fix doc Codex-approved).
+- **`integration/reconcile-20260712`** (`c8b03cf`, ora contenuto in `main` canonico `048dd4a`): `main` + merge di `security/p0-2-rpc-hardening` (`5f0d4a1`, **`0015`**) + merge di `chore/autonomous-engineering` (`229f97c`, 17 commit: governance F1-F3, **`0016`**, sprint Operating Agent v0, fix doc Codex-approved).
 - Le migrazioni `0015` e `0016` erano già rappresentate su quella linea (entrambe applicate e verificate in prod).
 - (storico 12/07) `main` era @ `d239698` = allora-`origin/main` (`19df477`) +1 commit docs — tutto ormai contenuto nel canonico `048dd4a`.
 - Branch storici: `document-center` @ `19df477`, `fase-b` @ `954fa15`.
@@ -42,7 +42,7 @@
 ## Check residui per il pilot interno
 - ✅ **Anthropic in produzione** — **verificato OK** (12/07, test sintetico approvato: classify+generate `success`, artefatti ripuliti). Resta solo la chiave **locale** `.env.local` invalida (401): non è un blocker prod; reset = PO.
 - ✅ **KI-11 / `vesta-followups`** — **RISOLTO** (migrazione `0016` applicata 2026-07-12). Il cron non aborta più su `process_due_followups()` mancante; run post-apply delle **19:35Z = `succeeded`** (prima: `failed` ogni 5 min con `42883`). Detector scadenza-24h ora eseguito regolarmente via cron.
-- 🟠 **Riconciliazione branch** — integrazione completata e superata dal candidato attuale `security/0017-least-privilege`; mancano SOLO i passi 🔴 RED: merge in `main` + push (= deploy).
+- ✅ **Riconciliazione branch** — COMPLETATA il 04/09 (merge ff + push + deploy prod, smoke verde); `main` canonico remoto = `048dd4a`.
 - **Sano (verificato):** E2E core router **29/29** ✅, payment-expiry/Operational Queue **18/18** ✅, RLS/P0-2 ✅, email prod ✅, cron `vesta-followups` `succeeded` ✅ (KI-11), autosend OFF ✅.
 
 ## Working tree

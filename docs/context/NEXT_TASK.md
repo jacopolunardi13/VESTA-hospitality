@@ -4,12 +4,12 @@
 > **Aggiornato:** 2026-09-04 · branch `main` (canonico = `048dd4a`). **Il merge di riconciliazione + push + deploy sono COMPLETATI** (04/09, RED autorizzata; smoke verde).
 
 ## Contesto (chiuso di recente)
-- ✅ **Migrazione `0017` (least-privilege) APPLICATA IN PRODUZIONE** (28/08, WorkspaceOS Phone RED, transazione atomica, receipt ok; artefatto byte-identico al repo) — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017". Il candidato-`main` è ora `security/0017-least-privilege` (= riconciliazione 12/07 + 0017).
+- ✅ **Migrazione `0017` (least-privilege) APPLICATA IN PRODUZIONE** (28/08, WorkspaceOS Phone RED, transazione atomica, receipt ok; artefatto byte-identico al repo) — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017". (La linea è POI confluita in `main` con la riconciliazione del 04/09.)
 - ✅ **Baseline verde su `ff42731`** (28/08): `npm ci` · `next lint` · `next build` tutti ✅.
 - ✅ **Sprint "LunArt Operating Agent v0"** completato e **Codex-approved** (Coda operativa `/tasks`, coerenza inbox, fail-fast visibile, polish Document Center, runbook staff).
 - ✅ **KI-11 risolto** (migrazione `0016` applicata, cron `vesta-followups` → run `succeeded`).
 - ✅ **Anthropic in produzione OK** (verifica sintetica 12/07; resta invalida solo la chiave locale `.env.local`).
-- ✅ **Integrazione locale di riconciliazione PRONTA**: questo branch = `main` + `security/p0-2` (`0015`) + `chore/autonomous-engineering` (`0016` + sprint v0), conflitti risolti, check verdi.
+- ✅ **Riconciliazione ESEGUITA (04/09)**: merge ff + push + deploy prod completati (0015+0016+sprint v0+0017 tutti su `origin/main` = `048dd4a`); smoke verde.
 
 ## Task
 **Router Training Sprint #1 — chiusura del ciclo (KI-1).** Il codice è pronto su `main` locale (hardening L0 con soli domini espliciti + corpus 47 email con invariante hard zero over-blocking, `npm run test:router` tutto verde, Codex-reviewed). Passi rimanenti:
