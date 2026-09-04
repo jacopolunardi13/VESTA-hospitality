@@ -22,8 +22,13 @@ import type { InboundEmail } from "@/lib/email/gmail";
 
 const evidencePath = process.argv[2];
 if (!evidencePath) { console.error("uso: router-shadow-replay.mts <evidence.json>"); process.exit(1); }
+interface CorpusRow {
+  sender_domain: string; noreply_flag: boolean; subj_ota: boolean; subj_newsletter: boolean;
+  subj_len: number; category: string; source: string; method: string; confidence: string;
+  suppressed: boolean; decided_on: string;
+}
 const ev = JSON.parse(readFileSync(evidencePath, "utf8"));
-const rows: any[] = ev.results.corpus_rows.rows;
+const rows: CorpusRow[] = ev.results.corpus_rows.rows;
 const propRules = ev.results.property_routing_rules.rows as { ota_domains: string; supplier_domains: string }[];
 
 // Regole per-property dall'evidence (nel pilota: tutte vuote → rules baseline esatte).
