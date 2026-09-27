@@ -1,12 +1,12 @@
 # KNOWN ISSUES — problemi noti, rischi, workaround
 
 > Solo **titolo + priorità + workaround + link alla SSOT**. Il dettaglio completo vive nei documenti ufficiali (SECURITY / ROADMAP / CHANGELOG), non qui.
-> **Aggiornato:** 2026-07-12 · Priorità: **P0** bloccante (esposizione pubblica **o** attivazione autosend) · **P1** importante · **P2** minore.
+> **Aggiornato:** 2026-09-27 · Priorità: **P0** bloccante (esposizione pubblica **o** attivazione autosend) · **P1** importante · **P2** minore.
 > Il **Security Sprint P0** copre i 5 P0 di *esposizione pubblica* (KI-2, KI-7…KI-10 → SECURITY P0-1…P0-5). **KI-1** è un P0 distinto che gate l'**autosend** (non parte dello sprint pubblico). Fonte completa: [SECURITY](../SECURITY.md) (Go-Live Security Assessment) · gate: [DECISIONS](../DECISIONS.md) ADR-0019.
 
 | ID | Problema | Pri | Workaround | SSOT |
 |---|---|---|---|---|
-| KI-1 | **Router L0 — falsi positivi `guest`**: Sprint #1 IMPLEMENTATO (04/09: blocklist di SOLI domini espliciti revisionati per classe — corrieri/banche/utility/enti + brand allowlist; NIENTE euristiche localpart né PEC generiche, che bloccherebbero ospiti reali; corpus 47 email etichettate + 2 assert con invariante hard zero over-blocking, `npm run test:router`). RESTA APERTO finché: validazione sul corpus reale (`email_routing_log`) + decisione autosend di Jacopo. | P0 | autosend **OFF** | [ROADMAP](../ROADMAP.md) · [CHANGELOG](../CHANGELOG.md) |
+| KI-1 | **Router L0 — falsi positivi `guest`**: Sprint #1 IMPLEMENTATO (04/09: blocklist di SOLI domini espliciti revisionati per classe — corrieri/banche/utility/enti + brand allowlist; NIENTE euristiche localpart né PEC generiche, che bloccherebbero ospiti reali; corpus 47 email etichettate + 2 assert con invariante hard zero over-blocking, `npm run test:router`). ✅ validato su corpus reale (04/09: shadow analysis su 687 record, 0 difetti) e ✅ IN PRODUZIONE dal 27/09 con **E2E verde** (guest fail-safe → bozza `autosend_off`, zero invii). RESTA APERTO solo per: **decisione autosend di Jacopo** (set minimo: conferma 2× Tonico 28/06). | P0 | autosend **OFF** | [ROADMAP](../ROADMAP.md) · [CHANGELOG](../CHANGELOG.md) |
 | KI-2 | **Segreti esposti** (service_role, Anthropic, Gmail client secret + refresh token, Vercel bypass; `CRON_SECRET` placeholder): da **ruotare** prima del go-live pubblico. | P0 | pilota interno, accesso limitato | [SECURITY](../SECURITY.md) P0-1 · [RUNBOOKS/rotate-secrets](../RUNBOOKS/rotate-secrets.md) |
 | KI-8 | **Chat pubblica abusabile**: `X-Forwarded-For` spoofabile → bypass rate-limit/IP-block; nessun cap globale conversazioni → DoS/cost-abuse. | P0 | budget AI €5/g limita la spesa; chat non esposta a volume | [SECURITY](../SECURITY.md) P0-3 |
 | KI-9 | **Nessun security header** (CSP/X-Frame-Options/HSTS) né middleware → clickjacking sul widget pubblico. | P0 | widget non ancora pubblicizzato | [SECURITY](../SECURITY.md) P0-4 |
