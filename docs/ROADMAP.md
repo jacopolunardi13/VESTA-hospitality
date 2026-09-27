@@ -18,8 +18,10 @@ documenti. Questa roadmap è volutamente **breve e attuale**.
 1. ✅ **Validazione E2E del canale email** sul pilota — **COMPLETATA il 27/09/2026** (router indurito
    in produzione; percorso reale provato: poll cron → `guest` fail-safe → bozza `autosend_off` →
    lead `received`; zero invii automatici). → [RUNBOOKS/email-e2e-test.md](RUNBOOKS/email-e2e-test.md)
-2. ◐ **Document Center MVP (Booking)**: merge in `main` + deploy dopo l'E2E, poi **test reale con una
-   fattura Booking**.
+2. ✅ **Document Center MVP (Booking)** — **E2E reale VERIFICATO il 27/09/2026** su dati di produzione:
+   3 fatture Booking reali (04/07, 03/08, 03/09 — cadenza mensile) ingerite automaticamente → PDF su
+   Storage + record `ready_for_accountant` con provenance `ota_inbox`; copertura 3/3 (nessuna fattura
+   mancata), dedup pulito. Resta l'**atto operativo staff**: primo invio al commercialista da `/documents`.
 3. ◐ **WhatsApp Business**: attivazione del canale (oggi inerte) quando disponibile il numero/credenziali.
 
 ### Blocco noto prima del go-live autosend
