@@ -15,15 +15,17 @@ documenti. Questa roadmap è volutamente **breve e attuale**.
   funzionalità sul booking. Focus su rendere Vesta realmente utilizzabile su LunArt.
 
 ### Priorità attuali (in ordine)
-1. ◐ **Validazione E2E del canale email** sul pilota (in pausa: in corso il consolidamento
-   documentazione + il fix fail-fast da deployare su Preview). → [RUNBOOKS/email-e2e-test.md](RUNBOOKS/email-e2e-test.md)
+1. ✅ **Validazione E2E del canale email** sul pilota — **COMPLETATA il 27/09/2026** (router indurito
+   in produzione; percorso reale provato: poll cron → `guest` fail-safe → bozza `autosend_off` →
+   lead `received`; zero invii automatici). → [RUNBOOKS/email-e2e-test.md](RUNBOOKS/email-e2e-test.md)
 2. ◐ **Document Center MVP (Booking)**: merge in `main` + deploy dopo l'E2E, poi **test reale con una
    fattura Booking**.
 3. ◐ **WhatsApp Business**: attivazione del canale (oggi inerte) quando disponibile il numero/credenziali.
 
 ### Blocco noto prima del go-live autosend
-- ✅ **Router L0 — falsi positivi `guest`** (Tonico/Amazon/Poste): da rafforzare prima di abilitare
-  l'autosend per ospiti reali ("Router Training Sprint #1"). Vedi [CHANGELOG.md](CHANGELOG.md).
+- ✅ **Router L0 — falsi positivi `guest`** (Tonico/Amazon/Poste): **RAFFORZATO e IN PRODUZIONE dal
+  27/09/2026** (Sprint #1: soli domini espliciti revisionati + corpus con invariante zero
+  over-blocking). Resta la **decisione autosend** (Jacopo). Vedi [CHANGELOG.md](CHANGELOG.md).
 
 ### Stato moduli (sintesi)
 - ✅ Front Office (concierge + booking): in produzione. Email in pilota (autosend OFF).

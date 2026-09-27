@@ -1,7 +1,7 @@
 # PROJECT SYNC REPORT — Vesta Hospitality
 
 > **Report vivo e compilato.** Copia/incolla questo file in una nuova chat (ChatGPT o Claude) per riallineare l'assistente in pochi minuti. Generato dai file di stato in `docs/context/`.
-> **Aggiornato:** 2026-09-27 · **canonico remoto/prod = `048dd4a`** (riconciliazione 04/09 + **SHIP Router Sprint #1 il 27/09**: push ff + deploy Vercel + smoke verdi; `0015`/`0016`/`0017` applicate). **Canale email validato E2E in produzione il 27/09** (router guest fail-safe, bozza `autosend_off`, zero invii). Canonico = `git ls-remote`.
+> **Aggiornato:** 2026-09-27 · canonico remoto/prod = `git ls-remote` (mai un valore letterale qui). Riconciliazione 04/09 + **SHIP Router Sprint #1 il 27/09** (push ff + deploy Vercel + smoke verdi; `0015`/`0016`/`0017` applicate). **Canale email validato E2E in produzione il 27/09** (router guest fail-safe, bozza `autosend_off`, zero invii).
 
 ## 1. Identità progetto
 **Vesta Hospitality** — SaaS multi-tenant: "dipendente virtuale" per piccole strutture ricettive (front + back office). Repo GitHub `jacopolunardi13/VESTA-hospitality`. Pilota: **LunArt B&B** (Firenze), Giorno Zero 30/06/2026. **Confine strategico VINCOLANTE:** Vesta = **AI Operations Layer hospitality**, non chatbot/wrapper generico (gate 8 punti — PRODUCT.md §18). **La fonte di verità è il repo, non le chat.**
@@ -10,7 +10,7 @@
 TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres + Auth OAuth + Storage + RLS, pg_cron) · **Anthropic Claude** (Haiku + Sonnet) · pdfkit · Gmail API · hosting **Vercel** (prod = `main`).
 
 ## 3. Stato attuale — riconciliazione COMPLETATA (04/09): `main` canonico `048dd4a`, prod allineata
-- **Branch:** `main` (canonico remoto/prod = `048dd4a`, che CONTIENE tutta la linea di riconciliazione: 0015 + governance F1-F3 + 0016 + sprint Operating Agent v0 + 0017 + docs). **Router Training Sprint #1 SHIPPATO il 27/09** (origin/main allineato al locale). Storici: `security/0017-least-privilege`, `document-center`, `fase-b`.
+- **Branch:** `main` (canonico remoto/prod = `git ls-remote`; la linea contiene: 0015 + governance F1-F3 + 0016 + sprint Operating Agent v0 + 0017 + Router Sprint #1 + docs). **Router Training Sprint #1 SHIPPATO il 27/09** (origin/main allineato al locale). Storici: `security/0017-least-privilege`, `document-center`, `fase-b`.
 - **`0015`, `0016` e `0017` sono su `main` canonico/remoto (`048dd4a`) e TUTTE già applicate+verificate in prod** (`0017` il 28/08/2026 via WorkspaceOS Phone RED, transazione atomica, receipt ok, artefatto byte-identico al repo — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017"): repo e DB SONO allineati (merge+push+deploy completati il 04/09, smoke verde). La **verifica esterna 0017 è stata eseguita il 04/09** (Phone RED read-only: **10/10 assertions ✅**, credenziali a ciclo chiuso). **Il push/deploy del Router Sprint #1 è COMPLETATO il 27/09** (smoke verde).
 - **In prod / DB:** Front Office (Tier-1/Tier-2), **Operational Queue** (`0014` applicata+verificata), Document Center MVP; **P0-2 live** (`anon` negato ✅, RLS attivo); **canale email prod ripristinato** (Google Cloud progetto ufficiale **542106** / casella `lunartfirenze`).
 - **Multi-agente / WorkspaceOS:** PROJECT_REGISTRY creato, **Vesta registrata**; **Codex = review-only**; **Claude Code = unico writer**; **Jacopo** approva solo 🔴 RED.

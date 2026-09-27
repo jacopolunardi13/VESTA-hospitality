@@ -1,7 +1,7 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-09-27 · **canonico remoto/prod = `main`** (origin/main + deploy Vercel allineati al locale — HEAD esatto: `git log -1`, verifica: `git ls-remote`). **Router Sprint #1 SHIPPATO il 27/09** (RED approvata con pin; ADR-0021 in vigore da questo milestone) e **canale email validato E2E in produzione** (stesso giorno). · ✅ verificato con git + ls-remote
+> **Aggiornato:** 2026-09-27 · canonico remoto = `git ls-remote` · HEAD locale = `git log -1` (i due possono divergere per i soli commit docs non ancora pubblicati). **Il Router Training Sprint #1 è IN PRODUZIONE dal 27/09** (SHIP via RED con pin; deploy Vercel; smoke verde; ADR-0021 in vigore) e **il canale email è validato E2E in produzione** (stesso giorno).
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato, 04/09) — RICONCILIAZIONE COMPLETATA: `main` canonico = `048dd4a`, deploy prod LIVE
