@@ -20,6 +20,7 @@
 > B3 · `ledger_versions` prende HTTP 400 sull'endpoint read-only Supabase (cambio provider post-27/08; query di solo contesto — il ledger vive nel repo/DATABASE.md). ·
 > B4 · igiene provider: eliminare le OAuth App READ e WRITE dal dashboard Supabase (i grant sono già revocati e azzerati). ·
 > B5 · replay multi-property: le regole per-property sono esportate senza linkage riga↔property (irrilevante col pilota mono-property; da rifare se multi-property). ·
+> B7 · (recuperato dall'archivio il 28/09) **UX-03 reset password**: `updateUser({password})` non revoca la sessione corrente → il banner "Password aggiornata" su `/login` non si vede mai (scelta UX, nessuna implicazione di sicurezza — PKCE single-use); viveva solo in [archive/security-backlog](../archive/security-backlog.md). ·
 > B6 · **standing production read-only path per verifiche autonome** (decisione architettura/security dedicata, da valutare DOPO i milestone di prodotto): oggi ogni verifica read-only in produzione richiede un consent OAuth per-ciclo; il runbook [supabase-readonly-mcp](../RUNBOOKS/supabase-readonly-mcp.md) (`vesta_ro`, tre barriere) è il candidato — attivazione 🔴 RED del PO, esplicitamente rimandata da Jacopo il 27/09. ·
 > Harness di replay: `app/scripts/router-shadow-replay.mts` (offline, riusabile su future evidence).
 

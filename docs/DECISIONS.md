@@ -40,6 +40,12 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 | ADR-0016 | Architettura "Operating System" a strati (acquisition-first) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | ADR-0017 | Recognizer = interpreti, non gatekeeper (Universal Intake) | Architecture | Approvata | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | ADR-0018 | Context Layer (stato vivo nel repo) per sync assistenti | Process | Approvata | [context/](context/) · [../PROJECT_RULES.md](../PROJECT_RULES.md) |
+| ADR-0019 | Postura di sicurezza pre-go-live (gate P0) | Security | Approvata | [SECURITY.md](SECURITY.md) |
+| ADR-0020 | Product Execution Rule (vincolante a livello workstream) | Process | Approvata | [../PROJECT_RULES.md](../PROJECT_RULES.md) |
+| ADR-0021 | Milestone-scoped RED delegation | Process | Approvata | [../PROJECT_RULES.md](../PROJECT_RULES.md) |
+| ADR-0022 | System Map canonica + domini target approvati | Product | Approvata | [SYSTEM_MAP.md](SYSTEM_MAP.md) |
+| ADR-0023 | Provider Action Contract; browser governato = execution adapter di prima classe | Architecture | Approvata | [SYSTEM_MAP.md](SYSTEM_MAP.md) §2 |
+| ADR-0024 | Autonomia progressiva L0–L4 (policy-bounded) | Product | Approvata | [SYSTEM_MAP.md](SYSTEM_MAP.md) §1 |
 
 ---
 
@@ -344,6 +350,42 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 - **Trade-off:** più responsabilità sull'accuratezza dell'envelope al momento dell'APPROVE; mitigato dalla fail-closed rule e dall'obbligo di POST-MILESTONE REPORT.
 - **Documenti:** [../PROJECT_RULES.md](../PROJECT_RULES.md) ("Milestone-scoped RED delegation") · [SECURITY.md](SECURITY.md) · [context/NEXT_TASK.md](context/NEXT_TASK.md).
 - **Sostituisce:** — (specializza [ADR-0011] e ADR-0019 per il processo di release: le tutele guest-facing e di sicurezza restano invariate)
+
+## ADR-0022 — System Map canonica e domini target approvati (Full Product Reconstruction)
+- **Data:** 28/09/2026 · **Stato:** Approvata · **Categoria:** Product
+- **Contesto:** il prodotto finale (domini, workflow, confini, direzioni) esisteva in parte solo nelle vecchie chat, nelle fonti esterne mai committate (`BRAND_FOUNDATIONS_SUMMARY`, `MASTER_PRODUCT_SUMMARY`, `PRODUCT_SOURCE_MAP`) e in `docs/archive/*` marcato "superato" — invisibile a chi legge i doc correnti. Un agente non può sviluppare Vesta correttamente senza una mappa canonica nel repo (la Costituzione stessa dichiara la visione di lungo periodo un'Open Question, Parte III item 9).
+- **Problema:** fissare nel repository, in modo canonico e tracciabile, che cosa deve diventare Vesta — separando implementato, approvato-non-implementato, idea storica compatibile, superato e aperto — senza inventare né promuovere idee prive di evidence.
+- **Alternative:** gonfiare PRODUCT.md (violerebbe i suoi confini); espandere WORKFLOW.md (mischierebbe policy corrente vincolante e target); lasciare la visione nelle chat (lo status quo che questo ADR corregge).
+- **Decisione:** (1) creare **`docs/SYSTEM_MAP.md`** come SSOT della **mappa operativa target** (current → target per dominio, con legenda di tracciabilità ✅◐◇○?✕ e provenienza); confine SSOT esplicito: principi → PRODUCT, comportamento corrente vincolante → WORKFLOW, ordine → ROADMAP, come tecnico → ARCHITECTURE. (2) Formalizzare come **approved target (◇)** gli input di prodotto del founder (27–28/09/2026): Guest Experience/Concierge con consigli contestuali e direzione "Vesta Experiences" dentro il guest journey; **Revenue & Market Intelligence come pilastro** (property/market/competitor/channel data) con progressione obbligatoria observe→analyze→recommend→approve→execute→verify→policy-bounded autonomy; guest journey completo fino al post-stay; Operational Queue correlata; **Operational Memory come pilastro** (FACTS PERSIST, ACTIONS FOLLOW POLICY); Document/Admin target completo; Financial Intelligence come controllo operativo (non contabilità); housekeeping/maintenance/suppliers nel target OS (supera il ranking "fuori scope" del product-brief archiviato); Management Intelligence che spiega "cosa merita attenzione e perché"; multi-property senza hardcoding LunArt nel core. (3) Il recupero storico è classificato nel ledger della mappa (A–E) mantenendo il livello di certezza originale.
+- **Motivazioni:** input espliciti e approvati del founder in questo milestone; ADR-0018 (lo stato vive nel repo); autonomia futura degli agenti.
+- **Conseguenze positive:** un agente può sviluppare Vesta dal repo; current vs target separati; le idee storiche non si perdono né si promuovono indebitamente.
+- **Trade-off:** un documento in più da mantenere (mitigato dal confine SSOT netto e dalla legenda di status).
+- **Documenti:** [SYSTEM_MAP.md](SYSTEM_MAP.md) · [foundations/PRODUCT.md](foundations/PRODUCT.md) · [ROADMAP.md](ROADMAP.md).
+- **Sostituisce:** — (dettaglia PRODUCT §3 e scioglie parzialmente Parte III item 9: la mappa dei domini è ora canonica; restano aperti naming, ruolo nel settore a 5–10 anni, pricing, brand story)
+
+## ADR-0023 — Provider Action Contract: browser governato come execution adapter di prima classe
+- **Data:** 28/09/2026 · **Stato:** Approvata · **Categoria:** Architecture
+- **Contesto:** le operazioni provider (Booking, QuoVai, Expedia, futuri PMS/CM) sono il collo di bottiglia del target: le API possono non esistere, essere riservate a partner, costose, incomplete o non ancora integrate. Il founder ha già creato/previsto **account dedicati limitati** (Booking, QuoVai) proprio per operare con minimum privilege anche senza API.
+- **Problema:** progettare i workflow provider senza l'assunzione "provider operation = API integration required", mantenendo governance, audit e i confini di piattaforma.
+- **Alternative:** attendere sempre le API ufficiali (blocca il prodotto); scraping non sanzionato (fragile, contro ToS — già rifiutato dall'architettura storica); duplicare un browser generico dentro Vesta (viola il confine di piattaforma).
+- **Decisione:** ogni decisione hospitality si esprime come **Provider Action Contract** indipendente dal mezzo, eseguito da uno di tre adapter in ordine canonico: **(1) API/connector ufficiale** quando disponibile, affidabile ed economicamente giustificato; **(2) browser/UI automation GOVERNATA e AUTENTICATA** con account Vesta dedicato minimum-privilege — **execution adapter di prima classe, non un hack temporaneo**; **(3) human manual adapter**. Confine di riuso: il runtime browser generico (sessioni, credential isolation, form, evidence, recovery) è capability di piattaforma (WorkspaceOS / infrastruttura riusabile — il suo stato vivo NON è asserito nel repo Vesta: seam dichiarato, source of truth = WorkspaceOS); Vesta resta owner di intent, workflow, decisione, policy, risk class, expected result, verifica post-azione e semantica di audit hospitality; selettori/procedure provider-specific possono vivere lato Vesta/adapter. Governance target (contract, non implementazione): action preview → approval gate → bounded authorization → evidence before/after → final-state verification → fail-closed; credenziali mai in repo/chat.
+- **Motivazioni:** input founder approvato (27–28/09); il workflow non si ridisegna quando un provider passa da browser ad API.
+- **Conseguenze positive:** i domini C/D/E diventano progettabili oggi; il confine WorkspaceOS/Vesta resta netto; audit uniforme sui tre adapter.
+- **Trade-off:** la capability browser va costruita/riusata con disciplina (governance sopra) prima di qualsiasi write.
+- **Documenti:** [SYSTEM_MAP.md](SYSTEM_MAP.md) §2 · [archive/pricing-availability-architecture.md](archive/pricing-availability-architecture.md).
+- **Sostituisce:** con distinguo, la preferenza storica "osservazione OTA manuale (no scraping automatico)" di [archive/pricing-availability-architecture.md] §3.1: quella cautela resta valida per lo scraping NON sanzionato; il browser governato con account propri dedicati è un caso diverso. **NON modifica ADR-0011/ADR-0019**: oggi nessun provider write, nessun login automatizzato, nessuna mutazione — questo ADR autorizza documentazione e design, non esecuzione.
+
+## ADR-0024 — Autonomia progressiva L0–L4 (policy-bounded)
+- **Data:** 28/09/2026 · **Stato:** Approvata · **Categoria:** Product
+- **Contesto:** il target OS richiede che Vesta arrivi a eseguire classi di azione delegate; oggi il confine è ADR-0011 (HITL, nessuna azione autonoma sullo stato operativo senza PMS affidabile). Serviva il modello canonico della progressione, per non farla emergere implicitamente feature per feature.
+- **Problema:** definire COME cresce l'autonomia senza mai creare "autonomia totale" generica.
+- **Alternative:** autonomia per-feature implicita (non auditabile); delega generica (inaccettabile).
+- **Decisione:** modello a 5 livelli — **L0 OBSERVE · L1 RECOMMEND · L2 APPROVE&EXECUTE · L3 POLICY DELEGATION (Jacopo approva un envelope/policy) · L4 AUTONOMOUS OPERATIONS (solo classi già delegate)**. La delega è specifica per workflow · property · provider · classe di azione · livello di rischio · policy bounded. Ogni azione porta source, confidence, actor, policy, risk, approval state, execution evidence, verification, audit e recovery/rollback quando applicabile. Pagamenti, azioni irreversibili, secrets e modifiche di sicurezza provider mantengono SEMPRE il loro Human Authority boundary a qualunque livello.
+- **Motivazioni:** input founder approvato; coerenza con ADR-0011 (che resta il gate corrente), ADR-0019 (invarianti di sicurezza) e ADR-0021 (delega per-milestone nel processo di sviluppo — stesso principio, piano diverso).
+- **Conseguenze positive:** ogni futura richiesta di autonomia si colloca su una scala nota, con requisiti espliciti; l'invariante revenue "l'AI non fissa mai i prezzi da sola" diventa un caso di L1/L2 finché una policy L3 non delega classi specifiche.
+- **Trade-off:** più struttura da rispettare a ogni salto di livello (voluto).
+- **Documenti:** [SYSTEM_MAP.md](SYSTEM_MAP.md) §1 · ADR-0011 · ADR-0021.
+- **Sostituisce:** — (specializza ADR-0011 verso il futuro senza modificarne il vincolo corrente)
 
 ---
 

@@ -31,6 +31,7 @@ rimandano), **Documentation as Code**, **ADR-driven changes** (vedi [DECISIONS.m
 | [AI.md](AI.md) | Modelli, pipeline knowledge-first, prompt/caching, costi, brand voice |
 | [KNOWLEDGE.md](KNOWLEDGE.md) | Property Knowledge System e retrieval |
 | [ROADMAP.md](ROADMAP.md) | Priorità operative attuali |
+| [SYSTEM_MAP.md](SYSTEM_MAP.md) | Mappa canonica del sistema target: current → target per dominio (ADR-0022) |
 | [CHANGELOG.md](CHANGELOG.md) | Cambiamenti notevoli (cronologico) |
 | [DECISIONS.md](DECISIONS.md) | Registro ADR (decisioni architetturali e di processo) |
 | [RUNBOOKS/](RUNBOOKS/) | Procedure operative passo-passo |
@@ -44,7 +45,7 @@ rimandano), **Documentation as Code**, **ADR-driven changes** (vedi [DECISIONS.m
 | [foundations/PRODUCT.md](foundations/PRODUCT.md) | **Costituzione del prodotto**: cos'è Vesta, perché esiste, principi confermati, direzioni creative, open questions |
 | [foundations/WORKFLOW.md](foundations/WORKFLOW.md) | **Workflow ufficiale** (commerciale + pagamento) fino all'integrazione PMS: dettaglio del flusso Tier-1/Tier-2 + scadenza 24h (SSOT del flusso; ancorato ad ADR-0011) |
 
-Futuri e già citati nei confini SSOT di `PRODUCT.md` (non ancora creati): `BRAND.md` (identità di marca), `ENGINEERING.md` (principi di ingegneria).
+Futuro e già citato nei confini SSOT di `PRODUCT.md` (non ancora creato): `BRAND.md` (identità di marca; il materiale storico più vicino è [archive/lunart-voice.md](archive/lunart-voice.md)). `ENGINEERING.md` e `WORKFLOW.md` esistono in [foundations/](foundations/).
 
 ## Context — stato vivo (ADR-0018)
 `docs/context/` è il **layer di stato vivo**, distinto dal layer di *conoscenza* qui sopra: snapshot

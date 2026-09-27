@@ -14,6 +14,8 @@ documenti. Questa roadmap è volutamente **breve e attuale**.
 - ✅ **Fase B (workflow commerciale)** e il flusso prenotazioni sono **congelati**: nessuna nuova
   funzionalità sul booking. Focus su rendere Vesta realmente utilizzabile su LunArt.
 
+> **Il target di lungo periodo (che cosa deve diventare Vesta) è canonizzato in [SYSTEM_MAP.md](SYSTEM_MAP.md)** (ADR-0022): questa roadmap ordina solo il lavoro CORRENTE.
+
 ### Priorità attuali (in ordine)
 1. ✅ **Validazione E2E del canale email** sul pilota — **COMPLETATA il 27/09/2026** (router indurito
    in produzione; percorso reale provato: poll cron → `guest` fail-safe → bozza `autosend_off` →

@@ -1,7 +1,7 @@
 # OPEN DECISIONS — decisioni aperte e ADR candidate
 
 > **SOLO ciò che NON è ancora deciso.** Appena una decisione è presa → diventa una **ADR in [DECISIONS.md](../DECISIONS.md)** ed è **rimossa da qui** (migrazione one-way). Le decisioni già prese **non** vivono qui.
-> **Aggiornato:** 2026-06-30.
+> **Aggiornato:** 2026-09-28.
 
 ## Decisioni aperte
 
@@ -16,9 +16,7 @@
 
 ### OD-1 — Quando attivare l'autosend email
 - **Contesto:** il cron `vesta-email-poll` è **attivo** (validato al Giorno Zero) e la milestone Operational Queue è **completata**; resta aperta solo la tempistica dell'**autosend ON** (oggi OFF per tutta la R0.1).
-- **Opzioni:** (a) attivare a breve; (b) attivare solo dopo il **Router Training Sprint #1** (hardening falsi positivi `guest`) **e** la chiusura dei P0 di sicurezza.
-- **Pro/contro:** (a) più veloce, ma rischio di auto-rispondere a non-ospiti (Tonico/Amazon/Poste); (b) più sicuro per gli ospiti reali, più lento.
-- **Raccomandazione:** **(b)** — autosend ON solo dopo l'hardening del Router L0 (vedi [KNOWN_ISSUES](KNOWN_ISSUES.md) KI-1).
+- **Stato (28/09/2026):** il prerequisito della raccomandazione (b) è SODDISFATTO — Router Training Sprint #1 completato e **in produzione dal 27/09** (E2E verde; shadow analysis su 687 record reali senza difetti). Resta SOLO la decisione di timing di Jacopo; set minimo di label review: conferma dei 2 record Tonico del 28/06 (vedi [KNOWN_ISSUES](KNOWN_ISSUES.md) KI-1).
 
 ## ADR candidate (idee emerse, non bloccanti)
 *Non implementare finché un caso d'uso reale non le giustifica (PROJECT_RULES — Product First).*

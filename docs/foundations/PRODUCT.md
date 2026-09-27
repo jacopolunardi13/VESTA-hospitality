@@ -22,8 +22,9 @@
 `PRODUCT.md` contiene i **principi costituzionali** del prodotto, non il loro dettaglio operativo. Per evitare duplicazioni (e divergenze) ogni argomento ha **un solo documento di dettaglio**; qui restano i principi, che vi rimandano:
 
 - **`BRAND.md`** (futuro) → *dettaglio* dell'identità di marca: voce e tono completi, naming definitivo, sistema visivo, narrazione. Qui restano solo i **principi di brand** (Parte I §8–§11, §17) e le **direzioni creative** (Parte II).
-- **`WORKFLOW.md`** (futuro) → *dettaglio* dei flussi operativi: workflow commerciale, Operational Queue, inbox come vista, task operative, reminder. Qui restano solo i **principi** (Tier-1/Tier-2, Human-in-the-Loop: §14, §18–§19).
-- **`ENGINEERING.md`** (futuro) → *dettaglio* dei principi e delle pratiche di ingegneria (Minimum Durable Architecture, evoluzione additiva, milestone verificabili, E2E). Qui resta solo la parte **non negoziabile a livello di prodotto** (§18).
+- **`WORKFLOW.md`** → *dettaglio* dei flussi operativi correnti vincolanti: workflow commerciale, Operational Queue, inbox come vista, task operative, reminder. Qui restano solo i **principi** (Tier-1/Tier-2, Human-in-the-Loop: §14, §18–§19).
+- **`SYSTEM_MAP.md`** (ADR-0022) → *dettaglio* della **mappa operativa target**: che cosa deve diventare Vesta, dominio per dominio, current → target, con tracciabilità. Qui resta solo la visione (§3) e i principi.
+- **`ENGINEERING.md`** → *dettaglio* dei principi e delle pratiche di ingegneria (Minimum Durable Architecture, evoluzione additiva, milestone verificabili, E2E). Qui resta solo la parte **non negoziabile a livello di prodotto** (§18).
 
 **Regola di confine** (coerente con `PRODUCT_SOURCE_MAP`): se un'informazione è un **principio di prodotto** → vive qui; se è **dettaglio** di brand, workflow o engineering → vive nel rispettivo documento e qui resta al più un rimando. **Nessun contenuto è duplicato tra i due livelli.**
 
@@ -101,7 +102,7 @@ Il tono deve essere: semplice, autorevole, elegante, concreto, umano, rassicuran
 *(Il dettaglio ingegneristico degli ultimi due punti appartiene a `ENGINEERING.md` — vedi Nota di confine.)*
 
 ### 19. Decisioni strategiche confermate
-Vesta è un Hospitality Operating System · LunArt è il pilot · Bella Vigna è il secondo contesto · Tier-1 automatico / Tier-2 staff · Human in the Loop · Operational Queue · **inbox come vista** · Task Catalog separato · `pending_actions` separato da `operational_tasks`.
+Vesta è un Hospitality Operating System · LunArt è il pilot · Bella Vigna è il secondo contesto · Tier-1 automatico / Tier-2 staff · Human in the Loop · Operational Queue · **inbox come vista** · Task Catalog separato · `pending_actions` separato da `operational_tasks` · **la mappa canonica dei domini target è `docs/SYSTEM_MAP.md`** (ADR-0022) · **Revenue & Market Intelligence e Operational Memory sono pilastri del target** (ADR-0022) · **provider operations via Provider Action Contract con account dedicati minimum-privilege e browser governato come execution adapter di prima classe** (ADR-0023) · **autonomia progressiva L0→L4 policy-bounded** (ADR-0024; il vincolo corrente resta ADR-0011).
 
 ### 20. Decisioni scartate (anti-decisioni)
 Chatbot FAQ · solo guida ospite · solo concierge · automazione totale · PMS sostitutivo senza API · IBAN nel Tier-1 · `pending_actions` come coda unica · tabella `deadlines` prematura · progettazione infinita senza validazione.
@@ -149,7 +150,7 @@ Ciò che le fonti dichiarano **non ancora deciso** o **incompleto**. Non viene d
 > ⚠️ Tensione interna alla fonte: i punti 5 e 8 compaiono anche tra le *decisioni confermate/consolidate*, pur essendo elencati qui come "contraddizioni da risolvere". Restano in questa sezione finché non saranno formalizzati in modo univoco.
 
 **Dal `PRODUCT_SOURCE_MAP` — aree dichiarate parziali o deboli (da recuperare, non da dedurre):**
-9. **Visione di prodotto** (parziale): evoluzione a 5–10 anni; ruolo di Vesta nel settore.
+9. **Visione di prodotto** (parziale): evoluzione a 5–10 anni; ruolo di Vesta nel settore. *(Parzialmente sciolta il 28/09/2026: la mappa dei domini target è ora canonica in `docs/SYSTEM_MAP.md`, ADR-0022; restano aperti l'orizzonte 5–10 anni e il ruolo nel settore.)*
 10. **Cliente ideale / go-to-market** (parziale): segmenti; ordine di espansione; esclusioni; confronto con Keplero.
 11. **Filosofia UX** (parziale): manca la componente emozionale.
 12. **Filosofia commerciale / Business Strategy** (debole): strategia di vendita; utilizzo interno; crescita graduale; pricing; partnership.

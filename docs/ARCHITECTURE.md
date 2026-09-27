@@ -235,6 +235,7 @@ priorità → [ROADMAP.md](ROADMAP.md).
 - **Recognition library**: interpreti incrementali (Amazon, Enel, Aruba, TIM, Agenzia Entrate, …),
   globale + per-struttura (Business Identity Library).
 - **Pricing adapter**, **Notification Center reale**, **OCR immagini**: quando il valore lo giustifica.
+- **Provider Action Contract + execution adapters** (API ufficiale / browser governato autenticato / human manual) e **autonomia progressiva L0–L4**: il contratto e i confini (incl. seam browser WorkspaceOS) sono canonizzati in [SYSTEM_MAP.md](SYSTEM_MAP.md) §1–§3 (ADR-0023/0024); qui atterreranno le realizzazioni tecniche quando i domini si aprono.
 
 ## Decisioni aperte (per le fasi successive)
 - Privacy: intake degli allegati delle **email ospite** (sì/no, mascheramento).
