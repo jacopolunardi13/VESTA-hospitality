@@ -4,7 +4,7 @@
 > **Aggiornato:** 2026-09-27 · branch `main` (canonico = remoto, `git ls-remote`). **SHIP Router Sprint #1 + validazione Email E2E COMPLETATI il 27/09** (RED con pin; deploy Vercel Production; smoke e verifica DB verdi; ADR-0021 in vigore).
 
 ## Contesto (chiuso di recente)
-- ✅ **Full Product Reconstruction & Canonical System Map (28/09)**: [SYSTEM_MAP.md](../SYSTEM_MAP.md) è la mappa canonica current→target (ADR-0022); provider/browser model (ADR-0023) e autonomia L0–L4 (ADR-0024) canonizzati; recovery storico classificato; OPEN_DECISIONS/README/indice ADR riallineati.
+- ✅ **Full Product Reconstruction & Canonical System Map (28/09, stessa publication di questa nota)**: [SYSTEM_MAP.md](../SYSTEM_MAP.md) è la mappa canonica current→target (ADR-0022); provider/browser model (ADR-0023) e autonomia L0–L4 (ADR-0024) canonizzati; recovery storico classificato; OPEN_DECISIONS/README/indice ADR riallineati.
 - ✅ **Document Center E2E reale VERIFICATO (27/09)**: 3 fatture Booking reali già ingerite in produzione (mensili da luglio) → Storage + `ready_for_accountant` + provenance; copertura 3/3, dedup ok; `accountant_exports` = 0 → il **primo invio al commercialista** è un atto operativo tuo in `/documents` (3 documenti pronti). Evidence: `~/.vesta-db-audit/evidence/e2e-verify-*.json`.
 - ✅ **Migrazione `0017` (least-privilege) APPLICATA IN PRODUZIONE** (28/08, WorkspaceOS Phone RED, transazione atomica, receipt ok; artefatto byte-identico al repo) — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017". (La linea è POI confluita in `main` con la riconciliazione del 04/09.)
 - ✅ **Baseline verde su `ff42731`** (28/08): `npm ci` · `next lint` · `next build` tutti ✅.

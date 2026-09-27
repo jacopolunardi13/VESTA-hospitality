@@ -105,7 +105,7 @@ Il tono deve essere: semplice, autorevole, elegante, concreto, umano, rassicuran
 Vesta è un Hospitality Operating System · LunArt è il pilot · Bella Vigna è il secondo contesto · Tier-1 automatico / Tier-2 staff · Human in the Loop · Operational Queue · **inbox come vista** · Task Catalog separato · `pending_actions` separato da `operational_tasks` · **la mappa canonica dei domini target è `docs/SYSTEM_MAP.md`** (ADR-0022) · **Revenue & Market Intelligence e Operational Memory sono pilastri del target** (ADR-0022) · **provider operations via Provider Action Contract con account dedicati minimum-privilege e browser governato come execution adapter di prima classe** (ADR-0023) · **autonomia progressiva L0→L4 policy-bounded** (ADR-0024; il vincolo corrente resta ADR-0011).
 
 ### 20. Decisioni scartate (anti-decisioni)
-Chatbot FAQ · solo guida ospite · solo concierge · automazione totale · PMS sostitutivo senza API · IBAN nel Tier-1 · `pending_actions` come coda unica · tabella `deadlines` prematura · progettazione infinita senza validazione.
+Chatbot FAQ · solo guida ospite · solo concierge · automazione totale · PMS sostitutivo senza integrazione ufficiale e affidabile (API o equivalente) · IBAN nel Tier-1 · `pending_actions` come coda unica · tabella `deadlines` prematura · progettazione infinita senza validazione.
 
 ### 21. Frasi che definiscono Vesta
 - Vesta non è un chatbot: è un sistema operativo per l'hospitality.

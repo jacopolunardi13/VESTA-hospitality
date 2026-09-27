@@ -10,7 +10,8 @@
 > [ARCHITECTURE](ARCHITECTURE.md); le **scelte vincolanti** in [DECISIONS](DECISIONS.md). Questa mappa
 > non li duplica: li collega e aggiunge il livello che mancava — il **target operativo per dominio**.
 > **Istituita da:** [ADR-0022](DECISIONS.md) (28/09/2026, input founder approvati). Modificarla per i
-> target = decisione di prodotto (ADR); aggiornarne gli status correnti = manutenzione del Context Layer.
+> target = decisione di prodotto (ADR); aggiornarne gli status correnti = manutenzione dello stato
+> corrente della mappa (il Context Layer in `docs/context/` resta lo snapshot separato).
 
 **Legenda status (tracciabilità §8 del mandato):**
 ✅ LIVE/VERIFIED · ◐ BUILT/PARTIAL · ◇ APPROVED TARGET · ○ FUTURE DIRECTION · ? OPEN DECISION · ✕ SUPERSEDED
@@ -62,7 +63,12 @@ follow-through, verifica, memoria/stato, status corrente, stato target.
   execution evidence · verification · audit · recovery/rollback** quando applicabile.
 - **Il confine corrente resta ADR-0011** (nessuna azione autonoma che modifichi lo stato operativo
   senza integrazione PMS affidabile; Tier-2 sempre approvato dallo staff): L3/L4 sono il target, non
-  lo stato. Il meccanismo di delega per-milestone già vivo nel processo di sviluppo è [ADR-0021].
+  lo stato, e **restano vietati finché una nuova ADR non rivede esplicitamente ADR-0011**. Il
+  meccanismo di delega per-milestone già vivo nel processo di sviluppo è [ADR-0021].
+- **L'AI non ha mai tool con effetti** ([ADR-0019], invariante che sopravvive a OGNI livello): il
+  modello analizza e raccomanda; a invocare gli adapter è sempre un **layer deterministico di
+  policy/esecuzione autorizzato indipendentemente**. L3/L4 delegano CLASSI DI AZIONE a quel layer,
+  mai strumenti effettful al modello.
 - Stato corrente del prodotto sui livelli: L0 ✅ (router, code, documenti, iCal) · L1 ◐ (bozze
   `autosend_off`, proposte Tier-2) · L2 ✅ per il flusso commerciale (click staff → invio) · L3/L4 ◇.
 
@@ -197,8 +203,9 @@ Rischio · Approvazione umana · Follow-through · Verifica · Memoria/stato · 
 - **Intake:** richiesta da chat/email/WhatsApp → intent → slot (date/ospiti).
 - **Decisione:** quote engine deterministico (sconto diretto, last-minute, floor euro, tassa di
   soggiorno esclusa, reliability dal freshness), combinazioni per gruppi.
-- **Azione:** preventivo (PDF brandizzato) → scelta camera → `interested` → verifica staff in PMS →
-  IBAN + blocco 24h → pagamento → conferma (PDF).
+- **Azione:** il flusso corrente vincolante (proposta → approvazioni staff → conferma) è canonizzato
+  in [WORKFLOW](foundations/WORKFLOW.md) — qui NON si duplica; status: ✅ implementato end-to-end con
+  PDF preventivo/conferma.
 - **Rischio:** overbooking (hold interno non propagato al PMS — KI-5), pagamento non verificato,
   dirottamento destinatario (KI-10, P0-5).
 - **Approvazione umana:** disponibilità reale, invio proposta, conferma pagamento = staff; la camera
@@ -271,7 +278,9 @@ Rischio · Approvazione umana · Follow-through · Verifica · Memoria/stato · 
 - **Rischio:** mutazioni errate su sistemi economicamente vincolanti → progressione obbligatoria
   `READ ONLY → PROPOSE → APPROVE → EXECUTE → VERIFIED EXECUTION → POLICY-BOUNDED AUTONOMY`.
 - **Approvazione umana:** ogni write inizialmente approvato; delega solo per classi (§1). **Il target
-  futuro NON modifica il safety boundary corrente** (ADR-0011).
+  futuro NON modifica il safety boundary corrente**: qualunque provider write — anche via Provider
+  Action Contract o browser governato — **resta vietato finché una nuova ADR non rivede
+  esplicitamente ADR-0011**; il contract da solo non sblocca nulla.
 - **Follow-through/Verifica:** expected result dichiarato prima dell'azione; final-state verification
   + evidence before/after (§2.3).
 - **Memoria:** stato provider osservato, storicizzato (per C e H).
@@ -279,7 +288,8 @@ Rischio · Approvazione umana · Follow-through · Verifica · Memoria/stato · 
   (importer una-tantum); ✅ Booking/Expedia come **email inbound** (router → archivio/documenti);
   **nessuna API, nessun write, nessun login automatizzato** `[code sweep §12]`.
 - **TARGET:** contract §2.1 su ogni provider; l'hold interno diventa propagabile (chiude il rischio
-  residuo KI-5) solo quando esiste un write path affidabile e approvato.
+  residuo KI-5) solo dopo la revisione esplicita di ADR-0011 (nuova ADR) E una policy approvata —
+  un write path tecnicamente disponibile non è, da solo, autorizzazione.
 
 ### E. Daily Operations / Operational Queue
 
@@ -423,7 +433,7 @@ Rischio · Approvazione umana · Follow-through · Verifica · Memoria/stato · 
   configuration · knowledge · policies · provider accounts · business identity · property rules.
 - **CURRENT:** ◐ — lo schema è genuinamente multi-tenant (org→members→properties, RLS ovunque,
   least-privilege 0017 ✅) ma il **runtime assume una property per org** (pattern `.limit(1).single()`
-  in ~12 file) e esistono **hardcoding LunArt reali** `[code sweep §11]`, i più gravi:
+  ripetuto nei file dashboard/API — censirlo via grep al momento del fix, non da questo conteggio) e esistono **hardcoding LunArt reali** `[code sweep §11]`, i più gravi:
   `lib/ai/messages.ts:126-130` (firma personale "Jacopo\nLunArt" nel copy guest in 5 lingue) e
   `lib/documents/config.ts` (REGISTRY con la sola LunArt; property diversa → throw senza
   `settings.documents`); più fallback `DEFAULT_PROPERTY_ID` nei canali, `role` mai verificato,
