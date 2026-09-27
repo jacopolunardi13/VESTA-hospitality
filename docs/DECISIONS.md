@@ -321,6 +321,18 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 - **Documenti:** [SECURITY.md](SECURITY.md) (Go-Live Security Assessment + tabella P0/P1/P2), [context/KNOWN_ISSUES.md](context/KNOWN_ISSUES.md), [context/NEXT_TASK.md](context/NEXT_TASK.md).
 - **Sostituisce:** —
 
+## ADR-0020 — Product Execution Rule (regola vincolante a livello di workstream)
+- **Data:** 04/09/2026 · **Stato:** Approvata · **Categoria:** Process
+- **Contesto:** dopo la riconciliazione del 04/09 e il Router Training Sprint #1, il lavoro tecnico (hardening, tooling, capability di controllo) tendeva a espandersi oltre l'outcome hospitality che lo giustificava; la regola operativa che lo impediva viveva solo nelle chat/memoria degli assistenti — contro [ADR-0018] (lo stato e le regole vivono nel repo).
+- **Problema:** vincolare ogni workstream a chiudere un problema operativo hospitality concreto, con criteri espliciti di stop e di chiusura, e rendere la regola canonica nel repository.
+- **Alternative:** lasciarla nella memoria degli assistenti (drift, invisibile ad altri assistenti); un documento dedicato nuovo (duplicherebbe il layer regole).
+- **Decisione:** aggiungere a [../PROJECT_RULES.md](../PROJECT_RULES.md) la sezione vincolante **"Product Execution Rule"** (workstream-level): dichiarazione di apertura del workstream (8 campi, che riusa il gate 8 punti §18 e la DoD §1 senza duplicarli), **STOP RULE** (il lavoro tecnico che non avvicina l'outcome si chiude al minimo necessario), **CLOSURE RULE** (outcome raggiunto + residui non bloccanti → chiudere; residui nel backlog [context/KNOWN_ISSUES.md](context/KNOWN_ISSUES.md)), sequenza preferita **CLOSE → SHIP → VERIFY → NEXT**, confine di piattaforma (WorkspaceOS = control plane; Vesta = owner della logica hospitality).
+- **Motivazioni:** decisione esplicita di Jacopo (04/09/2026) per impedire i loop analyze → harden → analyze-again → expand-infrastructure; coerenza con §18 Strategic Product Boundary.
+- **Conseguenze positive:** ogni workstream ha apertura e chiusura verificabili; meno review-loop senza finding materiali; i residui hanno una casa (backlog) invece di estendere il workstream.
+- **Trade-off:** lieve overhead di apertura (dichiarazione a 8 campi).
+- **Documenti:** [../PROJECT_RULES.md](../PROJECT_RULES.md) (sezione "Product Execution Rule") · [context/KNOWN_ISSUES.md](context/KNOWN_ISSUES.md).
+- **Sostituisce:** — (rafforza [ADR-0018] e PRODUCT.md §18)
+
 ---
 
 ## Related Documents

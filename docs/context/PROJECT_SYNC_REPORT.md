@@ -1,7 +1,7 @@
 # PROJECT SYNC REPORT — Vesta Hospitality
 
 > **Report vivo e compilato.** Copia/incolla questo file in una nuova chat (ChatGPT o Claude) per riallineare l'assistente in pochi minuti. Generato dai file di stato in `docs/context/`.
-> **Aggiornato:** 2026-09-04 · **canonico remoto/prod = `048dd4a`** (riconciliazione COMPLETATA il 04/09: merge ff + push + deploy LIVE; `0015`/`0016`/`0017` applicate; smoke verde). `main` LOCALE è avanti con il **Router Training Sprint #1** (KI-1), in attesa di push 🔴 RED.
+> **Aggiornato:** 2026-09-27 · **canonico remoto/prod = `048dd4a`** (riconciliazione COMPLETATA il 04/09: merge ff + push + deploy LIVE; `0015`/`0016`/`0017` applicate; smoke verde). `main` LOCALE è avanti con il **Router Training Sprint #1** (KI-1), in attesa di push 🔴 RED.
 
 ## 1. Identità progetto
 **Vesta Hospitality** — SaaS multi-tenant: "dipendente virtuale" per piccole strutture ricettive (front + back office). Repo GitHub `jacopolunardi13/VESTA-hospitality`. Pilota: **LunArt B&B** (Firenze), Giorno Zero 30/06/2026. **Confine strategico VINCOLANTE:** Vesta = **AI Operations Layer hospitality**, non chatbot/wrapper generico (gate 8 punti — PRODUCT.md §18). **La fonte di verità è il repo, non le chat.**
@@ -11,7 +11,7 @@ TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres +
 
 ## 3. Stato attuale — riconciliazione COMPLETATA (04/09): `main` canonico `048dd4a`, prod allineata
 - **Branch:** `main` (canonico remoto/prod = `048dd4a`, che CONTIENE tutta la linea di riconciliazione: 0015 + governance F1-F3 + 0016 + sprint Operating Agent v0 + 0017 + docs). `main` LOCALE è avanti col **Router Training Sprint #1** (in attesa di push 🔴 RED). Storici: `security/0017-least-privilege`, `document-center`, `fase-b`.
-- **`0015`, `0016` e `0017` sono su `main` canonico/remoto (`048dd4a`) e TUTTE già applicate+verificate in prod** (`0017` il 28/08/2026 via WorkspaceOS Phone RED, transazione atomica, receipt ok, artefatto byte-identico al repo — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017"): repo e DB SONO allineati (merge+push+deploy completati il 04/09, smoke verde). Pendenti: verifica esterna con `app/scripts/0017-readonly-verification.sql` (solo SELECT, Phone RED read-only) e push del Router Sprint #1.
+- **`0015`, `0016` e `0017` sono su `main` canonico/remoto (`048dd4a`) e TUTTE già applicate+verificate in prod** (`0017` il 28/08/2026 via WorkspaceOS Phone RED, transazione atomica, receipt ok, artefatto byte-identico al repo — vedi [SECURITY](../SECURITY.md) "Evidence of verification — 0017"): repo e DB SONO allineati (merge+push+deploy completati il 04/09, smoke verde). La **verifica esterna 0017 è stata eseguita il 04/09** (Phone RED read-only: **10/10 assertions ✅**, credenziali a ciclo chiuso). Pendente: solo il push del Router Sprint #1.
 - **In prod / DB:** Front Office (Tier-1/Tier-2), **Operational Queue** (`0014` applicata+verificata), Document Center MVP; **P0-2 live** (`anon` negato ✅, RLS attivo); **canale email prod ripristinato** (Google Cloud progetto ufficiale **542106** / casella `lunartfirenze`).
 - **Multi-agente / WorkspaceOS:** PROJECT_REGISTRY creato, **Vesta registrata**; **Codex = review-only**; **Claude Code = unico writer**; **Jacopo** approva solo 🔴 RED.
 - **Flag:** autosend **OFF** (R0.1) · `vesta-email-poll` attivo · `vesta-followups` **attivo/`succeeded`** (KI-11 risolto, `0016`) · signup Supabase **chiuso**.
@@ -20,7 +20,7 @@ TypeScript · **Next.js 16** (App Router) / React 19 · **Supabase** (Postgres +
 - `docs/foundations/PRODUCT.md` (con **§18 Strategic Product Boundary**) · `WORKFLOW.md` · **`ENGINEERING.md` creato** (Autonomous Engineering, F1). `BRAND.md` = non ancora creato.
 
 ## 4. Prossimi passi — check per il pilot interno
-1. ✅ ~~Merge riconciliazione + push + deploy~~ (04/09, smoke verde). Ora: 🔴 push Router Sprint #1 + 🔴 Phone RED read-only (corpus reale + verifica 0017) — vedi NEXT_TASK.
+1. ✅ ~~Merge riconciliazione + push + deploy~~ (04/09, smoke verde). ✅ ~~Phone RED read-only~~ (04/09: verifica esterna 0017 **10/10** + corpus reale 687 righe + shadow analysis senza difetti). Ora resta: 🔴 **push Router Sprint #1** (= deploy prod) — vedi NEXT_TASK.
 2. Reset chiave Anthropic **locale** `.env.local` (PO; prod già ✅ verificata 12/07).
 3. Poi residui: rotazione segreti (P0-1 parziale) → P0-4 header → P0-3 anti-abuso chat → P0-5 destinatario email.
 

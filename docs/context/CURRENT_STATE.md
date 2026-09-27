@@ -1,7 +1,7 @@
 # CURRENT STATE — stato vivo del progetto
 
 > **Layer di CONTESTO** (stato vivo), non di conoscenza. Fonte di verità = repository GitHub.
-> **Aggiornato:** 2026-09-04 · **canonico remoto/prod = `048dd4a`** (origin/main + deploy Vercel). `main` LOCALE = `048dd4a` + i commit del Router Training Sprint #1, in attesa di push (🔴 RED) — HEAD esatto: `git log -1`. · ✅ verificato con git + ls-remote
+> **Aggiornato:** 2026-09-27 · **canonico remoto/prod = `048dd4a`** (origin/main + deploy Vercel). `main` LOCALE = `048dd4a` + i commit del Router Training Sprint #1, in attesa di push (🔴 RED) — HEAD esatto: `git log -1`. · ✅ verificato con git + ls-remote
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
 ## Branch & git (✅ verificato, 04/09) — RICONCILIAZIONE COMPLETATA: `main` canonico = `048dd4a`, deploy prod LIVE
@@ -9,7 +9,7 @@
 - `security/0017-least-privilege` resta come branch locale storico (= `048dd4a`); nessun PR aperto; worktree pulito.
 - **04/09 (dopo la riconciliazione): Router Training Sprint #1 committato su `main` locale** (hardening L0 + corpus con invariante zero over-blocking; Codex-reviewed) — in attesa di push 🔴 RED.
 - Baseline verde su `main` (04/09): `next lint` 0 errori · `next build` (typecheck completo) ✅.
-- ⏳ Unico pendente della riconciliazione: **verifica esterna 0017** con `app/scripts/0017-readonly-verification.sql` (solo SELECT) via capability read-only — richiede una nuova approvazione Phone RED (l'ultima è consumata/scaduta).
+- ✅ **(chiuso il 04/09) Verifica esterna 0017 ESEGUITA in produzione** via Phone RED read-only (WorkspaceOS, bundle pinnato, credenziali a ciclo chiuso: revoke 204 · access 401 · ref eliminati): `app/scripts/0017-readonly-verification.sql` → **10/10 assertions PASSED**. La stessa approvazione ha estratto il **corpus reale sanitizzato** da `email_routing_log` (687 righe; mai `from`/`subject` grezzi) su cui è stata fatta la **shadow analysis offline** del router candidato (nessun difetto deterministico — dettagli e residui in [NEXT_TASK](NEXT_TASK.md) e [KNOWN_ISSUES](KNOWN_ISSUES.md)).
 
 ## Branch & git — storico riconciliazione 12/07 (superato da `security/0017-least-privilege`)
 - **`integration/reconcile-20260712`** (`c8b03cf`, ora contenuto in `main` canonico `048dd4a`): `main` + merge di `security/p0-2-rpc-hardening` (`5f0d4a1`, **`0015`**) + merge di `chore/autonomous-engineering` (`229f97c`, 17 commit: governance F1-F3, **`0016`**, sprint Operating Agent v0, fix doc Codex-approved).
