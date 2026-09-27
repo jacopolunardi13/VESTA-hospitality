@@ -333,6 +333,18 @@ traccia.** (Registrata come [ADR-0015](#adr-0015--governance-delle-adr-adr-drive
 - **Documenti:** [../PROJECT_RULES.md](../PROJECT_RULES.md) (sezione "Product Execution Rule") · [context/KNOWN_ISSUES.md](context/KNOWN_ISSUES.md).
 - **Sostituisce:** — (rafforza [ADR-0018] e PRODUCT.md §18)
 
+## ADR-0021 — Milestone-scoped RED delegation (il milestone come unità di autorizzazione)
+- **Data:** 27/09/2026 · **Stato:** Approvata · **Categoria:** Process
+- **Contesto:** con il modello per-azione ogni push/deploy dentro un milestone già approvato richiedeva una nuova interruzione umana, anche quando perimetro, controlli e rollback erano identici a quelli già autorizzati (es. SHIP Router Sprint #1: push+deploy+smoke approvati insieme, poi Email E2E bloccato in attesa di APPROVE ripetute).
+- **Problema:** mantenere le azioni RED classificate, auditabili e fail-closed riducendo le interruzioni umane senza valore decisionale aggiunto.
+- **Alternative:** per-azione puro (troppe interruzioni); delega totale (inaccettabile: perde il controllo umano su scope/strategia); grant tecnici per-comando nel control plane (granularità sbagliata: il rischio vive a livello di outcome, non di comando).
+- **Decisione:** il **milestone esplicitamente approvato da Jacopo** diventa l'unità di autorizzazione operativa. Un'azione RED è auto-eseguibile senza nuovo stop umano solo se **tutte** le condizioni valgono: (1) milestone già approvato esplicitamente; (2) azione prevedibile e necessaria alla sua chiusura; (3) esattamente dentro perimetro/acceptance criteria approvati; (4) controlli tecnici Claude+Codex completati; (5) pin/stato/precondizioni verificati fail-closed; (6) nessun nuovo effetto esterno sostanziale non previsto; (7) nessun cambio di decisione strategica/prodotto/architettura; (8) rollback/recovery ragionevole quando applicabile; (9) audit/evidence completi. Fresh Human Authority resta obbligatoria per l'elenco in [../PROJECT_RULES.md](../PROJECT_RULES.md) ("Milestone-scoped RED delegation"). **Fail-closed:** nel dubbio l'azione è una nuova RED.
+- **Motivazioni:** decisione strategica esplicita di Jacopo (27/09/2026); il controllo umano si concentra dove aggiunge valore (approvazione dell'envelope, scope, strategia) invece che su ogni comando già previsto.
+- **Conseguenze positive:** milestone completabili end-to-end senza attese morte; audit invariato (ogni RED resta registrata con pin ed evidence); il confine umano è esplicito e verificabile.
+- **Trade-off:** più responsabilità sull'accuratezza dell'envelope al momento dell'APPROVE; mitigato dalla fail-closed rule e dall'obbligo di POST-MILESTONE REPORT.
+- **Documenti:** [../PROJECT_RULES.md](../PROJECT_RULES.md) ("Milestone-scoped RED delegation") · [SECURITY.md](SECURITY.md) · [context/NEXT_TASK.md](context/NEXT_TASK.md).
+- **Sostituisce:** — (specializza [ADR-0011] e ADR-0019 per il processo di release: le tutele guest-facing e di sicurezza restano invariate)
+
 ---
 
 ## Related Documents

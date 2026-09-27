@@ -41,6 +41,20 @@ analyze → harden → analyze-again → expand-infrastructure). **Confine di pi
 control plane (orchestrazione, autorità, credenziali); **Vesta resta owner della logica hospitality** — la
 logica di dominio non migra mai nel control plane.
 
+**Milestone-scoped RED delegation (VINCOLANTE).** Il **milestone esplicitamente approvato da Jacopo** è
+l'unità di autorizzazione operativa: le azioni RED **prevedibili e necessarie** alla sua chiusura (push,
+update di `main`, deploy production, smoke/release verification, rollback tecnico standard, lifecycle
+branch/PR) restano RED e auditabili ma possono essere **auto-eseguite senza nuovo stop umano**, purché
+rientrino esattamente nel perimetro approvato, i controlli Claude+Codex siano completi, pin e precondizioni
+verificati fail-closed, esista rollback/recovery ragionevole e tutto sia registrato con audit/evidence.
+**Fresh Human Authority resta obbligatoria** per: azioni fuori envelope o cambi di scope; decisioni
+prodotto/brand/architettura di lungo periodo; migration production non previste; secrets/env; autosend
+acceso o ampliato; messaggi a ospiti reali non esplicitamente inclusi; PMS/tariffe/camere/disponibilità/
+prenotazioni; pagamenti/IBAN; cancellazione di dati reali; azioni irreversibili/distruttive; rischio nuovo
+materiale rilevato; precondizione mancante o rollback diverso dall'approvato. **Fail-closed:** se non è
+chiaro che un'azione rientri nell'envelope, NON inferire — trattarla come nuova RED. → criteri completi:
+[docs/DECISIONS.md](docs/DECISIONS.md) ADR-0021.
+
 ---
 
 ## 1. Definition of Done
