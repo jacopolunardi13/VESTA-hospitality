@@ -4,17 +4,17 @@
 > **Aggiornato:** 2026-09-27 · canonico remoto = `git ls-remote` · HEAD locale = `git log -1` (i due possono divergere per i soli commit docs non ancora pubblicati). **Il Router Training Sprint #1 è IN PRODUZIONE dal 27/09** (SHIP via RED con pin; deploy Vercel; smoke verde; ADR-0021 in vigore) e **il canale email è validato E2E in produzione** (stesso giorno).
 > **SSOT:** priorità → [ROADMAP](../ROADMAP.md) · storia → [CHANGELOG](../CHANGELOG.md) · decisioni → [DECISIONS](../DECISIONS.md) · sicurezza → [SECURITY](../SECURITY.md). Qui solo la **fotografia**, niente duplicati.
 
-## Branch & git (✅ verificato, 04/09) — RICONCILIAZIONE COMPLETATA: `main` canonico = `048dd4a`, deploy prod LIVE
-- **04/09/2026 — merge fast-forward + push ESEGUITI** (autorizzazione RED esplicita di Jacopo, SHA pinnati, fail-closed): `main` `19df477` → **`048dd4a`**, push verificato via `ls-remote`, **deploy Vercel prod LIVE** (~20s), smoke read-only VERDE (`/tasks` 307→login = nuovo build + gate intatti; `/login` 200; nessun 5xx). **La divergenza è CHIUSA**: repo, DB prod (`0015`+`0016`+`0017` applicate) e deploy allineati a `048dd4a`.
+## Branch & git — storia recente (il canonico CORRENTE è sempre `git ls-remote`, mai un valore scritto qui)
+- **04/09/2026 — merge fast-forward + push ESEGUITI** (autorizzazione RED esplicita di Jacopo, SHA pinnati, fail-closed): `main` `19df477` → **`048dd4a`**, push verificato via `ls-remote`, **deploy Vercel prod LIVE** (~20s), smoke read-only VERDE (`/tasks` 307→login = nuovo build + gate intatti; `/login` 200; nessun 5xx). **La divergenza fu CHIUSA quel giorno**: repo, DB prod (`0015`+`0016`+`0017` applicate) e deploy allineati ad allora-`048dd4a` (superato il 27/09 dallo SHIP dello Sprint #1).
 - `security/0017-least-privilege` resta come branch locale storico (= `048dd4a`); nessun PR aperto; worktree pulito.
 - **27/09/2026 — Router Training Sprint #1 SHIPPATO** (hardening L0 + corpus con invariante zero over-blocking; Codex ACCEPT sul diff di publish in 2 round): push fast-forward autorizzato (RED Jacopo, pin esatti) → deploy Vercel Production verificato via GitHub deployment status → smoke verde. **Email E2E verificato in produzione lo stesso giorno**: email di test controllata → cron `vesta-email-poll` (2') → router `guest` (fail-safe) → conversation + bozza AI `delivery_status='autosend_off'` + booking_request `received`; **zero invii automatici** (kill-switch OFF confermato lato DB e lato mittente). Evidence: `~/.vesta-db-audit/evidence/e2e-verify-*.json`.
 - Baseline verde su `main` (04/09): `next lint` 0 errori · `next build` (typecheck completo) ✅.
 - ✅ **(chiuso il 04/09) Verifica esterna 0017 ESEGUITA in produzione** via Phone RED read-only (WorkspaceOS, bundle pinnato, credenziali a ciclo chiuso: revoke 204 · access 401 · ref eliminati): `app/scripts/0017-readonly-verification.sql` → **10/10 assertions PASSED**. La stessa approvazione ha estratto il **corpus reale sanitizzato** da `email_routing_log` (687 righe; mai `from`/`subject` grezzi) su cui è stata fatta la **shadow analysis offline** del router candidato (nessun difetto deterministico — dettagli e residui in [NEXT_TASK](NEXT_TASK.md) e [KNOWN_ISSUES](KNOWN_ISSUES.md)).
 
 ## Branch & git — storico riconciliazione 12/07 (superato da `security/0017-least-privilege`)
-- **`integration/reconcile-20260712`** (`c8b03cf`, ora contenuto in `main` canonico `048dd4a`): `main` + merge di `security/p0-2-rpc-hardening` (`5f0d4a1`, **`0015`**) + merge di `chore/autonomous-engineering` (`229f97c`, 17 commit: governance F1-F3, **`0016`**, sprint Operating Agent v0, fix doc Codex-approved).
+- **`integration/reconcile-20260712`** (`c8b03cf`, contenuto in `main` dalla riconciliazione del 04/09): `main` + merge di `security/p0-2-rpc-hardening` (`5f0d4a1`, **`0015`**) + merge di `chore/autonomous-engineering` (`229f97c`, 17 commit: governance F1-F3, **`0016`**, sprint Operating Agent v0, fix doc Codex-approved).
 - Le migrazioni `0015` e `0016` erano già rappresentate su quella linea (entrambe applicate e verificate in prod).
-- (storico 12/07) `main` era @ `d239698` = allora-`origin/main` (`19df477`) +1 commit docs — tutto ormai contenuto nel canonico `048dd4a`.
+- (storico 12/07) `main` era @ `d239698` = allora-`origin/main` (`19df477`) +1 commit docs — tutto contenuto in `main` dalla riconciliazione del 04/09.
 - Branch storici: `document-center` @ `19df477`, `fase-b` @ `954fa15`.
 - ✅ (chiuso il 04/09) il merge/push di quella linea è avvenuto con la riconciliazione — vedi sezione in cima.
 
@@ -42,7 +42,7 @@
 ## Check residui per il pilot interno
 - ✅ **Anthropic in produzione** — **verificato OK** (12/07, test sintetico approvato: classify+generate `success`, artefatti ripuliti). Resta solo la chiave **locale** `.env.local` invalida (401): non è un blocker prod; reset = PO.
 - ✅ **KI-11 / `vesta-followups`** — **RISOLTO** (migrazione `0016` applicata 2026-07-12). Il cron non aborta più su `process_due_followups()` mancante; run post-apply delle **19:35Z = `succeeded`** (prima: `failed` ogni 5 min con `42883`). Detector scadenza-24h ora eseguito regolarmente via cron.
-- ✅ **Riconciliazione branch** — COMPLETATA il 04/09 (merge ff + push + deploy prod, smoke verde); `main` canonico remoto = `048dd4a`.
+- ✅ **Riconciliazione branch** — COMPLETATA il 04/09 (merge ff + push + deploy prod, smoke verde; il canonico di allora era `048dd4a`, poi superato dallo SHIP del 27/09).
 - **Sano (verificato):** E2E core router **29/29** ✅, payment-expiry/Operational Queue **18/18** ✅, RLS/P0-2 ✅, email prod ✅, cron `vesta-followups` `succeeded` ✅ (KI-11), autosend OFF ✅.
 
 ## Working tree
