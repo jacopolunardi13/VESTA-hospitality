@@ -160,6 +160,13 @@ kill-switch**. Vesta non invia IBAN né conferma da sola. → [SECURITY.md](SECU
 - Flusso attuale: email `ota_pms/booking` con PDF → recognizer → PDF su Storage `documents` + record
   `document_center` (`ready_for_accountant`; campi estratti null nell'MVP). Ingest **best-effort** ma
   **mai silenzioso**.
+- **Confine di piattaforma / riuso (Jacopo Office).** Il progetto separato *Jacopo Office* sviluppa
+  capability generiche di back-office (Drive/document intake, provenance/evidence, dossier, analisi
+  documenti). Vesta **non** vi dipende e **non** vi sposta logica hospitality: semantica Booking/OTA,
+  property/documento, workflow commercialista, stati e follow-up restano qui. Seam candidato (futuro,
+  quando un secondo caso reale lo giustifica — *Product First*): lo **store generico
+  provenance/evidence** e l'intake non-email (Drive) come adapter dietro lo stesso pattern
+  Registry/Recognizer; nessun adapter è necessario per l'MVP email-first.
 
 ## Knowledge Engine
 ✅ `src/lib/ai/knowledge.ts`: retrieval **lessicale** (stemmer IT + stopword); `knowledge_assets`,

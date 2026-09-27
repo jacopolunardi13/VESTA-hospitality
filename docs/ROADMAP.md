@@ -29,7 +29,7 @@ documenti. Questa roadmap è volutamente **breve e attuale**.
 
 ### Stato moduli (sintesi)
 - ✅ Front Office (concierge + booking): in produzione. Email in pilota (autosend OFF).
-- ✅ Back Office (Document Center MVP): costruito sul branch, **non** completato (manca merge + E2E).
+- ✅ Back Office (Document Center MVP): **in produzione dal 04/09/2026** (merge+deploy con la riconciliazione); resta il **test E2E reale con una fattura Booking** (punto 2 qui sopra).
 - ◐ Operations / Revenue / Financial Intelligence / Operational Memory: direzione, non implementati.
 
 ---
